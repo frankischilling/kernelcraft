@@ -1,4 +1,4 @@
-# KernelCraft
+# kernelcraft
 
 ## Project Philosophy
 
