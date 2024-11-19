@@ -25,4 +25,11 @@ float noise2d(float x, float z);
 float smoothstep(float edge0, float edge1, float x);
 float lerp(float a, float b, float t);
 
+// Perlin noise functions
+float fade(float t);
+float grad(int hash, float x, float y, float z);
+float perlin(float x, float y, float z);
+int perm(int i);
+float perlin2d(float x, float z);
+
 #endif

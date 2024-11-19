@@ -84,9 +84,9 @@ void initWorld() {
 
 void renderWorld(GLuint shaderProgram, const Camera* camera) {
     // Set light properties
-    Vec3 lightPos = {5.0f, 10.0f, 5.0f};  // Light position above the world
-    Vec3 lightColor = {1.0f, 1.0f, 1.0f}; // White light
-    Vec3 objectColor = {0.4f, 0.6f, 0.3f}; // Grass-like green color
+    Vec3 lightPos = {5.0f, 30.0f, 5.0f};  // Moved light higher up
+    Vec3 lightColor = {1.0f, 1.0f, 1.0f};
+    Vec3 objectColor = {0.4f, 0.6f, 0.3f};
 
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, lightColor);
@@ -95,14 +95,33 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
     glBindVertexArray(VAO);
     
+    // Calculate the center of the world
+    float worldCenterX = (WORLD_SIZE_X * CUBE_SIZE) / 2.0f;
+    float worldCenterZ = (WORLD_SIZE_Z * CUBE_SIZE) / 2.0f;
+    
+    // Define render distance
+    const float RENDER_DISTANCE = 64.0f;
+    const float RENDER_DISTANCE_SQ = RENDER_DISTANCE * RENDER_DISTANCE;
+
     for(int x = 0; x < WORLD_SIZE_X; x++) {
         for(int z = 0; z < WORLD_SIZE_Z; z++) {
-            Mat4 model;
-            mat4_identity(model);
-            
             float xPos = (x - WORLD_SIZE_X/2) * CUBE_SIZE;
             float zPos = (z - WORLD_SIZE_Z/2) * CUBE_SIZE;
+            
+            // Distance check from camera to current block
+            float dx = xPos - camera->position[0];
+            float dz = zPos - camera->position[2];
+            float distSq = dx * dx + dz * dz;
+            
+            // Skip blocks outside render distance
+            if(distSq > RENDER_DISTANCE_SQ) {
+                continue;
+            }
+            
             float height = noise2d(xPos, zPos);
+            
+            Mat4 model;
+            mat4_identity(model);
             
             model[12] = xPos;
             model[13] = height;

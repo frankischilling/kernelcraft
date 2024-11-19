@@ -78,7 +78,9 @@ Execute the compiled binary to start the game.
 
 - **World Generation**:
   - [X] Create a flat terrain using cubes
-  - [ ] Implement basic Perlin noise for height variation
+  - [X] Implement basic Perlin noise for height variation
+    - [X] Increased world size to 128x128
+    - [X] Enhanced terrain with more octaves and adjusted noise parameters
   - [X] Basic sine wave for height variation
   - [ ] Add support for different cube types (dirt, stone, grass, etc.)
     - [ ] Before textures, use different colors to represent different blocks
