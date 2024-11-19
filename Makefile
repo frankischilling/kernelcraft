@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -I./src
-LDFLAGS = -lGL -lglfw -lGLEW -lm
+LDFLAGS = -lGL -lglfw -lGLEW -lm -lglut
 
 SRC_DIR = src
 OBJ_DIR = obj

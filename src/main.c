@@ -9,8 +9,11 @@
  */
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <GL/freeglut.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+// Local includes
 #include "graphics/cube.h"
 #include "graphics/camera.h"
 #include "graphics/shader.h"
@@ -21,6 +24,19 @@ float lastX = 400.0f;  // Half of window width
 float lastY = 300.0f;  // Half of window height
 bool firstMouse = true;
 static Camera camera;
+// Cursor enabled/disabled
+static bool cursorEnabled = false;
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        cursorEnabled = !cursorEnabled;
+        if (cursorEnabled) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        } else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+    }
+}
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -31,6 +47,11 @@ int main() {
         fprintf(stderr, "Failed to initialize GLFW\n");
         return -1;
     }
+
+    // Initialize GLUT for text rendering
+    int argc = 1;
+    char *argv[1] = {(char*)"Something"};
+    glutInit(&argc, argv);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "kernelcraft", NULL, NULL);
     if (!window) {
@@ -60,7 +81,8 @@ int main() {
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetWindowUserPointer(window, &camera);
-
+    glfwSetKeyCallback(window, key_callback);
+    
     initCamera(&camera);
 
     float lastFrame = 0.0f;
@@ -88,6 +110,9 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
         renderWorld(shaderProgram, &camera);
+
+        const char* biomeText = getCurrentBiomeText(camera.position[0], camera.position[2]);
+        renderText(shaderProgram, biomeText, 10.0f, 580.0f);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -148,8 +148,6 @@ float perlin(float x, float y, float z) {
 
 float perlin2d(float x, float z) {
     float y = 0.0f;
-    
-    // Use multiple octaves of noise for more natural terrain
     float amplitude = 1.0f;
     float frequency = 0.1f;
     float persistence = 0.5f;
@@ -160,8 +158,6 @@ float perlin2d(float x, float z) {
         frequency *= 2.0f;
     }
     
-    // Scale the height to a reasonable range
-    y *= 8.0f;  // Adjust this value to control overall terrain height
     return y;
 }
 

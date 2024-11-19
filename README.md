@@ -9,6 +9,8 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **OpenGL**: A cross-platform graphics API used for rendering 2D and 3D vector graphics.
 - **GLFW**: A library for creating windows, receiving input, and handling events. It simplifies the process of setting up an OpenGL context.
 - **GLEW**: The OpenGL Extension Wrangler Library, which helps in managing OpenGL extensions.
+- **GLUT**: The OpenGL Utility Toolkit, used for rendering text and other utilities.
+- **GLM**: A header-only C++ mathematics library for graphics software based on the OpenGL Shading Language (GLSL) specifications.
 
 ## Project Structure
 
@@ -30,8 +32,8 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **input.c**: (To be created) Manages user input.
     - **input.h**: (To be created) Header file for input-related functions and data.
   - **world/**: Contains world generation and management code.
-    - **world.c**: (To be created) Manages world generation and updates.
-    - **world.h**: (To be created) Header file for world-related functions and data.
+    - **world.c**: Manages world generation and updates.
+    - **world.h**: Header file for world-related functions and data.
   - **utils/**: Contains utility functions and helpers.
     - **utils.c**: (To be created) General utility functions.
     - **utils.h**: (To be created) Header file for utility functions.
@@ -40,15 +42,15 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 ### Install Dependencies
 
-Ensure you have OpenGL, GLFW, and GLEW installed on your Linux system. Here are the installation instructions for Arch Linux:
+Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Here are the installation instructions for Arch Linux:
 
 - **Arch Linux**:
   ```bash
-  sudo pacman -S glfw-wayland glew
+  sudo pacman -S glfw-wayland glew freeglut
   ```
   or if you are using X11:
   ```bash
-  sudo pacman -S glfw-x11 glew
+  sudo pacman -S glfw-x11 glew freeglut
   ```
 
 ### Build the Project
@@ -59,12 +61,17 @@ Use the provided `Makefile` to compile the source files. Run `make` in the proje
 
 Execute the compiled binary to start the game.
 
+### Stuck??
+
+Use the ESC key to be able to use the cursor again.
+
 ## Roadmap
 
 ### Phase 1: Core Engine Development
 - **Basic Rendering**: 
   - [x] Set up OpenGL context and render a simple cube
   - [x] Implement a basic camera system for navigation
+  - [X] Basic render distance
   - [ ] Implement frustum culling for basic optimization
   - [ ] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
@@ -82,13 +89,16 @@ Execute the compiled binary to start the game.
     - [X] Increased world size to 128x128
     - [X] Enhanced terrain with more octaves and adjusted noise parameters
   - [X] Basic sine wave for height variation
-  - [ ] Add support for different cube types (dirt, stone, grass, etc.)
-    - [ ] Before textures, use different colors to represent different blocks
-  - [ ] Add multiple layers (dirt, stone, bedrock)
-  - [ ] Implement biome system
+  - [X] Add support for different cube types (dirt, stone, grass, etc.)
+    - [X] Before textures, use different colors to represent different blocks
+  - [X] Add multiple layers (dirt, stone, bedrock)
+  - [X] Implement basic biome system **SHOULD BE WORKED ON LATER WITH A BETTER BIOME SYSTEM**
   - [ ] Add cave generation using 3D noise
+  - [ ] Add trees
   - [ ] Create water system with basic fluid physics
-
+  - [ ] Randomly generated worlds with different seeds
+  - [ ] Bigger world size
+  
 - **User Interaction**:
   - [x] Implement basic controls for player movement
   - [x] Add mouse controls for looking around
@@ -177,6 +187,12 @@ Execute the compiled binary to start the game.
   - [ ] Implement performance options
   - [ ] Add accessibility features
   - [ ] Create tutorial system
+
+- **Misc.**:
+  - [ ] Add logging system
+  - [ ] Create documentation
+  - [ ] Add fire bugs mob
+  - [ ] Add Tony Chase as a mob
 
 ## License
 

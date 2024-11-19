@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <GL/glew.h>
+#include <GL/freeglut.h>
 #include "shader.h"
 
 // Function to read shader code from a file
@@ -52,6 +53,23 @@ static GLuint compileShader(const char* code, GLenum type) {
     }
 
     return shader;
+}
+
+void renderText(GLuint shaderProgram, const char* text, float x, float y) {
+    glUseProgram(shaderProgram);
+    
+    // Set text color to white
+    glUniform3f(glGetUniformLocation(shaderProgram, "textColor"), 1.0f, 1.0f, 1.0f);
+    
+    // Simple 2D text rendering at screen position
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "Current Biome: %s", text);
+    
+    // Draw text at top-left corner
+    glWindowPos2f(x, y);
+    for (const char* c = buffer; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    }
 }
 
 // Function to load and link shaders

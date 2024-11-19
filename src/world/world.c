@@ -6,11 +6,24 @@
  * @date 2024-11-19
  *
  */
-#include "world.h"
-#include "../math/math.h"
+#include <GL/glew.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include "../math/math.h"
+#include "../graphics/shader.h"
+#include "../graphics/camera.h"  
+#include "world.h"
 
 static GLuint VBO, VAO;
+
+// Block colors (RGB)
+static const Vec3 blockColors[] = {
+    {0.0f, 0.0f, 0.0f},     // AIR (not used)
+    {0.4f, 0.6f, 0.3f},     // GRASS
+    {0.6f, 0.4f, 0.2f},     // DIRT
+    {0.5f, 0.5f, 0.5f}      // STONE
+};
 
 static const GLfloat cubeVerticesWithNormals[] = {
     // Front face         // Normal
@@ -62,6 +75,56 @@ static const GLfloat cubeVerticesWithNormals[] = {
     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f
 };
 
+static BiomeParameters biomeParameters[] = {
+    // Plains biome - flatter, lower amplitude
+    {0.03f, 0.5f, 0.3f, 4.0f},  // Lower frequency and amplitude for flatter terrain
+    // Hills biome - more varied, higher amplitude
+    {0.1f, 1.2f, 0.5f, 12.0f}
+};
+
+static float getBiomeBlendFactor(float x, float z) {
+    // Use a different noise frequency for biome transitions
+    float biomeNoise = perlin(x * 0.02f, 0, z * 0.02f);
+    return smoothstep(0.4f, 0.6f, biomeNoise);
+}
+
+BiomeParameters getInterpolatedBiomeParameters(float x, float z) {
+    float blendFactor = getBiomeBlendFactor(x, z);
+    BiomeParameters result;
+    
+    result.frequency = lerp(biomeParameters[BIOME_PLAINS].frequency, 
+                          biomeParameters[BIOME_HILLS].frequency, 
+                          blendFactor);
+    result.amplitude = lerp(biomeParameters[BIOME_PLAINS].amplitude, 
+                          biomeParameters[BIOME_HILLS].amplitude, 
+                          blendFactor);
+    result.persistence = lerp(biomeParameters[BIOME_PLAINS].persistence, 
+                            biomeParameters[BIOME_HILLS].persistence, 
+                            blendFactor);
+    result.heightScale = lerp(biomeParameters[BIOME_PLAINS].heightScale, 
+                            biomeParameters[BIOME_HILLS].heightScale, 
+                            blendFactor);
+    
+    return result;
+}
+
+// Add this function to get height based on biome
+static float getTerrainHeight(float x, float z) {
+    BiomeParameters params = getInterpolatedBiomeParameters(x, z);
+    float height = 0.0f;
+    float amplitude = params.amplitude;
+    float frequency = params.frequency;
+    
+    // Use more octaves for more detailed terrain
+    for(int i = 0; i < 4; i++) {
+        height += perlin(x * frequency, 0, z * frequency) * amplitude;
+        amplitude *= params.persistence;
+        frequency *= 2.0f;
+    }
+    
+    return height * params.heightScale;
+}
+
 void initWorld() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -84,24 +147,22 @@ void initWorld() {
 
 void renderWorld(GLuint shaderProgram, const Camera* camera) {
     // Set light properties
-    Vec3 lightPos = {5.0f, 30.0f, 5.0f};  // Moved light higher up
+    Vec3 lightPos = {5.0f, 30.0f, 5.0f};
     Vec3 lightColor = {1.0f, 1.0f, 1.0f};
-    Vec3 objectColor = {0.4f, 0.6f, 0.3f};
 
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, lightColor);
-    glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, objectColor);
     glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, camera->position);
 
     glBindVertexArray(VAO);
     
-    // Calculate the center of the world
-    float worldCenterX = (WORLD_SIZE_X * CUBE_SIZE) / 2.0f;
-    float worldCenterZ = (WORLD_SIZE_Z * CUBE_SIZE) / 2.0f;
-    
     // Define render distance
     const float RENDER_DISTANCE = 64.0f;
     const float RENDER_DISTANCE_SQ = RENDER_DISTANCE * RENDER_DISTANCE;
+
+    // Layer thresholds
+    const float STONE_THRESHOLD = -2.0f;
+    const float DIRT_LAYERS = 3.0f;
 
     for(int x = 0; x < WORLD_SIZE_X; x++) {
         for(int z = 0; z < WORLD_SIZE_Z; z++) {
@@ -113,22 +174,37 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
             float dz = zPos - camera->position[2];
             float distSq = dx * dx + dz * dz;
             
-            // Skip blocks outside render distance
             if(distSq > RENDER_DISTANCE_SQ) {
                 continue;
             }
             
-            float height = noise2d(xPos, zPos);
-            
-            Mat4 model;
-            mat4_identity(model);
-            
-            model[12] = xPos;
-            model[13] = height;
-            model[14] = zPos;
-            
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+            // In the renderWorld function, replace the surfaceHeight calculation:
+            float surfaceHeight = floor(getTerrainHeight(xPos, zPos));
+
+            // Render layers from bottom to top
+            for(float y = STONE_THRESHOLD; y <= surfaceHeight; y += 1.0f) {
+                BlockType blockType;
+                
+                if (y < surfaceHeight - DIRT_LAYERS) {
+                    blockType = BLOCK_STONE;
+                } else if (y == surfaceHeight) {
+                    blockType = BLOCK_GRASS;
+                } else {
+                    blockType = BLOCK_DIRT;
+                }
+
+                Mat4 model;
+                mat4_identity(model);
+                
+                model[12] = xPos;
+                model[13] = y;
+                model[14] = zPos;
+                
+                // Set block color based on type
+                glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, blockColors[blockType]);
+                glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+            }
         }
     }
     
@@ -138,4 +214,15 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 void cleanupWorld() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+}
+
+const char* getCurrentBiomeText(float x, float z) {
+    float blendFactor = getBiomeBlendFactor(x, z);
+    if (blendFactor < 0.4f) {
+        return "Plains";
+    } else if (blendFactor > 0.6f) {
+        return "Hills";
+    } else {
+        return "Transition";  // Optional: show when we're between biomes
+    }
 }
