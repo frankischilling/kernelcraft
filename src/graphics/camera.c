@@ -33,7 +33,6 @@ void initCamera(Camera* camera) {
     camera->speed = 5.0f;
     camera->sensitivity = 0.05f;
     
-    // Initialize the front vector
     updateCameraVectors(camera);
 }
 

@@ -61,35 +61,120 @@ Execute the compiled binary to start the game.
 
 ## Roadmap
 
+### Phase 1: Core Engine Development
 - **Basic Rendering**: 
-  - [x] Set up OpenGL context and render a simple cube.
-  - [x] Implement a basic camera system for navigation.
+  - [x] Set up OpenGL context and render a simple cube
+  - [x] Implement a basic camera system for navigation
+  - [ ] Implement frustum culling for basic optimization
+  - [ ] Implement chunk-based rendering system
+  - [X] Add basic shaders for lighting and shadows
+  - [ ] Implement texture mapping and UV coordinates
+  - [ ] Add support for transparency and alpha blending
+  - [ ] Create basic particle system for effects
+  - [ ] Implement basic post-processing effects
+  - [ ] Add support for different render modes (wireframe, solid)
+  - [ ] Create debug visualization tools
+  - [ ] Optimize render batching and draw calls
 
 - **World Generation**:
-  - [ ] Create a flat terrain using cubes.
-  - [ ] Implement procedural terrain generation using noise functions.
+  - [X] Create a flat terrain using cubes
+  - [ ] Implement basic Perlin noise for height variation
+  - [X] Basic sine wave for height variation
+  - [ ] Add support for different cube types (dirt, stone, grass, etc.)
+    - [ ] Before textures, use different colors to represent different blocks
+  - [ ] Add multiple layers (dirt, stone, bedrock)
+  - [ ] Implement biome system
+  - [ ] Add cave generation using 3D noise
+  - [ ] Create water system with basic fluid physics
 
 - **User Interaction**:
-  - [x] Implement basic controls for player movement.
-  - [x] Add mouse controls for looking around.
+  - [x] Implement basic controls for player movement
+  - [x] Add mouse controls for looking around
+  - [ ] Add block placement and destruction
+  - [ ] Implement collision detection
+  - [ ] Add player physics (gravity, jumping)
+  - [ ] Create raycast system for block selection
 
+### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
-  - [ ] Apply textures to cubes for a more realistic look.
-  - [ ] Implement basic lighting and shading.
+  - [ ] Implement texture atlas system
+  - [ ] Add basic lighting system
+  - [ ] Implement ambient occlusion
+  - [ ] Add day/night cycle
+  - [ ] Create particle system for effects
+  - [ ] Implement weather effects (rain, snow)
+  - [ ] Add basic shadows
+  - [ ] Create water shader with reflections
 
 - **Optimization**:
-  - [ ] Implement frustum culling to improve rendering performance.
-  - [ ] Optimize data structures for handling large worlds.
+  - [ ] Implement greedy meshing for chunk rendering
+  - [ ] Add level of detail system for distant chunks
+  - [ ] Optimize memory usage for chunk storage
+  - [ ] Implement multithreaded chunk generation
+  - [ ] Add chunk compression
+  - [ ] Create efficient chunk serialization system
 
-- **Additional Features**:
-  - [ ] Add basic physics for player and object interactions.
-  - [ ] Implement a simple inventory system.
+### Phase 3: Gameplay Features
+- **World Interaction**:
+  - [ ] Add inventory system
+  - [ ] Implement crafting system
+  - [ ] Create basic UI system
+  - [ ] Add health and hunger mechanics
+  - [ ] Implement tool durability
+  - [ ] Add block metadata system
 
-## Future Enhancements
+- **Entity System**:
+  - [ ] Create basic entity framework
+  - [ ] Add passive mobs (animals)
+  - [ ] Implement hostile mobs
+  - [ ] Add pathfinding system
+  - [ ] Create AI behavior system
+  - [ ] Implement mob spawning mechanics
 
-- Expand world generation to include different biomes.
-- Introduce multiplayer capabilities.
-- Add more complex structures and entities.
+### Phase 4: Advanced Features
+- **Multiplayer**:
+  - [ ] Implement basic networking architecture
+  - [ ] Add client-server communication
+  - [ ] Create player synchronization
+  - [ ] Implement chunk synchronization
+  - [ ] Add basic chat system
+  - [ ] Create player authentication
+
+- **World Management**:
+  - [ ] Add world saving/loading
+  - [ ] Implement seed-based world generation
+  - [ ] Create world backup system
+  - [ ] Add world settings and configuration
+  - [ ] Implement world border system
+
+- **Modding Support**:
+  - [ ] Create basic mod API
+  - [ ] Implement resource pack system
+  - [ ] Add scripting support
+  - [ ] Create mod loading system
+  - [ ] Add configuration API
+
+### Phase 5: Polish and Extra Features
+- **Audio System**:
+  - [ ] Implement basic sound engine
+  - [ ] Add ambient sounds
+  - [ ] Create music system
+  - [ ] Add positional audio
+  - [ ] Implement sound effects for actions
+
+- **Visual Effects**:
+  - [ ] Add screen effects (damage, underwater)
+  - [ ] Implement block breaking animation
+  - [ ] Create item pickup animations
+  - [ ] Add status effect visuals
+  - [ ] Implement environmental effects
+
+- **Quality of Life**:
+  - [ ] Add key binding system
+  - [ ] Create settings menu
+  - [ ] Implement performance options
+  - [ ] Add accessibility features
+  - [ ] Create tutorial system
 
 ## License
 

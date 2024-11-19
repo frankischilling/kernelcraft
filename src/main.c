@@ -6,7 +6,6 @@
  * @version 0.1
  * @date 2024-11-19
  *
- * @copyright Copyright (c) 2024
  */
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -16,6 +15,7 @@
 #include "graphics/camera.h"
 #include "graphics/shader.h"
 #include "math/math.h"
+#include "world/world.h"
 
 float lastX = 400.0f;  // Half of window width
 float lastY = 300.0f;  // Half of window height
@@ -54,7 +54,7 @@ int main() {
         return -1;
     }
 
-    initCube();
+    initWorld();
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouseCallback);
@@ -87,7 +87,7 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
-        renderCube();
+        renderWorld(shaderProgram, &camera);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -95,5 +95,6 @@ int main() {
 
     glfwDestroyWindow(window);
     glfwTerminate();
+    cleanupWorld();
     return 0;
 }

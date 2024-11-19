@@ -74,3 +74,21 @@ void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float f
     result[14] = -(2.0f * far * near) / (far - near);
     result[15] = 0.0f;
 }
+
+float smoothstep(float edge0, float edge1, float x) {
+    float t = (x - edge0) / (edge1 - edge0); // Normalize x to 0-1
+    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t); // Clamp t to 0 or 1
+    return t * t * (3.0f - 2.0f * t); // Cubic Hermite interpolation
+}
+
+float lerp(float a, float b, float t) {
+    return a + t * (b - a); // Linear interpolation
+}
+
+// Simple 2D noise function
+float noise2d(float x, float z) {
+    float y = sinf(x * 0.1f) * cosf(z * 0.1f) * 2.0f;
+    y += sinf(x * 0.3f + z * 0.2f) * 1.5f;
+    y *= 0.5f; // Scale down the height
+    return y;
+}

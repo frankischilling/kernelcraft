@@ -20,4 +20,9 @@ void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float f
 void mat4_lookAt(Mat4 result, const Vec3 eye, const Vec3 center, const Vec3 up);
 float toRadians(float degrees);
 
+// Noise generation
+float noise2d(float x, float z);
+float smoothstep(float edge0, float edge1, float x);
+float lerp(float a, float b, float t);
+
 #endif
