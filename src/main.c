@@ -19,6 +19,7 @@
 #include "graphics/shader.h"
 #include "math/math.h"
 #include "world/world.h"
+#include "utils/inputs.h"
 
 float lastX = 400.0f;  // Half of window width
 float lastY = 300.0f;  // Half of window height

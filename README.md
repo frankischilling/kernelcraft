@@ -1,8 +1,5 @@
 # kernelcraft
 
-![Plains and hills](/img/game.png)
-
-
 ## Project Philosophy
 
 KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources.
@@ -36,9 +33,9 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **world/**: Contains world generation and management code.
     - **world.c**: Manages world generation and updates.
     - **world.h**: Header file for world-related functions and data.
-  - **utils/**: Contains utility functions and helpers.
-    - **utils.c**: (To be created) General utility functions.
-    - **utils.h**: (To be created) Header file for utility functions.
+  - **utils/**: Contains utility functions and input handling.
+    - **inputs.c**: Handles keyboard and mouse input processing.
+    - **inputs.h**: Header file for input-related functions.
 
 ## Getting Started
 
