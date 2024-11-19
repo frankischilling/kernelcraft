@@ -1,5 +1,8 @@
 # kernelcraft
 
+![Plains and hills](/img/game.png)
+
+
 ## Project Philosophy
 
 KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources.
