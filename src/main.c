@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Main entry point for the Minecraft clone game. Handles window creation,
+ * @brief Main entry point for the kernelcraft, a Minecraft clone. Handles window creation,
  *        OpenGL context initialization, and the main game loop.
  * @author frankischilling
  * @version 0.1
@@ -32,7 +32,7 @@ int main() {
         return -1;
     }
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Minecraft Clone", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "kernelcraft", NULL, NULL);
     if (!window) {
         fprintf(stderr, "Failed to open GLFW window\n");
         glfwTerminate();
@@ -47,8 +47,8 @@ int main() {
     }
 
     glEnable(GL_DEPTH_TEST);
-
-    GLuint shaderProgram = loadShaders("/home/frank/game/src/graphics/vertex_shader.glsl", "/home/frank/game/src/graphics/fragment_shader.glsl");
+    // Load shaders
+    GLuint shaderProgram = loadShaders("src/graphics/vertex_shader.glsl", "src/graphics/fragment_shader.glsl");
     if (!shaderProgram) {
         fprintf(stderr, "Failed to load shaders\n");
         return -1;
