@@ -21,6 +21,11 @@
 #include "world/world.h"
 #include "utils/inputs.h"
 
+// FPS variables
+static double lastTime = 0.0;
+static int frameCount = 0;
+static float fps = 0.0f;
+
 float lastX = 400.0f;  // Half of window width
 float lastY = 300.0f;  // Half of window height
 bool firstMouse = true;
@@ -62,6 +67,7 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(0);  // Disable VSync
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         fprintf(stderr, "Failed to initialize GLEW\n");
@@ -93,6 +99,14 @@ int main() {
         float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        // Update FPS counter
+        frameCount++;
+        if (currentFrame - lastTime >= 1.0) {
+            fps = (float)frameCount;
+            frameCount = 0;
+            lastTime = currentFrame;
+        }
+
         processInput(window, &camera, deltaTime);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -114,6 +128,14 @@ int main() {
 
         const char* biomeText = getCurrentBiomeText(camera.position[0], camera.position[2]);
         renderText(shaderProgram, biomeText, 10.0f, 580.0f);
+
+        char fpsText[32];
+        snprintf(fpsText, sizeof(fpsText), "FPS: %.1f", fps);
+        renderText(shaderProgram, fpsText, -10.0f, 580.0f);
+        // Debug text for culling implementation
+        char debugText[64];
+        snprintf(debugText, sizeof(debugText), "Visible Cubes: %d", getVisibleCubesCount());
+        renderText(shaderProgram, debugText, 10.0f, 560.0f);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

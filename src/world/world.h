@@ -5,11 +5,13 @@
 #include "../math/math.h"
 #include "../graphics/shader.h"
 #include "../graphics/camera.h"
+#include "../graphics/frustum.h"
 
 #define WORLD_SIZE_X 256
 #define WORLD_SIZE_Z 256
 #define WORLD_HEIGHT 64
 #define CUBE_SIZE 1.0f
+#define DIRT_LAYERS 3  // Number of dirt layers below the surface
 
 // Block types
 typedef enum {
@@ -37,5 +39,6 @@ void initWorld();
 void renderWorld(GLuint shaderProgram, const Camera* camera);
 void cleanupWorld();
 const char* getCurrentBiomeText(float x, float z);
+int getVisibleCubesCount();
 
 #endif

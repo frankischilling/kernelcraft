@@ -61,13 +61,20 @@ void renderText(GLuint shaderProgram, const char* text, float x, float y) {
     // Set text color to white
     glUniform3f(glGetUniformLocation(shaderProgram, "textColor"), 1.0f, 1.0f, 1.0f);
     
-    // Simple 2D text rendering at screen position
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "Current Biome: %s", text);
+    // For right-aligned text, calculate the width of the text
+    float textWidth = 0;
+    for (const char* c = text; *c != '\0'; c++) {
+        textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *c);
+    }
     
-    // Draw text at top-left corner
+    // Adjust x position for right alignment if x is negative
+    if (x < 0) {
+        x = 800.0f + x - textWidth; // 800 is window width
+    }
+    
+    // Draw text at specified position
     glWindowPos2f(x, y);
-    for (const char* c = buffer; *c != '\0'; c++) {
+    for (const char* c = text; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
     }
 }

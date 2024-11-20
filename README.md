@@ -24,18 +24,36 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **shader.h**: Header file for shader-related functions.
     - **vertex_shader.glsl**: Vertex shader source code.
     - **fragment_shader.glsl**: Fragment shader source code.
+    - **frustum.c**: Implements frustum culling for optimization.
+    - **frustum.h**: Header file for frustum-related functions and data.
   - **math/**: Contains mathematical operations and utilities.
-    - **math.c**: Implements vector and matrix operations.
+    - **math.c**: Implements vector and matrix operations, as well as Perlin noise generation.
     - **math.h**: Header file for math-related functions and data.
   - **input/**: Contains input handling code.
     - **input.c**: (To be created) Manages user input.
     - **input.h**: (To be created) Header file for input-related functions and data.
   - **world/**: Contains world generation and management code.
-    - **world.c**: Manages world generation and updates.
+    - **world.c**: Manages world generation and updates, including biome interpolation and terrain height calculation.
     - **world.h**: Header file for world-related functions and data.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **inputs.h**: Header file for input-related functions.
+
+## Features
+
+- **Rendering**:
+  - Basic rendering of cubes with lighting effects using shaders.
+  - Frustum culling for optimization.
+  - Dynamic text rendering for displaying FPS and biome information.
+
+- **World Generation**:
+  - Procedural terrain generation using Perlin noise.
+  - Biome interpolation for varied terrain features.
+  - Basic block types: air, grass, dirt, and stone.
+
+- **User Interaction**:
+  - Camera controls for navigation.
+  - Mouse input for looking around.
 
 ## Getting Started
 
@@ -71,7 +89,8 @@ Use the ESC key to be able to use the cursor again.
   - [x] Set up OpenGL context and render a simple cube
   - [x] Implement a basic camera system for navigation
   - [X] Basic render distance
-  - [ ] Implement frustum culling for basic optimization
+  - [X] Implement frustum culling for basic optimization
+  - [X] Implement occlusion culling for better optimization
   - [ ] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
   - [ ] Implement texture mapping and UV coordinates
@@ -96,7 +115,7 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Add trees
   - [ ] Create water system with basic fluid physics
   - [ ] Randomly generated worlds with different seeds
-  - [ ] Bigger world size
+  - [ ] Bigger world size **SHOULD BE WORKED ON LATER**
   
 - **User Interaction**:
   - [x] Implement basic controls for player movement

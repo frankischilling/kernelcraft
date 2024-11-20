@@ -13,9 +13,10 @@
 #include "../math/math.h"
 #include "../graphics/shader.h"
 #include "../graphics/camera.h"  
+#include "../graphics/frustum.h"
 #include "world.h"
-
 static GLuint VBO, VAO;
+static int visibleCubes = 0;
 
 // Block colors (RGB)
 static const Vec3 blockColors[] = {
@@ -146,6 +147,20 @@ void initWorld() {
 }
 
 void renderWorld(GLuint shaderProgram, const Camera* camera) {
+    visibleCubes = 0;  // Reset counter
+    
+    // Create and update frustum
+    Frustum frustum;
+    Mat4 projection, view;
+    // Use a wider FOV and appropriate near/far planes
+    mat4_perspective(projection, 70.0f, 800.0f / 600.0f, 0.1f, 1000.0f);
+       
+    Vec3 target;
+    vec3_add(target, camera->position, camera->front);
+    mat4_lookAt(view, camera->position, target, camera->up);
+    
+    frustum_update(&frustum, projection, view);
+
     // Set light properties
     Vec3 lightPos = {5.0f, 30.0f, 5.0f};
     Vec3 lightColor = {1.0f, 1.0f, 1.0f};
@@ -160,16 +175,12 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
     const float RENDER_DISTANCE = 64.0f;
     const float RENDER_DISTANCE_SQ = RENDER_DISTANCE * RENDER_DISTANCE;
 
-    // Layer thresholds
-    const float STONE_THRESHOLD = -2.0f;
-    const float DIRT_LAYERS = 3.0f;
-
     for(int x = 0; x < WORLD_SIZE_X; x++) {
         for(int z = 0; z < WORLD_SIZE_Z; z++) {
             float xPos = (x - WORLD_SIZE_X/2) * CUBE_SIZE;
             float zPos = (z - WORLD_SIZE_Z/2) * CUBE_SIZE;
             
-            // Distance check from camera to current block
+            // Distance check from camera
             float dx = xPos - camera->position[0];
             float dz = zPos - camera->position[2];
             float distSq = dx * dx + dz * dz;
@@ -177,12 +188,16 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
             if(distSq > RENDER_DISTANCE_SQ) {
                 continue;
             }
-            
-            // In the renderWorld function, replace the surfaceHeight calculation:
+
             float surfaceHeight = floor(getTerrainHeight(xPos, zPos));
 
-            // Render layers from bottom to top
-            for(float y = STONE_THRESHOLD; y <= surfaceHeight; y += 1.0f) {
+            for(float y = -2.0f; y <= surfaceHeight; y += 1.0f) {
+                // Frustum culling check
+                if (!frustum_check_cube(&frustum, xPos, y, zPos, CUBE_SIZE)) {
+                    continue;
+                }
+                visibleCubes++;  // Increment counter when cube is visible
+
                 BlockType blockType;
                 
                 if (y < surfaceHeight - DIRT_LAYERS) {
@@ -225,4 +240,8 @@ const char* getCurrentBiomeText(float x, float z) {
     } else {
         return "Transition";  // Optional: show when we're between biomes
     }
+}
+
+int getVisibleCubesCount() {
+    return visibleCubes;
 }

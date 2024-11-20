@@ -52,15 +52,15 @@ void mat4_identity(Mat4 result) {
 }
 
 void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float far) {
-    float f = 1.0f / tanf(toRadians(fovy) / 2.0f);
+    float tanHalfFovy = tanf(toRadians(fovy) / 2.0f);
     
-    result[0] = f / aspect;
+    result[0] = 1.0f / (aspect * tanHalfFovy);
     result[1] = 0.0f;
     result[2] = 0.0f;
     result[3] = 0.0f;
     
     result[4] = 0.0f;
-    result[5] = f;
+    result[5] = 1.0f / tanHalfFovy;
     result[6] = 0.0f;
     result[7] = 0.0f;
     
