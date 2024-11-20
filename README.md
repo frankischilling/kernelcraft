@@ -90,7 +90,7 @@ Use the ESC key to be able to use the cursor again.
   - [x] Implement a basic camera system for navigation
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
-  - [X] Implement occlusion culling for better optimization
+  - [] Implement occlusion culling for better optimization
   - [ ] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
   - [ ] Implement texture mapping and UV coordinates
