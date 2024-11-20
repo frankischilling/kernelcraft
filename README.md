@@ -2,7 +2,7 @@
 
 ## Project Philosophy
 
-KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources.
+KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources. In the future I plan on adding features and designs that are more similar to CubeWorld.
 
 ## Libraries Used
 
@@ -211,7 +211,8 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Create documentation
   - [ ] Add fire bugs mob
   - [ ] Add Tony Chase as a mob
-
+    - [ ] Special funny Tony sounds when he gets hit or dies
+  - [ ] Add goblin mob 
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See the LICENSE file for more details.
