@@ -25,9 +25,9 @@
 static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
-
-float lastX = 400.0f;  // Half of window width
-float lastY = 300.0f;  // Half of window height
+// 1920x1080
+float lastX = 1920.0f / 2.0f;  // Half of window width
+float lastY = 1080.0f / 2.0f;  // Half of window height
 bool firstMouse = true;
 static Camera camera;
 // Cursor enabled/disabled
@@ -58,8 +58,8 @@ int main() {
     int argc = 1;
     char *argv[1] = {(char*)"Something"};
     glutInit(&argc, argv);
-
-    GLFWwindow* window = glfwCreateWindow(800, 600, "kernelcraft", NULL, NULL);
+    // set window size to 1920x1080
+    GLFWwindow* window = glfwCreateWindow(1920, 1080, "kernelcraft", NULL, NULL);
     if (!window) {
         fprintf(stderr, "Failed to open GLFW window\n");
         glfwTerminate();
@@ -113,12 +113,12 @@ int main() {
 
         glUseProgram(shaderProgram);
 
-        Mat4 model, view, projection;
+        Mat4 model, view, projection; // Model, View, Projection
         mat4_identity(model);
         Vec3 target;
         vec3_add(target, camera.position, camera.front);
         mat4_lookAt(view, camera.position, target, camera.up);
-        mat4_perspective(projection, 45.0f, 800.0f / 600.0f, 0.1f, 100.0f);
+        mat4_perspective(projection, 45.0f, 1920.0f / 1080.0f, 0.1f, 100.0f); // Perspective projection
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
