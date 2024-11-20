@@ -1,5 +1,6 @@
 # kernelcraft
 
+![Screenshot](./img/game.png)
 ## Project Philosophy
 
 KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources. In the future I plan on adding features and designs that are more similar to CubeWorld.
@@ -70,6 +71,12 @@ Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Her
   sudo pacman -S glfw-x11 glew freeglut
   ```
 
+  ## Set the XDG_RUNTIME_DIR environment variable
+
+  ```bash
+  echo 'export XDG_RUNTIME_DIR=/run/user/$(id -u)' >> ~/.bashrc
+  ```
+
 ### Build the Project
 
 Use the provided `Makefile` to compile the source files. Run `make` in the project root directory.
@@ -83,7 +90,7 @@ Execute the compiled binary to start the game.
 Use the ESC key to be able to use the cursor again.
 
 ## Roadmap
-
+firewall
 ### Phase 1: Core Engine Development
 - **Basic Rendering**: 
   - [x] Set up OpenGL context and render a simple cube
@@ -135,7 +142,9 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Implement weather effects (rain, snow)
   - [ ] Add basic shadows
   - [ ] Create water shader with reflections
-
+  - [ ] Add support for different render modes (wireframe, solid)
+  - [ ] Add support for different camera modes (first person, third person)
+  - [ ] Add support for skyboxes and clouds
 - **Optimization**:
   - [ ] Implement greedy meshing for chunk rendering
   - [ ] Add level of detail system for distant chunks

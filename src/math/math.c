@@ -6,6 +6,7 @@
  */
 #include <math.h>
 #include "math.h"
+
 void vec3_add(Vec3 result, const Vec3 a, const Vec3 b) {
     result[0] = a[0] + b[0];
     result[1] = a[1] + b[1];

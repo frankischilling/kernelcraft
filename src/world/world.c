@@ -193,10 +193,11 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             for(float y = -2.0f; y <= surfaceHeight; y += 1.0f) {
                 // Frustum culling check
-                if (!frustum_check_cube(&frustum, xPos, y, zPos, CUBE_SIZE)) {
+                BlockVisibility visibility = frustum_check_cube(&frustum, xPos, y, zPos, CUBE_SIZE, camera);
+                if (visibility == BLOCK_HIDDEN) {
                     continue;
                 }
-                visibleCubes++;  // Increment counter when cube is visible
+                visibleCubes++;  // Only increment for visible blocks
 
                 BlockType blockType;
                 

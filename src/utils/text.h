@@ -5,6 +5,5 @@
 
 void renderText2D(float x, float y, const char* text);
 void renderFPS(float fps);
-void renderBuildInfo(void);
-
+void renderBuildInfo(GLuint shaderProgram);
 #endif 

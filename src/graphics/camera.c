@@ -13,8 +13,8 @@
 #include "camera.h"
 
 // Global variables
-static float lastX = 400.0f;
-static float lastY = 300.0f;
+static float lastX = 1920.0f;
+static float lastY = 1080.0f;
 static bool firstMouse = true;
 
 void initCamera(Camera* camera) {

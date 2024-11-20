@@ -86,24 +86,65 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
     normalize_plane(frustum->planes[5]);
 }
 
-bool frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size) {
-    // Check each plane of the frustum
+bool is_face_visible(float x, float y, float z, int face, const Camera* camera) {
+    Vec3 blockCenter = {x, y, z};
+    Vec3 toCam;
+    vec3_subtract(toCam, camera->position, blockCenter);
+    vec3_normalize(toCam, toCam);
+    
+    Vec3 faceNormal = {0.0f, 0.0f, 0.0f};
+    switch(face) {
+        case 0: faceNormal[0] = 1.0f; break;  // Right face
+        case 1: faceNormal[0] = -1.0f; break; // Left face
+        case 2: faceNormal[1] = 1.0f; break;  // Top face
+        case 3: faceNormal[1] = -1.0f; break; // Bottom face
+        case 4: faceNormal[2] = 1.0f; break;  // Front face
+        case 5: faceNormal[2] = -1.0f; break; // Back face
+    }
+    
+    return vec3_dot(toCam, faceNormal) > 0.0f;
+}
+
+BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size, const Camera* camera) {
+    // First, check if the cube is completely outside the frustum
     for (int i = 0; i < 6; i++) {
         float d = frustum->planes[i][0] * x + 
                  frustum->planes[i][1] * y + 
                  frustum->planes[i][2] * z + 
                  frustum->planes[i][3];
         
-        // Calculate the radius of the cube for this orientation
         float r = size * 0.5f * (fabsf(frustum->planes[i][0]) + 
                                 fabsf(frustum->planes[i][1]) + 
                                 fabsf(frustum->planes[i][2]));
         
-        // If the distance is negative and greater than the radius,
-        // the cube is outside the frustum
         if (d < -r) {
-            return false;
+            return BLOCK_HIDDEN;
         }
     }
-    return true;
+
+    // Check if any face is visible to the camera
+    bool any_face_visible = false;
+    for (int face = 0; face < 6; face++) {
+        if (is_face_visible(x, y, z, face, camera)) {
+            any_face_visible = true;
+            break;
+        }
+    }
+
+    if (!any_face_visible) {
+        return BLOCK_HIDDEN;
+    }
+
+    // Calculate distance to camera for depth-based culling
+    float dx = x - camera->position[0];
+    float dy = y - camera->position[1];
+    float dz = z - camera->position[2];
+    float distSq = dx * dx + dy * dy + dz * dz;
+
+    // If the block is too far, consider it hidden
+    if (distSq > 10000.0f) { // Adjust this value based on your needs
+        return BLOCK_HIDDEN;
+    }
+
+    return BLOCK_PARTIALLY_VISIBLE;
 }
