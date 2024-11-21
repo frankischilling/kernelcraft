@@ -48,8 +48,6 @@ float getTerrainHeight(float x, float z);
 void initChunks();
 void renderChunks(GLuint shaderProgram, const Camera* camera);
 void cleanupChunks();
-void renderChunk(Chunk* chunk, GLuint shaderProgram, const Camera* camera);
 void addCubeFace(GLfloat* vertices, int* vertexCount, float x, float y, float z, int face);
-Chunk* getChunk(int x, int z);
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
 #endif // WORLD_H
