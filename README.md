@@ -98,13 +98,11 @@ firewall
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
   - [] Implement occlusion culling for better optimization
-  - [ ] Implement chunk-based rendering system
+  - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
-  - [ ] Implement texture mapping and UV coordinates
   - [ ] Add support for transparency and alpha blending
-  - [ ] Create basic particle system for effects
   - [ ] Implement basic post-processing effects
-  - [ ] Add support for different render modes (wireframe, solid)
+  - [X] Add support for different render modes (wireframe, solid)
   - [ ] Create debug visualization tools
   - [ ] Optimize render batching and draw calls
 
@@ -134,6 +132,7 @@ firewall
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
+  - [ ] Implement texture mapping and UV coordinates
   - [ ] Implement texture atlas system
   - [ ] Add basic lighting system
   - [ ] Implement ambient occlusion
