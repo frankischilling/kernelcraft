@@ -32,7 +32,6 @@ bool firstMouse = true;
 static Camera camera;
 // Cursor enabled/disabled
 static bool cursorEnabled = false;
-extern bool showChunkBounds;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -44,9 +43,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
     }
     
-    if (key == GLFW_KEY_B && action == GLFW_PRESS) {
-        showChunkBounds = !showChunkBounds;
-    }
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -139,7 +135,7 @@ int main() {
         const char* biomeText = getCurrentBiomeText(camera.position[0], camera.position[2]);
         renderText(shaderProgram, biomeText, 10.0f, 580.0f);
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Enable wireframe mode
-        
+
         char fpsText[32];
         snprintf(fpsText, sizeof(fpsText), "FPS: %.1f", fps);
         renderText(shaderProgram, fpsText, -10.0f, 580.0f);

@@ -11,7 +11,7 @@
 #include "../graphics/shader.h"
 #include "text.h"
 
-#define BUILD_VERSION "v0.0.2-alpha"
+#define BUILD_VERSION "v0.0.3-alpha"
 #define BUILD_NAME "kernelcraft"
 
 void renderText(GLuint shaderProgram, const char* text, float x, float y) {

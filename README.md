@@ -18,27 +18,16 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **main.c**: The entry point of the application. It initializes the OpenGL context and handles the main rendering loop.
   - **graphics/**: Contains rendering-related code.
     - **cube.c**: Handles the creation and rendering of cube objects.
-    - **cube.h**: Header file for cube-related functions and data.
     - **camera.c**: Manages camera movement and orientation.
-    - **camera.h**: Header file for camera-related functions and data.
     - **shader.c**: Handles shader loading and compilation.
-    - **shader.h**: Header file for shader-related functions.
-    - **vertex_shader.glsl**: Vertex shader source code.
-    - **fragment_shader.glsl**: Fragment shader source code.
     - **frustum.c**: Implements frustum culling for optimization.
-    - **frustum.h**: Header file for frustum-related functions and data.
   - **math/**: Contains mathematical operations and utilities.
     - **math.c**: Implements vector and matrix operations, as well as Perlin noise generation.
-    - **math.h**: Header file for math-related functions and data.
-  - **input/**: Contains input handling code.
-    - **input.c**: (To be created) Manages user input.
-    - **input.h**: (To be created) Header file for input-related functions and data.
   - **world/**: Contains world generation and management code.
     - **world.c**: Manages world generation and updates, including biome interpolation and terrain height calculation.
-    - **world.h**: Header file for world-related functions and data.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
-    - **inputs.h**: Header file for input-related functions.
+    - **text.c**: Utility functions for rendering text.
 
 ## Features
 
@@ -116,10 +105,10 @@ firewall
     - [X] Before textures, use different colors to represent different blocks
   - [X] Add multiple layers (dirt, stone, bedrock)
   - [X] Implement basic biome system **SHOULD BE WORKED ON LATER WITH A BETTER BIOME SYSTEM**
+  - [ ] Randomly generated worlds with different seeds
   - [ ] Add cave generation using 3D noise
   - [ ] Add trees
   - [ ] Create water system with basic fluid physics
-  - [ ] Randomly generated worlds with different seeds
   - [ ] Bigger world size **SHOULD BE WORKED ON LATER**
   
 - **User Interaction**:

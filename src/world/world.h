@@ -18,8 +18,6 @@
 #define CHUNK_SIZE_Y 64
 #define CHUNK_SIZE_Z 16
 
-extern bool showChunkBounds;
-
 typedef struct {
     BlockType blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
     Vec3 position; // Position of the chunk in world coordinates

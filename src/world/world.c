@@ -22,7 +22,6 @@ static int chunkCountX, chunkCountZ;
 
 static GLuint VBO, VAO;
 static int visibleCubes = 0;
-bool showChunkBounds = false;
 
 // Chunk functions
 void initChunks() {
@@ -442,10 +441,6 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
     }
     
     glBindVertexArray(0);
-
-    if (showChunkBounds) {
-        renderChunks(shaderProgram, camera);
-    }
 
     // Calculate current chunk position
     int currentChunkX = (int)floor(camera->position[0] / (CHUNK_SIZE_X * CUBE_SIZE));
