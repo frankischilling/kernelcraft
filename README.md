@@ -86,7 +86,7 @@ firewall
   - [x] Implement a basic camera system for navigation
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
-  - [] Implement occlusion culling for better optimization
+  - [ ] Implement occlusion culling for better optimization **MAIN FOCUS**
   - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
   - [ ] Add support for transparency and alpha blending
