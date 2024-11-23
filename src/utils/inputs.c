@@ -1,3 +1,11 @@
+/**
+ * @file utils/inputs.c
+ * @brief Input processing module for handling user input.
+ * @author frankischilling
+ * @version 0.1
+ * @date 2024-11-23
+ *
+ */
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include "../graphics/camera.h"

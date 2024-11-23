@@ -1,5 +1,5 @@
 /**
- * @file cube.c
+ * @file graphics/cube.c
  * @brief Cube module for rendering a cube.
  * @author frankischilling
  * @date 2024-11-19

@@ -1,8 +1,10 @@
 /**
- * @file math.c
+ * @file math/math.c
  * @brief Math module for vector and matrix operations.
  * @author frankischilling
+ * @version 0.1
  * @date 2024-11-19
+ *
  */
 #include <math.h>
 #include "math.h"

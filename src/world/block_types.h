@@ -1,3 +1,11 @@
+/**
+ * @file world/block_types.h
+ * @brief Block type definitions for the game world.
+ * @author frankischilling
+ * @version 0.1
+ * @date 2024-11-23
+ *
+ */
 #ifndef BLOCK_TYPES_H
 #define BLOCK_TYPES_H
 

@@ -1,5 +1,5 @@
 /**
- * @file camera.c
+ * @file graphics/camera.c
  * @brief Camera module for handling camera movement and orientation.
  * @author frankischilling
  * @date 2024-11-19

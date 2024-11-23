@@ -1,6 +1,8 @@
 /**
- * @file frustum.c
+ * @file graphics/frustum.c
  * @brief Frustum culling implementation
+ * @author frankischilling
+ * @date 2024-11-23
  */
 #include <math.h>
 #include "frustum.h"

@@ -1,3 +1,11 @@
+/**
+ * @file world/world.h
+ * @brief World generation and rendering.
+ * @author frankischilling
+ * @version 0.1
+ * @date 2024-11-19
+ *
+ */
 #ifndef WORLD_H
 #define WORLD_H
 

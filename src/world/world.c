@@ -1,5 +1,5 @@
 /**
- * @file world.c
+ * @file world/world.c
  * @brief World generation and rendering.
  * @author frankischilling
  * @version 0.1

@@ -1,8 +1,10 @@
 /**
- * @file text.c
+ * @file utils/text.c
  * @brief Text rendering utility functions.
  * @author frankischilling
+ * @version 0.1
  * @date 2024-11-20
+ *
  */
 #include <GL/glew.h>
 #include <GL/freeglut.h>

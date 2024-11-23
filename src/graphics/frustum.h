@@ -1,3 +1,9 @@
+/**
+ * @file graphics/frustum.h
+ * @brief Frustum culling implementation
+ * @author frankischilling
+ * @date 2024-11-23
+ */
 #ifndef FRUSTUM_H
 #define FRUSTUM_H
 

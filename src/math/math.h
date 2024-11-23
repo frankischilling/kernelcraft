@@ -1,3 +1,11 @@
+/**
+ * @file math/math.h
+ * @brief Math module for vector and matrix operations.
+ * @author frankischilling
+ * @version 0.1
+ * @date 2024-11-19
+ *
+ */
 #ifndef MATH_H
 #define MATH_H
 

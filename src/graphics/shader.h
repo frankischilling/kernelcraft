@@ -1,4 +1,9 @@
-// shader.h
+/**
+ * @file graphics/shader.h
+ * @brief Shader module for loading and compiling shaders.
+ * @author frankischilling
+ * @date 2024-11-19
+ */
 #ifndef SHADER_H
 #define SHADER_H
 

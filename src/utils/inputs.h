@@ -1,3 +1,11 @@
+/**
+ * @file utils/inputs.h
+ * @brief Input processing module for handling user input.
+ * @author frankischilling
+ * @version 0.1
+ * @date 2024-11-23
+ *
+ */
 #ifndef INPUTS_H
 #define INPUTS_H
 
