@@ -87,6 +87,7 @@ firewall
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
   - [ ] Implement occlusion culling for better optimization **MAIN FOCUS**
+  - [ ] Implement voxel-like meshes using opengl meshes
   - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
   - [ ] Add support for transparency and alpha blending
