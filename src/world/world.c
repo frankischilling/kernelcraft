@@ -34,18 +34,22 @@ void initChunks() {
     for (int x = 0; x < chunkCountX; x++) {
         for (int z = 0; z < chunkCountZ; z++) {
             Chunk* chunk = (Chunk*)malloc(sizeof(Chunk));
-            chunk->position[0] = x * CHUNK_SIZE_X * CUBE_SIZE;
+            
+            // Calculate chunk position in world coordinates
+            chunk->position[0] = (x - chunkCountX/2) * CHUNK_SIZE_X * CUBE_SIZE;
             chunk->position[1] = 0;
-            chunk->position[2] = z * CHUNK_SIZE_Z * CUBE_SIZE;
+            chunk->position[2] = (z - chunkCountZ/2) * CHUNK_SIZE_Z * CUBE_SIZE;
 
-            // Populate chunk with block data (basic terrain generation)
+            // Populate chunk with block data
             for (int i = 0; i < CHUNK_SIZE_X; i++) {
                 for (int j = 0; j < CHUNK_SIZE_Y; j++) {
                     for (int k = 0; k < CHUNK_SIZE_Z; k++) {
+                        // Calculate actual world coordinates for height generation
                         float worldX = chunk->position[0] + i * CUBE_SIZE;
                         float worldZ = chunk->position[2] + k * CUBE_SIZE;
                         float height = floor(getTerrainHeight(worldX, worldZ));
 
+                        // Ensure height is within chunk bounds
                         if (j < height - DIRT_LAYERS) {
                             chunk->blocks[i][j][k] = BLOCK_STONE;
                         } else if (j < height) {
@@ -475,16 +479,19 @@ int getVisibleCubesCount() {
 // Add this function implementation
 BlockType getBlockType(float x, float y, float z) {
     // Convert world coordinates to chunk coordinates
-    int chunkX = (int)floor(x / (CHUNK_SIZE_X * CUBE_SIZE));
-    int chunkZ = (int)floor(z / (CHUNK_SIZE_Z * CUBE_SIZE));
+    int chunkX = (int)floor((x + WORLD_SIZE_X * CUBE_SIZE / 2) / (CHUNK_SIZE_X * CUBE_SIZE));
+    int chunkZ = (int)floor((z + WORLD_SIZE_Z * CUBE_SIZE / 2) / (CHUNK_SIZE_Z * CUBE_SIZE));
     
     // Get local coordinates within the chunk
-    int localX = (int)floor(fmod(x + (x < 0 ? CHUNK_SIZE_X * CUBE_SIZE : 0), CHUNK_SIZE_X * CUBE_SIZE) / CUBE_SIZE);
+    float localX = fmod(x + WORLD_SIZE_X * CUBE_SIZE / 2, CHUNK_SIZE_X * CUBE_SIZE) / CUBE_SIZE;
+    if (localX < 0) localX += CHUNK_SIZE_X;
+    float localZ = fmod(z + WORLD_SIZE_Z * CUBE_SIZE / 2, CHUNK_SIZE_Z * CUBE_SIZE) / CUBE_SIZE;
+    if (localZ < 0) localZ += CHUNK_SIZE_Z;
     int localY = (int)floor(y / CUBE_SIZE);
-    int localZ = (int)floor(fmod(z + (z < 0 ? CHUNK_SIZE_Z * CUBE_SIZE : 0), CHUNK_SIZE_Z * CUBE_SIZE) / CUBE_SIZE);
     
     // Check bounds
-    if (chunkX < 0 || chunkX >= chunkCountX || chunkZ < 0 || chunkZ >= chunkCountZ ||
+    if (chunkX < 0 || chunkX >= chunkCountX || 
+        chunkZ < 0 || chunkZ >= chunkCountZ || 
         localY < 0 || localY >= CHUNK_SIZE_Y) {
         return BLOCK_AIR;
     }
@@ -495,5 +502,5 @@ BlockType getBlockType(float x, float y, float z) {
         return BLOCK_AIR;
     }
     
-    return chunk->blocks[localX][localY][localZ];
+    return chunk->blocks[(int)localX][localY][(int)localZ];
 }
