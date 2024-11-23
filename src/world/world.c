@@ -471,3 +471,29 @@ const char* getCurrentBiomeText(float x, float z) {
 int getVisibleCubesCount() {
     return visibleCubes;
 }
+
+// Add this function implementation
+BlockType getBlockType(float x, float y, float z) {
+    // Convert world coordinates to chunk coordinates
+    int chunkX = (int)floor(x / (CHUNK_SIZE_X * CUBE_SIZE));
+    int chunkZ = (int)floor(z / (CHUNK_SIZE_Z * CUBE_SIZE));
+    
+    // Get local coordinates within the chunk
+    int localX = (int)floor(fmod(x + (x < 0 ? CHUNK_SIZE_X * CUBE_SIZE : 0), CHUNK_SIZE_X * CUBE_SIZE) / CUBE_SIZE);
+    int localY = (int)floor(y / CUBE_SIZE);
+    int localZ = (int)floor(fmod(z + (z < 0 ? CHUNK_SIZE_Z * CUBE_SIZE : 0), CHUNK_SIZE_Z * CUBE_SIZE) / CUBE_SIZE);
+    
+    // Check bounds
+    if (chunkX < 0 || chunkX >= chunkCountX || chunkZ < 0 || chunkZ >= chunkCountZ ||
+        localY < 0 || localY >= CHUNK_SIZE_Y) {
+        return BLOCK_AIR;
+    }
+    
+    // Get the chunk
+    Chunk* chunk = chunks[chunkX * chunkCountZ + chunkZ];
+    if (!chunk) {
+        return BLOCK_AIR;
+    }
+    
+    return chunk->blocks[localX][localY][localZ];
+}

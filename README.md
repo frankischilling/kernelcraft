@@ -86,8 +86,7 @@ firewall
   - [x] Implement a basic camera system for navigation
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
-  - [ ] add z buffer
-  - [ ] Implement occlusion culling for better optimization **MAIN FOCUS**
+  - [X] Implement occlusion culling for better optimization **MAIN FOCUS**
   - [ ] Implement voxel-like meshes using opengl meshes
   - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows

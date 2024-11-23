@@ -7,9 +7,11 @@
 #ifndef FRUSTUM_H
 #define FRUSTUM_H
 
+#include <GL/glew.h>
 #include <stdbool.h>
 #include "../math/math.h"
 #include "../graphics/camera.h"
+#include "../world/block_types.h"
 
 // Frustum structure to hold the six planes
 typedef struct {
@@ -25,6 +27,7 @@ typedef enum {
 
 // Function declarations
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view);
+bool is_block_occluded(float x, float y, float z, float size, const Camera* camera);
 BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size, const Camera* camera);
 bool is_face_visible(float x, float y, float z, int face, const Camera* camera);
 

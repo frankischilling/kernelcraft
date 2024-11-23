@@ -57,4 +57,7 @@ void initChunks();
 void renderChunks(GLuint shaderProgram, const Camera* camera);
 void cleanupChunks();
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
+
+// Add this after line 52 (near the other function declarations)
+BlockType getBlockType(float x, float y, float z);
 #endif // WORLD_H
