@@ -87,7 +87,6 @@ firewall
   - [X] Basic render distance
   - [X] Implement frustum culling for basic optimization
   - [X] Implement occlusion culling for better optimization **MAIN FOCUS**
-  - [ ] Implement voxel-like meshes using opengl meshes
   - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
   - [ ] Add support for transparency and alpha blending
@@ -134,7 +133,9 @@ firewall
   - [ ] Add support for different render modes (wireframe, solid)
   - [ ] Add support for different camera modes (first person, third person)
   - [ ] Add support for skyboxes and clouds
+  - [ ] Add support for CRT screen effect, curvature, scanlines, chromatic aberration, and vignette
 - **Optimization**:
+  - [ ] Implement voxel-like meshes using opengl meshes
   - [ ] Implement greedy meshing for chunk rendering
   - [ ] Add level of detail system for distant chunks
   - [ ] Optimize memory usage for chunk storage
@@ -211,6 +212,7 @@ firewall
   - [ ] Add Tony Chase as a mob
     - [ ] Special funny Tony sounds when he gets hit or dies
   - [ ] Add goblin mob 
+  - [ ] Add cupid sponge block
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See the LICENSE file for more details.
