@@ -89,7 +89,6 @@ firewall
   - [X] Implement occlusion culling for better optimization **MAIN FOCUS**
   - [X] Implement chunk-based rendering system
   - [X] Add basic shaders for lighting and shadows
-  - [ ] Add support for transparency and alpha blending
   - [ ] Implement basic post-processing effects
   - [X] Add support for different render modes (wireframe, solid)
   - [ ] Create debug visualization tools
@@ -123,6 +122,7 @@ firewall
 - **Graphics Enhancements**:
   - [ ] Implement texture mapping and UV coordinates
   - [ ] Implement texture atlas system
+  - [ ] Add support for transparency and alpha blending
   - [ ] Add basic lighting system
   - [ ] Implement ambient occlusion
   - [ ] Add day/night cycle
