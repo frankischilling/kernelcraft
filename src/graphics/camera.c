@@ -14,22 +14,22 @@
 
 void initCamera(Camera* camera) {
     camera->position[0] = 0.0f;
-    camera->position[1] = 0.0f;
+    camera->position[1] = 10.0f;  // Set the camera above the terrain
     camera->position[2] = 3.0f;
-    
+
     camera->front[0] = 0.0f;
     camera->front[1] = 0.0f;
     camera->front[2] = -1.0f;
-    
+
     camera->up[0] = 0.0f;
     camera->up[1] = 1.0f;
     camera->up[2] = 0.0f;
-    
+
     camera->yaw = -90.0f;
     camera->pitch = 0.0f;
     camera->speed = 5.0f;
     camera->sensitivity = 0.05f;
-    
+
     updateCameraVectors(camera);
 }
 
@@ -38,7 +38,7 @@ void updateCameraVectors(Camera* camera) {
     camera->front[0] = cosf(toRadians(camera->yaw)) * cosf(toRadians(camera->pitch));
     camera->front[1] = sinf(toRadians(camera->pitch));
     camera->front[2] = sinf(toRadians(camera->yaw)) * cosf(toRadians(camera->pitch));
-    
+
     // Normalize the front vector
     vec3_normalize(camera->front, camera->front);
 }
@@ -99,33 +99,33 @@ void updateViewMatrix(Camera* camera, float* viewMatrix) {
 
 void mat4_lookAt(Mat4 result, const Vec3 eye, const Vec3 center, const Vec3 up) {
     Vec3 f, s, u, temp;
-    
+
     // Calculate forward vector
     vec3_subtract(temp, center, eye);
     vec3_normalize(f, temp);
-    
+
     // Calculate side vector
     vec3_cross(temp, f, up);
     vec3_normalize(s, temp);
-    
+
     // Calculate up vector
     vec3_cross(u, s, f);
-    
+
     result[0] = s[0];
     result[1] = u[0];
     result[2] = -f[0];
     result[3] = 0.0f;
-    
+
     result[4] = s[1];
     result[5] = u[1];
     result[6] = -f[1];
     result[7] = 0.0f;
-    
+
     result[8] = s[2];
     result[9] = u[2];
     result[10] = -f[2];
     result[11] = 0.0f;
-    
+
     result[12] = -vec3_dot(s, eye);
     result[13] = -vec3_dot(u, eye);
     result[14] = vec3_dot(f, eye);

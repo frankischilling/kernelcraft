@@ -81,7 +81,7 @@ Use the ESC key to be able to use the cursor again.
 ## Roadmap
 firewall
 ### Phase 1: Core Engine Development
-- **Basic Rendering**: 
+- **Basic Rendering**:
   - [x] Set up OpenGL context and render a simple cube
   - [x] Implement a basic camera system for navigation
   - [X] Basic render distance
@@ -109,7 +109,7 @@ firewall
   - [ ] Add trees
   - [ ] Create water system with basic fluid physics
   - [ ] Bigger world size **SHOULD BE WORKED ON LATER**
-  
+
 - **User Interaction**:
   - [x] Implement basic controls for player movement
   - [x] Add mouse controls for looking around
@@ -120,7 +120,8 @@ firewall
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
-  - [ ] Implement texture mapping and UV coordinates
+  - [X] Implement texture mapping and UV coordinates
+    - [ ] Fix grass texture mapping using the grass top for the top, and sides.
   - [ ] Implement texture atlas system
   - [ ] Add support for transparency and alpha blending
   - [ ] Add basic lighting system
@@ -211,7 +212,7 @@ firewall
   - [ ] Add fire bugs mob
   - [ ] Add Tony Chase as a mob
     - [ ] Special funny Tony sounds when he gets hit or dies
-  - [ ] Add goblin mob 
+  - [ ] Add goblin mob
   - [ ] Add cupid sponge block
 ## License
 

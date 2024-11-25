@@ -27,4 +27,4 @@ run: $(EXECUTABLE)
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR) $(LOG_FILE)
 
-.PHONY: all clean run 
+.PHONY: all clean run
