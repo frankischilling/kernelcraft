@@ -11,6 +11,7 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **GLFW**: A library for creating windows, receiving input, and handling events. It simplifies the process of setting up an OpenGL context.
 - **GLEW**: The OpenGL Extension Wrangler Library, which helps in managing OpenGL extensions.
 - **GLUT**: The OpenGL Utility Toolkit, used for rendering text and other utilities.
+- **stb_image**: A single-file public domain library for loading images in various formats.
 
 ## Project Structure
 
@@ -21,6 +22,7 @@ KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **camera.c**: Manages camera movement and orientation.
     - **shader.c**: Handles shader loading and compilation.
     - **frustum.c**: Implements frustum culling for optimization.
+    - **texture.c**: Implements texture loading and binding.
   - **math/**: Contains mathematical operations and utilities.
     - **math.c**: Implements vector and matrix operations, as well as Perlin noise generation.
   - **world/**: Contains world generation and management code.
