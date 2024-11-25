@@ -78,6 +78,13 @@ void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float f
     result[15] = 0.0f;
 }
 
+void mat4_view_no_rotation(Mat4 result, const Vec3 position) {
+    mat4_identity(result);
+    result[12] = -position[0];
+    result[13] = -position[1];
+    result[14] = -position[2];
+}
+
 static const int permutation[256] = {
     151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,
     8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,

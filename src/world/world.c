@@ -76,37 +76,38 @@ void initChunks() {
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
     static GLuint gridVAO = 0;
     static GLuint gridVBO = 0;
+    static int vertexCount = 0;  // Declare vertexCount as static
 
     // Initialize grid buffers if not already done
     if (gridVAO == 0) {
         // Create vertices for grid lines
         float* vertices = malloc(sizeof(float) * 6 * (WORLD_SIZE_X + WORLD_SIZE_Z));
-        int vertexCount = 0;
+        vertexCount = 0;
 
         // Calculate offset to center the grid
-        float offsetX = -WORLD_SIZE_X / 2.0f;
-        float offsetZ = -WORLD_SIZE_Z / 2.0f;
+        float offsetX = -WORLD_SIZE_X * CUBE_SIZE / 2.0f;
+        float offsetZ = -WORLD_SIZE_Z * CUBE_SIZE / 2.0f;
 
         // Vertical lines
         for (int x = 0; x <= WORLD_SIZE_X; x += CHUNK_SIZE_X) {
-            float worldX = x + offsetX;
+            float worldX = x * CUBE_SIZE + offsetX;
             vertices[vertexCount++] = worldX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = offsetZ;
 
             vertices[vertexCount++] = worldX;
             vertices[vertexCount++] = 0.0f;
-            vertices[vertexCount++] = WORLD_SIZE_Z + offsetZ;
+            vertices[vertexCount++] = WORLD_SIZE_Z * CUBE_SIZE + offsetZ;
         }
 
         // Horizontal lines
         for (int z = 0; z <= WORLD_SIZE_Z; z += CHUNK_SIZE_Z) {
-            float worldZ = z + offsetZ;
+            float worldZ = z * CUBE_SIZE + offsetZ;
             vertices[vertexCount++] = offsetX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = worldZ;
 
-            vertices[vertexCount++] = WORLD_SIZE_X + offsetX;
+            vertices[vertexCount++] = WORLD_SIZE_X * CUBE_SIZE + offsetX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = worldZ;
         }
@@ -124,30 +125,37 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
         free(vertices);
     }
 
+    // Disable depth testing to render the grid on top
+    glDisable(GL_DEPTH_TEST);
+
     glUseProgram(shaderProgram);
 
     // Set grid color (white)
-    glUniform3f(glGetUniformLocation(shaderProgram, "objectColor"), 0.3f, 0.3f, 0.3f);
+    glUniform3f(glGetUniformLocation(shaderProgram, "objectColor"), 1.0f, 1.0f, 1.0f);
 
-    // Calculate view and projection matrices
     Mat4 view, projection;
     Vec3 target;
     vec3_add(target, camera->position, camera->front);
     mat4_lookAt(view, camera->position, target, camera->up);
-    mat4_perspective(projection, 45.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
+
+    mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
 
     // Set matrices in shader
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
+    // Use an identity model matrix since the grid should not move
     Mat4 model;
     mat4_identity(model);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
 
     // Draw grid
     glBindVertexArray(gridVAO);
-    glDrawArrays(GL_LINES, 0, (WORLD_SIZE_X/CHUNK_SIZE_X + WORLD_SIZE_Z/CHUNK_SIZE_Z + 2) * 2);
+    glDrawArrays(GL_LINES, 0, vertexCount / 3);
     glBindVertexArray(0);
+
+    // Re-enable depth testing
+    glEnable(GL_DEPTH_TEST);
 }
 
 void renderChunks(GLuint shaderProgram, const Camera* camera) {
@@ -399,7 +407,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
     // Set light properties
     Vec3 lightPos = {5.0f, 30.0f, 5.0f};
     Vec3 lightColor = {1.0f, 1.0f, 1.0f};
-    
+
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, lightColor);
     glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, camera->position);
