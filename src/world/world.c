@@ -76,38 +76,37 @@ void initChunks() {
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
     static GLuint gridVAO = 0;
     static GLuint gridVBO = 0;
-    static int vertexCount = 0;  // Declare vertexCount as static
 
     // Initialize grid buffers if not already done
     if (gridVAO == 0) {
         // Create vertices for grid lines
         float* vertices = malloc(sizeof(float) * 6 * (WORLD_SIZE_X + WORLD_SIZE_Z));
-        vertexCount = 0;
+        int vertexCount = 0;
 
         // Calculate offset to center the grid
-        float offsetX = -WORLD_SIZE_X * CUBE_SIZE / 2.0f;
-        float offsetZ = -WORLD_SIZE_Z * CUBE_SIZE / 2.0f;
+        float offsetX = -WORLD_SIZE_X / 2.0f;
+        float offsetZ = -WORLD_SIZE_Z / 2.0f;
 
         // Vertical lines
         for (int x = 0; x <= WORLD_SIZE_X; x += CHUNK_SIZE_X) {
-            float worldX = x * CUBE_SIZE + offsetX;
+            float worldX = x + offsetX;
             vertices[vertexCount++] = worldX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = offsetZ;
 
             vertices[vertexCount++] = worldX;
             vertices[vertexCount++] = 0.0f;
-            vertices[vertexCount++] = WORLD_SIZE_Z * CUBE_SIZE + offsetZ;
+            vertices[vertexCount++] = WORLD_SIZE_Z + offsetZ;
         }
 
         // Horizontal lines
         for (int z = 0; z <= WORLD_SIZE_Z; z += CHUNK_SIZE_Z) {
-            float worldZ = z * CUBE_SIZE + offsetZ;
+            float worldZ = z + offsetZ;
             vertices[vertexCount++] = offsetX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = worldZ;
 
-            vertices[vertexCount++] = WORLD_SIZE_X * CUBE_SIZE + offsetX;
+            vertices[vertexCount++] = WORLD_SIZE_X + offsetX;
             vertices[vertexCount++] = 0.0f;
             vertices[vertexCount++] = worldZ;
         }
@@ -125,37 +124,30 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
         free(vertices);
     }
 
-    // Disable depth testing to render the grid on top
-    glDisable(GL_DEPTH_TEST);
-
     glUseProgram(shaderProgram);
 
     // Set grid color (white)
-    glUniform3f(glGetUniformLocation(shaderProgram, "objectColor"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(shaderProgram, "objectColor"), 0.3f, 0.3f, 0.3f);
 
+    // Calculate view and projection matrices
     Mat4 view, projection;
     Vec3 target;
     vec3_add(target, camera->position, camera->front);
     mat4_lookAt(view, camera->position, target, camera->up);
-
     mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
 
     // Set matrices in shader
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
-    // Use an identity model matrix since the grid should not move
     Mat4 model;
     mat4_identity(model);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
 
     // Draw grid
     glBindVertexArray(gridVAO);
-    glDrawArrays(GL_LINES, 0, vertexCount / 3);
+    glDrawArrays(GL_LINES, 0, (WORLD_SIZE_X/CHUNK_SIZE_X + WORLD_SIZE_Z/CHUNK_SIZE_Z + 2) * 2);
     glBindVertexArray(0);
-
-    // Re-enable depth testing
-    glEnable(GL_DEPTH_TEST);
 }
 
 void renderChunks(GLuint shaderProgram, const Camera* camera) {
@@ -260,54 +252,55 @@ Chunk* getChunk(int x, int z) {
 }
 
 static const GLfloat cubeVerticesWithNormals[] = {
-    // Positions          // Normals           // Texture Coords
     // Front face
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+    // Positions          // Normals           // Texture Coords
+    // Good look reading this LMAO
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,
 
     // Back face
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
+    0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
 
     // Top face
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+    0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
 
     // Bottom face
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+    0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
 
     // Right face
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 
     // Left face
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f
+    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f
 };
 
 static BiomeParameters biomeParameters[] = {
@@ -463,20 +456,24 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
                 // Set the texture sampler uniform to use texture unit 0
                 glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
 
-                // Bind the appropriate texture
-                if (blockType == BLOCK_STONE) {
-                    glBindTexture(GL_TEXTURE_2D, stoneTexture);
-                } else if (blockType == BLOCK_DIRT) {
-                    glBindTexture(GL_TEXTURE_2D, dirtTexture);
-                } else if (blockType == BLOCK_GRASS) {
-                    if (y == surfaceHeight) {
-                        glBindTexture(GL_TEXTURE_2D, grassTopTexture);
-                    } else {
-                        glBindTexture(GL_TEXTURE_2D, grassSideTexture);
+                // Bind the appropriate texture for each face
+                for (int face = 0; face < 6; face++) {
+                    if (blockType == BLOCK_STONE) {
+                        glBindTexture(GL_TEXTURE_2D, stoneTexture);
+                    } else if (blockType == BLOCK_DIRT) {
+                        glBindTexture(GL_TEXTURE_2D, dirtTexture);
+                    } else if (blockType == BLOCK_GRASS) {
+                        if (face == 2) { // Top face
+                            glBindTexture(GL_TEXTURE_2D, grassTopTexture);
+                        } else if (face == 3) { // Bottom face
+                            glBindTexture(GL_TEXTURE_2D, dirtTexture);
+                        } else { // Side faces
+                            glBindTexture(GL_TEXTURE_2D, grassSideTexture);
+                        }
                     }
+                    // Draw the face
+                    glDrawArrays(GL_TRIANGLES, face * 6, 6);
                 }
-                // Instead of calling renderCube(), draw directly
-                glDrawArrays(GL_TRIANGLES, 0, 36);
             }
         }
     }
