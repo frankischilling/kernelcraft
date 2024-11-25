@@ -1,6 +1,13 @@
 # kernelcraft
 
+Screen shot of version v0.0.2
+
 ![Screenshot](./img/game.png)
+
+Screen shot of version v0.0.4
+
+![Screenshot](./img/textures.png)
+
 ## Project Philosophy
 
 KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources. In the future I plan on adding features and designs that are more similar to CubeWorld.
@@ -123,7 +130,7 @@ firewall
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
   - [X] Implement texture mapping and UV coordinates
-    - [X] Fix grass texture mapping using the grass top for the top, and sides.
+    - [ ] Fix grass texture mapping using the grass top for the top, and sides.
   - [ ] Implement texture atlas system
   - [ ] Add support for transparency and alpha blending
   - [ ] Add basic lighting system
