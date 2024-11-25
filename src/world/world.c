@@ -399,7 +399,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
     // Set light properties
     Vec3 lightPos = {5.0f, 30.0f, 5.0f};
     Vec3 lightColor = {1.0f, 1.0f, 1.0f};
-
+    
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
     glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, lightColor);
     glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, camera->position);

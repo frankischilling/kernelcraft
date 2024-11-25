@@ -20,7 +20,7 @@ uniform sampler2D texture1; // Texture sampler
 
 void main() {
     // Calculate ambient lighting component
-    float ambientStrength = 0.2;
+    float ambientStrength = 0.4;
     vec3 ambient = ambientStrength * lightColor;
 
     // Calculate diffuse lighting component
