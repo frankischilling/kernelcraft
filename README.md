@@ -123,7 +123,7 @@ firewall
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
   - [X] Implement texture mapping and UV coordinates
-    - [ ] Fix grass texture mapping using the grass top for the top, and sides.
+    - [X] Fix grass texture mapping using the grass top for the top, and sides.
   - [ ] Implement texture atlas system
   - [ ] Add support for transparency and alpha blending
   - [ ] Add basic lighting system
