@@ -11,7 +11,7 @@ Screenshot of version v0.0.4
 
 ## Project Philosophy
 
-KernelCraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources. In the future I plan on adding features and designs that are more similar to CubeWorld.
+kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The primary focus is on understanding the fundamentals of 3D graphics programming and game development. By building a simple voxel-based game, we explore concepts such as rendering, world generation, and user interaction. The project is designed to be a learning tool, emphasizing clean code, modular design, and efficient use of resources. In the future I plan on adding features and designs that are more similar to CubeWorld.
 
 ## Libraries Used
 
@@ -102,6 +102,7 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Implement basic post-processing effects
   - [x] Add support for different render modes (wireframe, solid)
   - [ ] Create debug visualization tools
+    - [ ] FPS, ticks, visible faces, visble cubes, how many are rendered out of total
   - [ ] Optimize render batching and draw calls
 
 - **World Generation**:
@@ -139,6 +140,7 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Add support for skyboxes and clouds 
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
   - [ ] Add day/night cycle
+    - [ ] Within the system implement tick based time
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
   - [ ] Create water shader with reflections and refractions
