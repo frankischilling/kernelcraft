@@ -136,6 +136,7 @@ firewall
     - [X] Create atlas image from textures using a python script.
     - [ ] Integrate texture atlas into rendering pipeline
   - [ ] Add support for transparency and alpha blending
+  - [ ] Add support for skyboxes and clouds 
   - [ ] Add basic lighting system
   - [ ] Implement ambient occlusion
   - [ ] Add day/night cycle
@@ -145,7 +146,6 @@ firewall
   - [ ] Create water shader with reflections
   - [ ] Add support for different render modes (wireframe, solid)
   - [ ] Add support for different camera modes (first person, third person)
-  - [ ] Add support for skyboxes and clouds
   - [ ] Add support for CRT screen effect, curvature, scanlines, chromatic aberration, and vignette
 - **Optimization**:
   - [ ] Implement voxel-like meshes using opengl meshes
