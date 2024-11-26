@@ -131,8 +131,10 @@ firewall
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
   - [X] Implement texture mapping and UV coordinates
-    - [ ] Fix grass texture mapping using the grass top for the top, and sides.
-  - [ ] Implement texture atlas system
+    - [X] Fix grass texture mapping using the grass top for the top, and sides.
+  - [WIP] Implement texture atlas system
+    - [X] Create atlas image from textures using a python script.
+    - [ ] Integrate texture atlas into rendering pipeline
   - [ ] Add support for transparency and alpha blending
   - [ ] Add basic lighting system
   - [ ] Implement ambient occlusion
