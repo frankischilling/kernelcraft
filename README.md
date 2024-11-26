@@ -94,31 +94,31 @@ Use the ESC key to be able to use the cursor again.
 - **Basic Rendering**:
   - [x] Set up OpenGL context and render a simple cube
   - [x] Implement a basic camera system for navigation
-  - [X] Basic render distance
-  - [X] Implement frustum culling for basic optimization
-  - [X] Implement occlusion culling for better optimization **MAIN FOCUS**
-  - [X] Implement chunk-based rendering system
-  - [X] Add basic shaders for lighting and shadows
+  - [x] Basic render distance
+  - [x] Implement frustum culling for basic optimization
+  - [x] Implement occlusion culling for better optimization **MAIN FOCUS**
+  - [x] Implement chunk-based rendering system
+  - [x] Add basic shaders for lighting and shadows
   - [ ] Implement basic post-processing effects
-  - [X] Add support for different render modes (wireframe, solid)
+  - [x] Add support for different render modes (wireframe, solid)
   - [ ] Create debug visualization tools
   - [ ] Optimize render batching and draw calls
 
 - **World Generation**:
-  - [X] Create a flat terrain using cubes
-  - [X] Implement basic Perlin noise for height variation
-    - [X] Increased world size to 128x128
-    - [X] Enhanced terrain with more octaves and adjusted noise parameters
-  - [X] Basic sine wave for height variation
-  - [X] Add support for different cube types (dirt, stone, grass, etc.)
-    - [X] Before textures, use different colors to represent different blocks
-  - [X] Add multiple layers (dirt, stone, bedrock)
-  - [X] Implement basic biome system **SHOULD BE WORKED ON LATER WITH A BETTER BIOME SYSTEM**
+  - [x] Create a flat terrain using cubes
+  - [x] Implement basic Perlin noise for height variation
+    - [x] Increased world size to 256x256
+    - [x] Enhanced terrain with more octaves and adjusted noise parameters
+  - [x] Basic sine wave for height variation
+  - [x] Add support for different cube types (dirt, stone, grass, etc.)
+    - [x] Before textures, use different colors to represent different blocks
+  - [x] Add multiple layers (dirt, stone, bedrock)
+  - [x] Implement basic biome system **(To be enhanced with a more detailed biome system)**
   - [ ] Randomly generated worlds with different seeds
   - [ ] Add cave generation using 3D noise
   - [ ] Add trees
   - [ ] Create water system with basic fluid physics
-  - [ ] Bigger world size **SHOULD BE WORKED ON LATER**
+  - [ ] Expand world size **(Planned for later phases)**
 
 - **User Interaction**:
   - [x] Implement basic controls for player movement
@@ -130,102 +130,114 @@ Use the ESC key to be able to use the cursor again.
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
-  - [X] Implement texture mapping and UV coordinates
-    - [X] Fix grass texture mapping using the grass top for the top, and sides.
-  - [WIP] Implement texture atlas system
-    - [X] Create atlas image from textures using a python script.
+  - [x] Implement texture mapping and UV coordinates
+    - [x] Fix grass texture mapping using the grass top for the top, and sides.
+  - [wip] Implement texture atlas system
+    - [x] Create atlas image from textures using a Python script.
     - [ ] Integrate texture atlas into rendering pipeline
   - [ ] Add support for transparency and alpha blending
   - [ ] Add support for skyboxes and clouds 
-  - [ ] Add basic lighting system
-  - [ ] Implement ambient occlusion
+  - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
   - [ ] Add day/night cycle
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
-  - [ ] Add basic shadows
-  - [ ] Create water shader with reflections
-  - [ ] Add support for different render modes (wireframe, solid)
+  - [ ] Create water shader with reflections and refractions
   - [ ] Add support for different camera modes (first person, third person)
-  - [ ] Add support for CRT screen effect, curvature, scanlines, chromatic aberration, and vignette
+  - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
+
 - **Optimization**:
-  - [ ] Implement voxel-like meshes using opengl meshes
-  - [ ] Implement greedy meshing for chunk rendering
-  - [ ] Add level of detail system for distant chunks
+  - [ ] Implement voxel-like meshes using OpenGL meshes
+  - [ ] Implement greedy meshing for chunk rendering to reduce draw calls
+  - [ ] Add level of detail (LOD) system for distant chunks
   - [ ] Optimize memory usage for chunk storage
-  - [ ] Implement multithreaded chunk generation
-  - [ ] Add chunk compression
-  - [ ] Create efficient chunk serialization system
+  - [ ] Implement multithreaded chunk generation for smoother performance
+  - [ ] Add chunk compression to reduce memory footprint
+  - [ ] Create efficient chunk serialization and deserialization system
 
 ### Phase 3: Gameplay Features
 - **World Interaction**:
   - [ ] Add inventory system
   - [ ] Implement crafting system
-  - [ ] Create basic UI system
+  - [ ] Create a basic UI system for inventory and crafting
   - [ ] Add health and hunger mechanics
   - [ ] Implement tool durability
-  - [ ] Add block metadata system
+  - [ ] Add block metadata system for more complex interactions
 
 - **Entity System**:
-  - [ ] Create basic entity framework
-  - [ ] Add passive mobs (animals)
+  - [ ] Create a basic entity framework for mobs and animals
+  - [ ] Add passive mobs (e.g., animals)
   - [ ] Implement hostile mobs
-  - [ ] Add pathfinding system
-  - [ ] Create AI behavior system
-  - [ ] Implement mob spawning mechanics
+  - [ ] Add pathfinding system for mob navigation
+  - [ ] Create AI behavior system for entities
+  - [ ] Implement mob spawning mechanics based on biomes and environment
 
 ### Phase 4: Advanced Features
 - **Multiplayer**:
   - [ ] Implement basic networking architecture
-  - [ ] Add client-server communication
-  - [ ] Create player synchronization
-  - [ ] Implement chunk synchronization
-  - [ ] Add basic chat system
-  - [ ] Create player authentication
+  - [ ] Add client-server communication protocols
+  - [ ] Create player synchronization for multiplayer experiences
+  - [ ] Implement chunk synchronization across clients
+  - [ ] Add a basic chat system for player communication
+  - [ ] Create player authentication and session management
 
 - **World Management**:
-  - [ ] Add world saving/loading
-  - [ ] Implement seed-based world generation
-  - [ ] Create world backup system
-  - [ ] Add world settings and configuration
-  - [ ] Implement world border system
+  - [ ] Add world saving and loading functionality
+  - [ ] Implement seed-based world generation for reproducible worlds
+  - [ ] Create a world backup and recovery system
+  - [ ] Add world settings and configuration options for customization
+  - [ ] Implement a world border system to limit exploration
 
 - **Modding Support**:
-  - [ ] Create basic mod API
-  - [ ] Implement resource pack system
-  - [ ] Add scripting support
-  - [ ] Create mod loading system
-  - [ ] Add configuration API
+  - [ ] Create a basic mod API to allow community extensions
+  - [ ] Implement a resource pack system for custom textures and sounds
+  - [ ] Add scripting support for dynamic content creation
+  - [ ] Create a mod loading and management system
+  - [ ] Add a configuration API for mod settings and options
 
 ### Phase 5: Polish and Extra Features
 - **Audio System**:
-  - [ ] Implement basic sound engine
-  - [ ] Add ambient sounds
-  - [ ] Create music system
-  - [ ] Add positional audio
-  - [ ] Implement sound effects for actions
+  - [ ] Implement a basic sound engine for ambient sounds and effects
+  - [ ] Add ambient sounds corresponding to different biomes and environments
+  - [ ] Create a music system for background tracks
+  - [ ] Add positional audio for immersive experiences
+  - [ ] Implement sound effects for player actions and environmental interactions
 
 - **Visual Effects**:
-  - [ ] Add screen effects (damage, underwater)
-  - [ ] Implement block breaking animation
-  - [ ] Create item pickup animations
-  - [ ] Add status effect visuals
-  - [ ] Implement environmental effects
+  - [ ] Add screen effects such as damage flashes and underwater visuals
+  - [ ] Implement block breaking and placement animations
+  - [ ] Create item pickup and drop animations
+  - [ ] Add status effect visuals for player buffs and debuffs
+  - [ ] Implement environmental effects like fog and dynamic lighting
 
 - **Quality of Life**:
-  - [ ] Add key binding system
-  - [ ] Create settings menu
-  - [ ] Implement performance options
-  - [ ] Add accessibility features
-  - [ ] Create tutorial system
+  - [ ] Add a key binding system for customizable controls
+  - [ ] Create a settings menu for graphics, audio, and control configurations
+  - [ ] Implement performance options to cater to different hardware capabilities
+  - [ ] Add accessibility features such as colorblind modes and adjustable UI sizes
+  - [ ] Create a tutorial system to guide new players through the game mechanics
 
-- **Misc.**:
-  - [ ] Add logging system
-  - [ ] Create documentation
-  - [ ] Add fire bugs mob
-  - [ ] Add Tony Chase as a mob
-    - [ ] Special funny Tony sounds when he gets hit or dies
-  - [ ] Add goblin mob
-  - [ ] Add cupid sponge block
+- **Miscellaneous**:
+  - [ ] Add a comprehensive logging system for debugging and analytics
+  - [ ] Create detailed documentation for developers and users
+  - [ ] Add unique mobs like Fire Bugs with special abilities
+  - [ ] Introduce special characters like Tony Chase as unique mobs
+    - [ ] Implement special funny Tony sounds when he gets hit or dies
+  - [ ] Add additional mobs such as Goblins with distinct behaviors
+  - [ ] Introduce unique blocks like the Cupid Sponge for special interactions
+
+### Phase 6: Testing and Deployment
+- **Testing**:
+  - [ ] Conduct thorough playtesting to identify and fix bugs
+  - [ ] Implement automated testing for critical game systems
+  - [ ] Optimize performance across different hardware configurations
+  - [ ] Gather user feedback to guide further development
+
+- **Deployment**:
+  - [ ] Prepare installation packages for various operating systems
+  - [ ] Set up distribution channels for the game
+  - [ ] Implement update mechanisms for seamless patching
+  - [ ] Launch the game and monitor for post-release issues
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See the LICENSE file for more details.
