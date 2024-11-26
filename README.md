@@ -89,7 +89,7 @@ Execute the compiled binary to start the game.
 Use the ESC key to be able to use the cursor again.
 
 ## Roadmap
-firewall
+
 ### Phase 1: Core Engine Development
 - **Basic Rendering**:
   - [x] Set up OpenGL context and render a simple cube
