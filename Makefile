@@ -59,14 +59,14 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@ >> $(LOG_FILE) 2>&1
 
 copy_assets:
-	$(CREATE_ASSET_DIR)
-	$(COPY_ASSET_DIR)
+	@mkdir -p $(BIN_ASSET_DIR)
+	cp -r $(ASSET_DIR) $(BIN_DIR)/
 ifeq ($(OS),Windows_NT)
 	@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
 endif
 	@echo "Assets copied to: $(BIN_ASSET_DIR)"
 
-run: $(EXECUTABLE)
+run: $(EXECUTABLE) copy_assets
 	@echo "Running $(EXECUTABLE)..."
 	cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
 
