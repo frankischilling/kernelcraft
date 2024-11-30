@@ -11,13 +11,13 @@
 #include <GLFW/glfw3.h>
 
 typedef struct {
-    Vec3 position;
-    Vec3 front;
-    Vec3 up;
-    float yaw;
-    float pitch;
-    float speed;
-    float sensitivity;
+  Vec3 position;
+  Vec3 front;
+  Vec3 up;
+  float yaw;
+  float pitch;
+  float speed;
+  float sensitivity;
 } Camera;
 
 // Function declarations

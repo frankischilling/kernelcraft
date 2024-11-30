@@ -7,23 +7,19 @@
 #ifndef FRUSTUM_H
 #define FRUSTUM_H
 
+#include "../graphics/camera.h"
+#include "../math/math.h"
+#include "../world/block_types.h"
 #include <GL/glew.h>
 #include <stdbool.h>
-#include "../math/math.h"
-#include "../graphics/camera.h"
-#include "../world/block_types.h"
 
 // Frustum structure to hold the six planes
 typedef struct {
-    float planes[6][4];  // Six planes (left, right, top, bottom, near, far), each with ABCD coefficients
+  float planes[6][4]; // Six planes (left, right, top, bottom, near, far), each with ABCD coefficients
 } Frustum;
 
 // Visibility status for blocks
-typedef enum {
-    BLOCK_HIDDEN,
-    BLOCK_VISIBLE,
-    BLOCK_PARTIALLY_VISIBLE
-} BlockVisibility;
+typedef enum { BLOCK_HIDDEN, BLOCK_VISIBLE, BLOCK_PARTIALLY_VISIBLE } BlockVisibility;
 
 // Function declarations
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view);
