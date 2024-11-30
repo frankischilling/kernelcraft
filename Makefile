@@ -30,7 +30,7 @@ else
 	CREATE_ASSET_DIR = @mkdir -p $(BIN_ASSET_DIR)
 	CREATE_SUBDIR = @mkdir -p $(dir $@)
 
-	COPY_ASSET_DIR = cp -r $(ASSET_DIR) $(BIN_ASSET_DIR)/
+	COPY_ASSET_DIR = cp -r $(ASSET_DIR) $(BIN_DIR)/
 
 	CLEAN_OBJ = rm -rf $(OBJ_DIR)
 	CLEAN_BIN = rm -rf $(BIN_DIR)
@@ -40,38 +40,40 @@ endif
 SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
+ASSET_DIR = $(SRC_DIR)/assets
+BIN_ASSET_DIR = $(BIN_DIR)/assets
 LOG_FILE = build.log
 
 SOURCES = $(wildcard $(SRC_DIR)/**/*.c $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
 
-all: copy_assets $(EXECUTABLE)
+all: $(EXECUTABLE) copy_assets
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CREATE_BIN_DIR)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) > $(LOG_FILE) 2>&1
+	@echo "Build completed. Executable: $@"
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CREATE_SUBDIR)
 	$(CC) $(CFLAGS) -c $< -o $@ >> $(LOG_FILE) 2>&1
 
-run: $(EXECUTABLE)
-	$(EXECUTABLE)
-
-ASSET_DIR = $(SRC_DIR)/assets
-BIN_ASSET_DIR = $(BIN_DIR)/assets
-
-
 copy_assets:
 	$(CREATE_ASSET_DIR)
 	$(COPY_ASSET_DIR)
-ifeq ($(OS), Windows_NT)
-		@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
+ifeq ($(OS),Windows_NT)
+	@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
 endif
-	
+	@echo "Assets copied to: $(BIN_ASSET_DIR)"
+
+run: $(EXECUTABLE)
+	@echo "Running $(EXECUTABLE)..."
+	cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
+
 clean:
 	$(CLEAN_OBJ)
 	$(CLEAN_BIN)
 	$(CLEAN_LOG)
+	@echo "Clean completed."
 
-.PHONY: all clean run
+.PHONY: all clean run copy_assetss
