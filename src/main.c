@@ -1,3 +1,9 @@
+
+#include <GL/glew.h>
+#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include "graphics/camera.h"
 #include "graphics/cube.h"
 #include "graphics/shader.h"
@@ -5,11 +11,6 @@
 #include "utils/inputs.h"
 #include "utils/text.h"
 #include "world/world.h"
-#include <GL/freeglut.h>
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <stdbool.h>
-#include <stdio.h>
 
 static double lastTime = 0.0;
 static int frameCount = 0;

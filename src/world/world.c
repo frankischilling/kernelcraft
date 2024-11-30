@@ -6,6 +6,10 @@
  * @date 2024-11-19
  *
  */
+#include <GL/glew.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "world.h"
 #include "../graphics/camera.h"
 #include "../graphics/cube.h"
@@ -14,10 +18,6 @@
 #include "../graphics/texture.h"
 #include "../math/math.h"
 #include "block_types.h"
-#include <GL/glew.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 static GLuint stoneTexture, dirtTexture, grassTopTexture, grassSideTexture;
 
 static Chunk** chunks = NULL;

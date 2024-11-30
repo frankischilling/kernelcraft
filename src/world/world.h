@@ -9,12 +9,12 @@
 #ifndef WORLD_H
 #define WORLD_H
 
+#include <GL/glew.h>
 #include "../graphics/camera.h"
 #include "../graphics/frustum.h"
 #include "../graphics/shader.h"
 #include "../math/math.h"
 #include "block_types.h"
-#include <GL/glew.h>
 
 #define WORLD_SIZE_X 256
 #define WORLD_SIZE_Z 256

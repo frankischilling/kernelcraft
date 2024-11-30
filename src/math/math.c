@@ -7,7 +7,6 @@
  *
  */
 #include "math.h"
-#include <corecrt_math_defines.h>
 #include <math.h>
 
 void vec3_add(Vec3 result, const Vec3 a, const Vec3 b) {

@@ -7,11 +7,11 @@
 #ifndef FRUSTUM_H
 #define FRUSTUM_H
 
+#include <GL/glew.h>
+#include <stdbool.h>
 #include "../graphics/camera.h"
 #include "../math/math.h"
 #include "../world/block_types.h"
-#include <GL/glew.h>
-#include <stdbool.h>
 
 // Frustum structure to hold the six planes
 typedef struct {
