@@ -11,7 +11,6 @@
 
 #include <GL/freeglut.h>
 
-void renderText2D(float x, float y, const char* text);
-void renderFPS(float fps);
-void renderBuildInfo(GLuint shaderProgram);
-#endif 
+void renderText(GLuint shaderProgram, const char* text, float x, float y);
+
+#endif

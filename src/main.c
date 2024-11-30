@@ -1,4 +1,3 @@
-
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <GLFW/glfw3.h>
@@ -11,6 +10,10 @@
 #include "utils/inputs.h"
 #include "utils/text.h"
 #include "world/world.h"
+#include "graphics/hud.h"
+
+#define BUILD_VERSION "v0.0.3-alpha"
+#define BUILD_NAME "kernelcraft"
 
 static double lastTime = 0.0;
 static int frameCount = 0;
@@ -71,6 +74,7 @@ int main() {
   initWorld();
   initCube();
   initChunks();
+  HUDInit(BUILD_NAME, BUILD_VERSION);
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glfwSetCursorPosCallback(window, mouseCallback);
@@ -115,18 +119,7 @@ int main() {
     renderChunks(shaderProgram, &camera);
     renderWorld(shaderProgram, &camera);
 
-    const char* biomeText = getCurrentBiomeText(camera.position[0], camera.position[2]);
-    renderText(shaderProgram, biomeText, 10.0f, 580.0f);
-
-    char fpsText[32];
-    snprintf(fpsText, sizeof(fpsText), "FPS: %.1f", fps);
-    renderText(shaderProgram, fpsText, -10.0f, 580.0f);
-
-    char debugText[64];
-    snprintf(debugText, sizeof(debugText), "Visible Cubes: %d", getVisibleCubesCount());
-    renderText(shaderProgram, debugText, 10.0f, 560.0f);
-
-    renderBuildInfo(shaderProgram);
+    HUDDraw(shaderProgram, &camera, fps);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

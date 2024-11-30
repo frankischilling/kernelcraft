@@ -1,11 +1,11 @@
 CC = gcc
 
 ifeq ($(OS),Windows_NT)
-	VCPKG_DIR = C:/Progs/vcpkg/installed/x64-windows
+	LIBRARY_DIR = C:/Progs/vcpkg/installed/x64-windows
 	WIN_KITS_DIR = C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0
 
-	CFLAGS = -Wall -I./src -I"$(VCPKG_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
-	LDFLAGS = -L"$(VCPKG_DIR)/lib" -lopengl32 -lglfw3dll -lglew32 -lm -lfreeglut
+	CFLAGS = -Wall -I./src -I"$(LIBRARY_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
+	LDFLAGS = -L"$(LIBRARY_DIR)/lib" -lopengl32 -lglfw3dll -lglew32 -lm -lfreeglut
 
 	EXECUTABLE = $(BIN_DIR)/minecraft_clone.exe
 
@@ -66,7 +66,7 @@ copy_assets:
 	$(CREATE_ASSET_DIR)
 	$(COPY_ASSET_DIR)
 ifeq ($(OS), Windows_NT)
-		@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(VCPKG_DIR)\bin\%%i" "$(BIN_DIR)\"
+		@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
 endif
 	
 clean:

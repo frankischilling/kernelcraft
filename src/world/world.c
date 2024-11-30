@@ -443,13 +443,6 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
   }
 
   glBindVertexArray(0);
-
-  int currentChunkX = (int)floor(camera->position[0] / (CHUNK_SIZE_X * CUBE_SIZE));
-  int currentChunkZ = (int)floor(camera->position[2] / (CHUNK_SIZE_Z * CUBE_SIZE));
-
-  char chunkText[64];
-  snprintf(chunkText, sizeof(chunkText), "Current Chunk: X:%d Z:%d", currentChunkX, currentChunkZ);
-  renderText(shaderProgram, chunkText, 10.0f, 540.0f);
 }
 
 void cleanupWorld() {

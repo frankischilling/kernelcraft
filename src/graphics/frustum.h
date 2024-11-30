@@ -19,7 +19,11 @@ typedef struct {
 } Frustum;
 
 // Visibility status for blocks
-typedef enum { BLOCK_HIDDEN, BLOCK_VISIBLE, BLOCK_PARTIALLY_VISIBLE } BlockVisibility;
+typedef enum {
+  BLOCK_HIDDEN,
+  BLOCK_VISIBLE,
+  BLOCK_PARTIALLY_VISIBLE,
+} BlockVisibility;
 
 // Function declarations
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view);
