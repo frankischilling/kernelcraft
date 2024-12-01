@@ -41,17 +41,17 @@ void initChunks() {
       Chunk* chunk = (Chunk*)malloc(sizeof(Chunk));
 
       // Calculate chunk position in world coordinates
-      chunk->position[0] = (x - chunkCountX / 2) * CHUNK_SIZE_X * CUBE_SIZE;
-      chunk->position[1] = 0;
-      chunk->position[2] = (z - chunkCountZ / 2) * CHUNK_SIZE_Z * CUBE_SIZE;
+      chunk->position.x = (x - chunkCountX / 2) * CHUNK_SIZE_X * CUBE_SIZE;
+      chunk->position.y = 0;
+      chunk->position.z = (z - chunkCountZ / 2) * CHUNK_SIZE_Z * CUBE_SIZE;
 
       // Populate chunk with block data
       for (int i = 0; i < CHUNK_SIZE_X; i++) {
         for (int j = 0; j < CHUNK_SIZE_Y; j++) {
           for (int k = 0; k < CHUNK_SIZE_Z; k++) {
             // Calculate actual world coordinates for height generation
-            float worldX = chunk->position[0] + i * CUBE_SIZE;
-            float worldZ = chunk->position[2] + k * CUBE_SIZE;
+            float worldX = chunk->position.x + i * CUBE_SIZE;
+            float worldZ = chunk->position.z + k * CUBE_SIZE;
             float height = floor(getTerrainHeight(worldX, worldZ));
 
             // Ensure height is within chunk bounds
@@ -132,8 +132,8 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
   // Calculate view and projection matrices
   Mat4 view, projection;
   Vec3 target;
-  vec3_add(target, camera->position, camera->front);
-  mat4_lookAt(view, camera->position, target, camera->up);
+  vec3_add(&target, &camera->position, &camera->front);
+  mat4_lookAt(view, &camera->position, &target, &camera->up);
   mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
 
   // Set matrices in shader
@@ -160,8 +160,8 @@ void renderChunks(GLuint shaderProgram, const Camera* camera) {
 
   // Set up view matrix
   Vec3 target;
-  vec3_add(target, camera->position, camera->front);
-  mat4_lookAt(view, camera->position, target, camera->up);
+  vec3_add(&target, &camera->position, &camera->front);
+  mat4_lookAt(view, &camera->position, &target, &camera->up);
 
   // Update frustum
   frustum_update(&frustum, projection, view);
@@ -171,8 +171,8 @@ void renderChunks(GLuint shaderProgram, const Camera* camera) {
   glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
 
   // Calculate current chunk position of camera
-  int camChunkX = (int)floor(camera->position[0] / (CHUNK_SIZE_X * CUBE_SIZE));
-  int camChunkZ = (int)floor(camera->position[2] / (CHUNK_SIZE_Z * CUBE_SIZE));
+  int camChunkX = (int)floor(camera->position.x / (CHUNK_SIZE_X * CUBE_SIZE));
+  int camChunkZ = (int)floor(camera->position.z / (CHUNK_SIZE_Z * CUBE_SIZE));
 
   // Define render distance in chunks
   const int CHUNK_RENDER_DISTANCE = 8;
@@ -185,18 +185,18 @@ void renderChunks(GLuint shaderProgram, const Camera* camera) {
       // Add alternating color pattern for chunks
       Vec3 chunkColor;
       if ((x + z) % 2 == 0) {
-        chunkColor[0] = 1.0f; // More reddish
-        chunkColor[1] = 0.8f;
-        chunkColor[2] = 0.8f;
+        chunkColor.x = 1.0f; // More reddish
+        chunkColor.y = 0.8f;
+        chunkColor.z = 0.8f;
       } else {
-        chunkColor[0] = 0.8f; // More bluish
-        chunkColor[1] = 0.8f;
-        chunkColor[2] = 1.0f;
+        chunkColor.x = 0.8f; // More bluish
+        chunkColor.y = 0.8f;
+        chunkColor.z = 1.0f;
       }
 
       // Check if the chunk is in the view frustum
       BlockVisibility visibility =
-          frustum_check_cube(&frustum, chunk->position[0] + CHUNK_SIZE_X * 0.5f, CHUNK_SIZE_Y * 0.5f, chunk->position[2] + CHUNK_SIZE_Z * 0.5f, CHUNK_SIZE_X * CUBE_SIZE, camera);
+          frustum_check_cube(&frustum, chunk->position.x + CHUNK_SIZE_X * 0.5f, CHUNK_SIZE_Y * 0.5f, chunk->position.z + CHUNK_SIZE_Z * 0.5f, CHUNK_SIZE_X * CUBE_SIZE, camera);
 
       if (visibility == BLOCK_HIDDEN) {
         continue;
@@ -212,18 +212,18 @@ void renderChunks(GLuint shaderProgram, const Camera* camera) {
 
             // Blend block color with chunk color
             Vec3 finalColor;
-            finalColor[0] = blockColors[block][0] * chunkColor[0];
-            finalColor[1] = blockColors[block][1] * chunkColor[1];
-            finalColor[2] = blockColors[block][2] * chunkColor[2];
+            finalColor.x = blockColors[block].x * chunkColor.x;
+            finalColor.y = blockColors[block].y * chunkColor.y;
+            finalColor.z = blockColors[block].z * chunkColor.z;
 
             Mat4 model;
             mat4_identity(model);
-            model[12] = chunk->position[0] + i * CUBE_SIZE;
+            model[12] = chunk->position.x + i * CUBE_SIZE;
             model[13] = j * CUBE_SIZE;
-            model[14] = chunk->position[2] + k * CUBE_SIZE;
+            model[14] = chunk->position.z + k * CUBE_SIZE;
 
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, finalColor);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, (float*)&finalColor); 
 
             renderCube();
           }
@@ -356,8 +356,8 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
   mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
 
   Vec3 target;
-  vec3_add(target, camera->position, camera->front);
-  mat4_lookAt(view, camera->position, target, camera->up);
+  vec3_add(&target, &camera->position, &camera->front);
+  mat4_lookAt(view, &camera->position, &target, &camera->up);
 
   frustum_update(&frustum, projection, view);
 
@@ -365,9 +365,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
   Vec3 lightPos = {5.0f, 30.0f, 5.0f};
   Vec3 lightColor = {1.0f, 1.0f, 1.0f};
 
-  glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
-  glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, lightColor);
-  glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, camera->position);
+  glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, (float*)&lightPos); 
+  glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, (float*)&lightColor); 
+  glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, (float*)&camera->position); 
 
   glBindVertexArray(VAO);
 
@@ -379,8 +379,8 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
       float xPos = (x - WORLD_SIZE_X / 2) * CUBE_SIZE;
       float zPos = (z - WORLD_SIZE_Z / 2) * CUBE_SIZE;
 
-      float dx = xPos - camera->position[0];
-      float dz = zPos - camera->position[2];
+      float dx = xPos - camera->position.x;
+      float dz = zPos - camera->position.z;
       float distSq = dx * dx + dz * dz;
 
       if (distSq > RENDER_DISTANCE_SQ) {

@@ -107,8 +107,8 @@ int main() {
     Mat4 model, view, projection;
     mat4_identity(model);
     Vec3 target;
-    vec3_add(target, camera.position, camera.front);
-    mat4_lookAt(view, camera.position, target, camera.up);
+    vec3_add(&target, &camera.position, &camera.front);
+    mat4_lookAt(view, &camera.position, &target, &camera.up);
     mat4_perspective(projection, 45.0f, 1920.0f / 1080.0f, 0.1f, 100.0f);
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);

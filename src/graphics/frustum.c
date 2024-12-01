@@ -94,32 +94,32 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
 bool is_face_visible(float x, float y, float z, int face, const Camera* camera) {
   Vec3 blockCenter = {x, y, z};
   Vec3 toCam;
-  vec3_subtract(toCam, camera->position, blockCenter);
-  vec3_normalize(toCam, toCam);
+  vec3_subtract(&toCam, &camera->position, &blockCenter);
+  vec3_normalize(&toCam, &toCam);
 
   Vec3 faceNormal = {0.0f, 0.0f, 0.0f};
   switch (face) {
   case 0:
-    faceNormal[0] = 1.0f;
+    faceNormal.x = 1.0f;
     break; // Right face
   case 1:
-    faceNormal[0] = -1.0f;
+    faceNormal.x = -1.0f;
     break; // Left face
   case 2:
-    faceNormal[1] = 1.0f;
+    faceNormal.y = 1.0f;
     break; // Top face
   case 3:
-    faceNormal[1] = -1.0f;
+    faceNormal.y = -1.0f;
     break; // Bottom face
   case 4:
-    faceNormal[2] = 1.0f;
+    faceNormal.z = 1.0f;
     break; // Front face
   case 5:
-    faceNormal[2] = -1.0f;
+    faceNormal.z = -1.0f;
     break; // Back face
   }
 
-  return vec3_dot(toCam, faceNormal) > 0.0f;
+  return vec3_dot(&toCam, &faceNormal) > 0.0f;
 }
 
 bool is_block_occluded(float x, float y, float z, float size, const Camera* camera) {
@@ -143,9 +143,9 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
   };
 
   for (int i = 0; i < 6; i++) {
-    float checkX = x + faceOffsets[i][0];
-    float checkY = y + faceOffsets[i][1];
-    float checkZ = z + faceOffsets[i][2];
+    float checkX = x + faceOffsets[i].x;
+    float checkY = y + faceOffsets[i].y;
+    float checkZ = z + faceOffsets[i].z;
 
     BlockType neighbor = getBlockType(checkX, checkY, checkZ);
     if (neighbor == BLOCK_AIR) {
@@ -155,9 +155,9 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
   }
 
   // If we're very close to the block, don't cull it
-  float dx = camera->position[0] - x;
-  float dy = camera->position[1] - y;
-  float dz = camera->position[2] - z;
+  float dx = camera->position.x - x;
+  float dy = camera->position.y - y;
+  float dz = camera->position.z - z;
   float distSq = dx * dx + dy * dy + dz * dz;
   if (distSq < size * size * 4.0f) { // Adjust this value as needed
     return false;
@@ -168,9 +168,9 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
 
 BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size, const Camera* camera) {
   // First check distance to camera for depth-based culling
-  float dx = x - camera->position[0];
-  float dy = y - camera->position[1];
-  float dz = z - camera->position[2];
+  float dx = x - camera->position.x;
+  float dy = y - camera->position.y;
+  float dz = z - camera->position.z;
   float distSq = dx * dx + dy * dy + dz * dz;
 
   // If the block is too far, consider it hidden

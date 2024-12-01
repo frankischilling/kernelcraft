@@ -9,39 +9,39 @@
 #include "math.h"
 #include <math.h>
 
-void vec3_add(Vec3 result, const Vec3 a, const Vec3 b) {
-  result[0] = a[0] + b[0];
-  result[1] = a[1] + b[1];
-  result[2] = a[2] + b[2];
+void vec3_add(Vec3* result, const Vec3* a, const Vec3* b) {
+  result->x = a->x + b->x;
+  result->y = a->y + b->y;
+  result->z = a->z + b->z;
 }
 
-void vec3_subtract(Vec3 result, const Vec3 a, const Vec3 b) {
-  result[0] = a[0] - b[0];
-  result[1] = a[1] - b[1];
-  result[2] = a[2] - b[2];
+void vec3_subtract(Vec3* result, const Vec3* a, const Vec3* b) {
+  result->x = a->x - b->x;
+  result->y = a->y - b->y;
+  result->z = a->z - b->z;
 }
 
-void vec3_scale(Vec3 result, const Vec3 v, float scale) {
-  result[0] = v[0] * scale;
-  result[1] = v[1] * scale;
-  result[2] = v[2] * scale;
+void vec3_scale(Vec3* result, const Vec3* v, float scale) {
+  result->x = v->x * scale;
+  result->y = v->y * scale;
+  result->z = v->z * scale;
 }
 
-void vec3_normalize(Vec3 result, const Vec3 v) {
-  float length = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-  result[0] = v[0] / length;
-  result[1] = v[1] / length;
-  result[2] = v[2] / length;
+void vec3_normalize(Vec3* result, const Vec3* v) {
+  float length = sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
+  result->x = v->x / length;
+  result->y = v->y / length;
+  result->z = v->z / length;
 }
 
-void vec3_cross(Vec3 result, const Vec3 a, const Vec3 b) {
-  result[0] = a[1] * b[2] - a[2] * b[1];
-  result[1] = a[2] * b[0] - a[0] * b[2];
-  result[2] = a[0] * b[1] - a[1] * b[0];
+void vec3_cross(Vec3* result, const Vec3* a, const Vec3* b) {
+  result->x = a->y * b->z - a->z * b->y;
+  result->y = a->z * b->x - a->x * b->z;
+  result->z = a->x * b->y - a->y * b->x;
 }
 
-float vec3_dot(const Vec3 a, const Vec3 b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+float vec3_dot(const Vec3* a, const Vec3* b) {
+  return a->x * b->x + a->y * b->y + a->z * b->z;
 }
 
 float toRadians(float degrees) {
@@ -76,6 +76,41 @@ void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float f
   result[13] = 0.0f;
   result[14] = -(2.0f * far * near) / (far - near);
   result[15] = 0.0f;
+}
+
+void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* up) {
+  Vec3 f, s, u, temp;
+
+  // Calculate forward vector
+  vec3_subtract(&temp, center, eye);
+  vec3_normalize(&f, &temp);
+
+  // Calculate side vector
+  vec3_cross(&temp, &f, up);
+  vec3_normalize(&s, &temp);
+
+  // Calculate up vector
+  vec3_cross(&u, &s, &f);
+
+  result[0] = s.x;
+  result[1] = u.x;
+  result[2] = -f.x;
+  result[3] = 0.0f;
+
+  result[4] = s.y;
+  result[5] = u.y;
+  result[6] = -f.y;
+  result[7] = 0.0f;
+
+  result[8] = s.z;
+  result[9] = u.z;
+  result[10] = -f.z;
+  result[11] = 0.0f;
+
+  result[12] = -vec3_dot(&s, eye);
+  result[13] = -vec3_dot(&u, eye);
+  result[14] = vec3_dot(&f, eye);
+  result[15] = 1.0f;
 }
 
 static const int permutation[256] = {

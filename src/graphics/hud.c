@@ -31,7 +31,7 @@ void HUDDraw(GLuint shaderProgram, Camera* camera, float fps) {
   EntryDraw(shaderProgram, &entryBuildInfo);
   Ray cast = rayCast(camera);
   if (cast.hit) {
-    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%.1f Y:%.1f Z:%.1f", cast.coords[0], cast.coords[1], cast.coords[2]);
+    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%.1f Y:%.1f Z:%.1f", cast.coords.x, cast.coords.z, cast.coords.y);
     EntryDraw(shaderProgram, &entryLookingAtBlockCoords);
   }
 
@@ -53,12 +53,12 @@ static void EntryDraw(GLuint shaderProgram, DebugEntry* entry) {
 }
 static void UpdateEntries(Camera* camera, float fps) {
   snprintf(entryFPS.text, sizeof(entryFPS.text), "FPS: %.1f", fps);
-  snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(camera->position[0], camera->position[2]));
+  snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(camera->position.x, camera->position.z));
   snprintf(entryCubeCount.text, sizeof(entryCubeCount.text), "Visible Cubes: %d", getVisibleCubesCount());
 
-  snprintf(entryWorldCoords.text, sizeof(entryWorldCoords.text), "World coordinates: X:%.1f Z:%.1f", camera->position[0], camera->position[2]);
-  int currentChunkX = (int)floor(camera->position[0] / (CHUNK_SIZE_X * CUBE_SIZE));
-  int currentChunkZ = (int)floor(camera->position[2] / (CHUNK_SIZE_Z * CUBE_SIZE));
+  snprintf(entryWorldCoords.text, sizeof(entryWorldCoords.text), "World coordinates: X:%.1f Y:%.1f Z:%.1f", camera->position.x, camera->position.y, camera->position.z);
+  int currentChunkX = (int)floor(camera->position.x / (CHUNK_SIZE_X * CUBE_SIZE));
+  int currentChunkZ = (int)floor(camera->position.z / (CHUNK_SIZE_Z * CUBE_SIZE));
   snprintf(entryChunkCoords.text, sizeof(entryChunkCoords.text), "Chunk coordinates: X:%d Z:%d", currentChunkX, currentChunkZ);
 }
 void HUDInit(char* buildName, char* buildVersion) {
