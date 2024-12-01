@@ -9,6 +9,7 @@
 #include "hud.h"
 #include "../utils/text.h"
 #include "../world/world.h"
+#include "../utils/raycast.h"
 static float currentEntryIndex;
 static DebugEntry entryBiome;
 static DebugEntry entryFPS;
@@ -16,6 +17,7 @@ static DebugEntry entryCubeCount;
 static DebugEntry entryBuildInfo;
 static DebugEntry entryWorldCoords;
 static DebugEntry entryChunkCoords;
+static DebugEntry entryLookingAtBlockCoords;
 
 void HUDDraw(GLuint shaderProgram, Camera* camera, float fps) {
   UpdateEntries(camera, fps);
@@ -27,6 +29,11 @@ void HUDDraw(GLuint shaderProgram, Camera* camera, float fps) {
   EntryDraw(shaderProgram, &entryCubeCount);
   EntryDraw(shaderProgram, &entryFPS);
   EntryDraw(shaderProgram, &entryBuildInfo);
+  Ray cast = rayCast(camera);
+  if (cast.hit) {
+    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%.1f Y:%.1f Z:%.1f", cast.coords[0], cast.coords[1], cast.coords[2]);
+    EntryDraw(shaderProgram, &entryLookingAtBlockCoords);
+  }
 
   DrawCrosshair(shaderProgram);
 }

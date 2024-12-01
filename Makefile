@@ -10,16 +10,11 @@ ifeq ($(OS),Windows_NT)
 	EXECUTABLE = $(BIN_DIR)/minecraft_clone.exe
 
 	CREATE_BIN_DIR = @if not exist "$(BIN_DIR)" mkdir "$(BIN_DIR)"
-	CREATE_ASSET_DIR = @if not exist "$(BIN_ASSET_DIR)" mkdir "$(BIN_ASSET_DIR)"
 	CREATE_SUBDIR = @if not exist "$(dir $@)" mkdir "$(dir $@)"
 
-	COPY_ASSET_DIR = @xcopy /E /I /Y "$(ASSET_DIR)" "$(BIN_ASSET_DIR)\"
+	COPY_ASSET_DIR = @xcopy "$(SRC_DIR)\assets" "$(BIN_DIR)\assets\" /E /I /Q
 
 	DLLS_TO_COPY = freeglut.dll glew32.dll glfw3.dll
-
-	CLEAN_OBJ = rmdir /s /q $(OBJ_DIR)
-	CLEAN_BIN = rmdir /s /q $(BIN_DIR)
-	CLEAN_LOG = del /q $(LOG_FILE)
 else
 	CFLAGS = -Wall -I./src
 	LDFLAGS = -lGL -lglfw -lGLEW -lm -lglut
@@ -27,14 +22,10 @@ else
 	EXECUTABLE = $(BIN_DIR)/minecraft_clone
 
 	CREATE_BIN_DIR = @mkdir -p $(BIN_DIR)
-	CREATE_ASSET_DIR = @mkdir -p $(BIN_ASSET_DIR)
 	CREATE_SUBDIR = @mkdir -p $(dir $@)
 
-	COPY_ASSET_DIR = cp -r $(ASSET_DIR) $(BIN_DIR)/
+	COPY_ASSET_DIR = @cp -r $(ASSET_DIR)/ $(BIN_DIR)/
 
-	CLEAN_OBJ = rm -rf $(OBJ_DIR)
-	CLEAN_BIN = rm -rf $(BIN_DIR)
-	CLEAN_LOG = rm -f $(LOG_FILE)
 endif
 
 SRC_DIR = src
@@ -53,14 +44,12 @@ $(EXECUTABLE): $(OBJECTS)
 	$(CREATE_BIN_DIR)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) > $(LOG_FILE) 2>&1
 	@echo "Build completed. Executable: $@"
-
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CREATE_SUBDIR)
 	$(CC) $(CFLAGS) -c $< -o $@ >> $(LOG_FILE) 2>&1
 
 copy_assets:
-	@mkdir -p $(BIN_ASSET_DIR)
-	cp -r $(ASSET_DIR) $(BIN_DIR)/
+	$(COPY_ASSET_DIR)
 ifeq ($(OS),Windows_NT)
 	@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
 endif
@@ -68,12 +57,22 @@ endif
 
 run: $(EXECUTABLE) copy_assets
 	@echo "Running $(EXECUTABLE)..."
-	cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
+ifeq ($(OS),Windows_NT)
+	@cd $(BIN_DIR) && $(notdir $(EXECUTABLE))
+else
+	@cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
+endif
 
 clean:
-	$(CLEAN_OBJ)
-	$(CLEAN_BIN)
-	$(CLEAN_LOG)
+ifeq ($(OS),Windows_NT)
+	@if exist $(OBJ_DIR) rmdir /s /q $(OBJ_DIR)
+	@if exist $(BIN_DIR) rmdir /s /q $(BIN_DIR)
+	@if exist $(LOG_FILE) del /q $(LOG_FILE)
+else
+	@rm -rf $(OBJ_DIR)
+	@rm -rf $(BIN_DIR)
+	@rm -f $(LOG_FILE)
+endif
 	@echo "Clean completed."
 
-.PHONY: all clean run copy_assetss
+.PHONY: all clean run copy_assets

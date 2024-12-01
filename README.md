@@ -25,9 +25,11 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 - **src/**: Contains the source code for the project.
   - **main.c**: The entry point of the application. It initializes the OpenGL context and handles the main rendering loop.
+  - **assets/**: Contains assets like shaders and textures.
   - **graphics/**: Contains rendering-related code.
     - **cube.c**: Handles the creation and rendering of cube objects.
     - **camera.c**: Manages camera movement and orientation.
+    - **hud.c**: Provides a basic hud and debug management system.
     - **shader.c**: Handles shader loading and compilation.
     - **frustum.c**: Implements frustum culling for optimization.
     - **texture.c**: Implements texture loading and binding.
@@ -38,6 +40,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
+    - **raycast.c**: Simple raycasting utility.
 
 ## Features
 

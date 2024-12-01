@@ -207,5 +207,5 @@ BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, flo
     return BLOCK_HIDDEN;
   }
 
-  return BLOCK_PARTIALLY_VISIBLE;
+  return BLOCK_VISIBLE;
 }

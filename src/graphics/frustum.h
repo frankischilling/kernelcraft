@@ -22,7 +22,6 @@ typedef struct {
 typedef enum {
   BLOCK_HIDDEN,
   BLOCK_VISIBLE,
-  BLOCK_PARTIALLY_VISIBLE,
 } BlockVisibility;
 
 // Function declarations
