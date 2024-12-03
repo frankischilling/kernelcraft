@@ -156,91 +156,6 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
   glBindVertexArray(0);
 }
 
-void renderChunks(GLuint shaderProgram, const Camera* camera) {
-  // Create and update frustum
-  Frustum frustum;
-  Mat4 projection, view;
-
-  // Set up projection matrix
-  mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
-
-  // Set up view matrix
-  Vec3 target;
-  vec3_add(&target, &camera->position, &camera->front);
-  mat4_lookAt(view, &camera->position, &target, &camera->up);
-
-  // Update frustum
-  frustum_update(&frustum, projection, view);
-
-  // Update projection and view uniforms
-  glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
-  glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
-
-  // Calculate current chunk position of camera
-  // int camChunkX = (int)floor(camera->position.x / (CHUNK_SIZE * CUBE_SIZE)); UNUSED
-  // int camChunkZ = (int)floor(camera->position.z / (CHUNK_SIZE * CUBE_SIZE)); UNUSED
-
-  // Define render distance in chunks
-  const int CHUNK_RENDER_DISTANCE = 8;
-
-  // Second pass: Render the actual chunks with frustum culling
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
-      Chunk* chunk = chunks[x][z];
-
-      // Add alternating color pattern for chunks
-      Vec3 chunkColor;
-      if ((x + z) % 2 == 0) {
-        chunkColor.x = 1.0f; // More reddish
-        chunkColor.y = 0.8f;
-        chunkColor.z = 0.8f;
-      } else {
-        chunkColor.x = 0.8f; // More bluish
-        chunkColor.y = 0.8f;
-        chunkColor.z = 1.0f;
-      }
-
-      // Check if the chunk is in the view frustum
-      Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
-      Vec3 chunkCenter = getChunkCenter(&chunk->position);
-
-      BlockVisibility visibility = frustum_check_cube(&frustum, &chunkCenter, CHUNK_SIZE * CUBE_SIZE, camera);
-
-      if (visibility == BLOCK_HIDDEN) {
-        continue;
-      }
-
-      // Render each block in the chunk
-      for (int i = 0; i < CHUNK_SIZE; i++) {
-        for (int j = 0; j < CHUNK_HEIGHT; j++) {
-          for (int k = 0; k < CHUNK_SIZE; k++) {
-            Block block = chunk->blocks[i][j][k];
-            if (block.id == BLOCK_AIR)
-              continue;
-
-            // Blend block color with chunk color
-            Vec3 finalColor;
-            finalColor.x = blockColors[block.id].x * chunkColor.x;
-            finalColor.y = blockColors[block.id].y * chunkColor.y;
-            finalColor.z = blockColors[block.id].z * chunkColor.z;
-
-            Mat4 model;
-            mat4_identity(model);
-            model[12] = chunkWorldCoords.x + i * CUBE_SIZE;
-            model[13] = j * CUBE_SIZE;
-            model[14] = chunkWorldCoords.y + k * CUBE_SIZE;
-
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, (float*)&finalColor);
-
-            renderCube();
-          }
-        }
-      }
-    }
-  }
-}
-
 void cleanupChunks() {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -380,11 +295,21 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
   glBindVertexArray(VAO);
 
-  const float RENDER_DISTANCE = 64.0f;
-  const float RENDER_DISTANCE_SQ = RENDER_DISTANCE * RENDER_DISTANCE;
+  const float RENDER_DISTANCE = 6.0f;
+
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       Chunk* chunk = chunks[x][z];
+
+      // check if chunk out of render distance
+      Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
+      Vec3 chunkCenter = getChunkCenter(&chunk->position);
+      Vec2i cameraXZ = {camera->position.x, camera->position.z};
+      Vec2i chunkXZ = {chunkCenter.x, chunkCenter.z};
+
+      if (vec2i_distance(&cameraXZ, &chunkXZ) > CHUNK_SIZE * RENDER_DISTANCE / 2) {
+        continue;
+      }
 
       // Add alternating color pattern for chunks
       Vec3 chunkColor;
@@ -399,35 +324,34 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
       }
 
       // Check if the chunk is in the view frustum
-      Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
-      Vec3 chunkCenter = getChunkCenter(&chunk->position);
-
-      BlockVisibility visibility = frustum_check_cube(&frustum, &chunkCenter, CHUNK_SIZE * CUBE_SIZE, camera);
-
-      if (visibility == BLOCK_HIDDEN) {
-        // continue; // DISABLEDFURSTUM
-      }
 
       // Render each block in the chunk
       for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_HEIGHT; j++) {
           for (int k = 0; k < CHUNK_SIZE; k++) {
-            Vec3 pos = {i, j, k};
-            Block block = chunk->blocks[i][j][k];
-            if (block.id == BLOCK_AIR)
+            Block* block = &chunk->blocks[i][j][k];
+            if (block->id == BLOCK_AIR) {
               continue;
+            }
+            Vec3i pos = {chunkWorldCoords.x + i * CUBE_SIZE, j * CUBE_SIZE, chunkWorldCoords.z + k * CUBE_SIZE};
+            // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d type:%d\n", i, j, k, x, z, pos.x, pos.y, pos.z, block->id);
+            bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
 
+            if (occluded == true) {
+              continue;
+            }
+            visibleCubes++;
             // Blend block color with chunk color
             Vec3 finalColor;
-            finalColor.x = blockColors[block.id].x * chunkColor.x;
-            finalColor.y = blockColors[block.id].y * chunkColor.y;
-            finalColor.z = blockColors[block.id].z * chunkColor.z;
+            finalColor.x = blockColors[block->id].x * chunkColor.x;
+            finalColor.y = blockColors[block->id].y * chunkColor.y;
+            finalColor.z = blockColors[block->id].z * chunkColor.z;
 
             Mat4 model;
             mat4_identity(model);
-            model[12] = chunkWorldCoords.x + i * CUBE_SIZE;
-            model[13] = j * CUBE_SIZE;
-            model[14] = chunkWorldCoords.z + k * CUBE_SIZE;
+            model[12] = (float)pos.x;
+            model[13] = (float)pos.y;
+            model[14] = (float)pos.z;
 
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
 
@@ -438,11 +362,11 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             // Bind the appropriate texture for each face
             for (int face = 0; face < 6; face++) {
-              if (block.id == BLOCK_STONE) {
+              if (block->id == BLOCK_STONE) {
                 glBindTexture(GL_TEXTURE_2D, stoneTexture);
-              } else if (block.id == BLOCK_DIRT) {
+              } else if (block->id == BLOCK_DIRT) {
                 glBindTexture(GL_TEXTURE_2D, dirtTexture);
-              } else if (block.id == BLOCK_GRASS) {
+              } else if (block->id == BLOCK_GRASS) {
                 if (face == 2) { // Top face
                   glBindTexture(GL_TEXTURE_2D, grassTopTexture);
                 } else if (face == 3) { // Bottom face
@@ -487,28 +411,32 @@ int getVisibleCubesCount() {
   return visibleCubes;
 }
 
-Block* getBlock(Vec3* pos) {
+Vec3i getPositionOnGrid(const Vec3* pos) {
+  return (Vec3i){(int)pos->x, (int)pos->y, (int)pos->z};
+}
+
+Block* getBlock(Vec3i* pos) {
   // Convert world coordinates to chunk coordinates
-  int chunkX = (int)pos->x / CHUNK_SIZE;
-  int chunkZ = (int)pos->z / CHUNK_SIZE;
+  int chunkX = floorf(pos->x / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
+  int chunkZ = floorf(pos->z / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
   // Get local coordinates within the chunk
-  int localX = (int)(((int)pos->x % CHUNK_SIZE) / CUBE_SIZE);
-  int localZ = (int)(((int)pos->z % CHUNK_SIZE) / CUBE_SIZE);
+  int localX = (int)((pos->x % CHUNK_SIZE) / CUBE_SIZE);
+  int localZ = (int)((pos->z % CHUNK_SIZE) / CUBE_SIZE);
   if (localX < 0)
     localX += CHUNK_SIZE;
   if (localZ < 0)
     localZ += CHUNK_SIZE;
 
+  if (localX < 0 || localX > 15 || pos->y < 0 || localZ < 0 || localZ > 15) {
+    printf(" OUT OF BOUNDS p: %d, %d, %d chunk: %d,%d\n", localX, pos->y, localZ, chunkX, chunkZ);
+  }
   // Get the chunk
   Chunk* chunk = getChunk(chunkX, chunkZ);
   if (!chunk) {
+    printf("NULL CHUNK WHEN p: %d, %d, %d chunk: %d,%d\n", pos->x, pos->y, pos->z, chunkX, chunkZ);
     return NULL;
   }
-  return &chunk->blocks[(int)pos->x][(int)pos->y][(int)pos->z];
-}
-BlockID getBlockType(Vec3* coords) {
-  Block* block = getBlock(coords);
-  if (!block)
-    return BLOCK_AIR;
-  return block->id;
+  // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d \n", localX, pos->y, localZ, chunkX, chunkZ, pos->x, pos->y, pos->z);
+
+  return &chunk->blocks[localX][pos->y][localZ];
 }

@@ -13,10 +13,10 @@
 
 // Block types
 typedef enum {
-  BLOCK_AIR,
-  BLOCK_GRASS,
-  BLOCK_DIRT,
-  BLOCK_STONE,
+  BLOCK_AIR = 0,
+  BLOCK_GRASS = 1,
+  BLOCK_DIRT = 2,
+  BLOCK_STONE = 3,
 } BlockID;
 
 // block struct

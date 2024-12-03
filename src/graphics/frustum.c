@@ -7,9 +7,9 @@
 #include "frustum.h"
 #include "../math/math.h"
 #include "../world/block.h"
-#include "../world/world.h" // For getBlockType function
+#include "../world/world.h" // For getBlock function
 #include <math.h>
-
+#include <stdio.h>
 static void normalize_plane(float plane[4]) {
   float magnitude = sqrtf(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
   if (magnitude != 0.0f) {
@@ -92,9 +92,8 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
 }
 
 bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
-  Vec3 blockCenter = *pos;
   Vec3 toCam;
-  vec3_subtract(&toCam, &camera->position, &blockCenter);
+  vec3_subtract(&toCam, &camera->position, pos);
   vec3_normalize(&toCam, &toCam);
 
   Vec3 faceNormal = VEC3_ZERO;
@@ -122,10 +121,12 @@ bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
   return vec3_dot(&toCam, &faceNormal) > 0.0f;
 }
 
-bool is_block_occluded(Vec3* pos, float size, const Camera* camera) {
+bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
   // Get the block type of current block
-  BlockID current = getBlockType(pos);
+
+  BlockID current = getBlock(pos)->id;
   if (current == BLOCK_AIR) {
+    printf("WHY IS ERROR CHECKED p: %d, %d, %d \n", pos->x, pos->y, pos->z);
     return true;
   }
 
@@ -133,7 +134,7 @@ bool is_block_occluded(Vec3* pos, float size, const Camera* camera) {
   // bool visible = false; // Remove this unused variable
 
   // Check all six faces
-  const Vec3 faceOffsets[] = {
+  const Vec3i faceOffsets[] = {
       {size, 0, 0},  // Right
       {-size, 0, 0}, // Left
       {0, size, 0},  // Top
@@ -143,10 +144,13 @@ bool is_block_occluded(Vec3* pos, float size, const Camera* camera) {
   };
 
   for (int i = 0; i < 6; i++) {
-    Vec3 checkVector;
-    vec3_add(&checkVector, pos, &faceOffsets[i]);
-
-    BlockID neighbor = getBlockType(&checkVector);
+    Vec3i checkVector;
+    vec3i_add(&checkVector, pos, &faceOffsets[i]);
+    if (checkVector.y < 0) {
+      checkVector.y = 0;
+    }
+    Block* block = getBlock(&checkVector);
+    BlockID neighbor = block->id;
     if (neighbor == BLOCK_AIR) {
       // If any face is exposed to air, the block is visible
       return false;
@@ -154,29 +158,15 @@ bool is_block_occluded(Vec3* pos, float size, const Camera* camera) {
   }
 
   // If we're very close to the block, don't cull it
-  float dx = camera->position.x - pos->x;
-  float dy = camera->position.y - pos->y;
-  float dz = camera->position.z - pos->z;
-  float distSq = dx * dx + dy * dy + dz * dz;
-  if (distSq < size * size * 4.0f) { // Adjust this value as needed
+  /*Vec3 posv3 = (Vec3){pos->x, pos->y, pos->z};
+  if (vec3_distance(&camera->position, &posv3) < 3.0f) { // Adjust this value as needed
     return false;
-  }
+  }*/
 
   return true; // Block is completely surrounded by other blocks
 }
 
 BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {
-  // First check distance to camera for depth-based culling
-  float dx = pos->x - camera->position.x;
-  float dy = pos->y - camera->position.y;
-  float dz = pos->z - camera->position.z;
-  float distSq = dx * dx + dy * dy + dz * dz;
-
-  // If the block is too far, consider it hidden
-  if (distSq > 10000.0f) { // Adjust this value based on your needs
-    return BLOCK_HIDDEN;
-  }
-
   // Then check frustum culling
   for (int i = 0; i < 6; i++) {
     float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
@@ -186,24 +176,6 @@ BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size
     if (d < -r) {
       return BLOCK_HIDDEN;
     }
-  }
-
-  // Check if any face is visible to the camera
-  bool any_face_visible = false;
-  for (int face = 0; face < 6; face++) {
-    if (is_face_visible(pos, face, camera)) {
-      any_face_visible = true;
-      break;
-    }
-  }
-
-  if (!any_face_visible) {
-    return BLOCK_HIDDEN;
-  }
-
-  // Check occlusion LAST
-  if (is_block_occluded(pos, size, camera)) {
-    return BLOCK_HIDDEN;
   }
 
   return BLOCK_VISIBLE;

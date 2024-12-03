@@ -19,6 +19,11 @@ static char* readShaderFile(const char* filePath) {
   }
 
   fseek(file, 0, SEEK_END);
+  if (ftell(file) == -1) {
+    fprintf(stderr, "Failed to seek to end of file: %s\n", filePath);
+    fclose(file);
+    return NULL;
+  }
   long length = ftell(file);
   fseek(file, 0, SEEK_SET);
 
@@ -30,7 +35,7 @@ static char* readShaderFile(const char* filePath) {
   }
 
   fread(buffer, 1, length, file);
-  buffer[length] = '\0';
+  buffer[length - 1] = '\0';
   fclose(file);
 
   return buffer;
@@ -47,6 +52,7 @@ static GLuint compileShader(const char* code, GLenum type) {
   if (!success) {
     char log[512];
     glGetShaderInfoLog(shader, sizeof(log), NULL, log);
+    log[sizeof(log) - 1] = '\0';
     fprintf(stderr, "Shader compilation failed: %s\n", log);
     glDeleteShader(shader);
     return 0;
@@ -98,6 +104,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath) {
   if (!success) {
     char log[512];
     glGetProgramInfoLog(shaderProgram, sizeof(log), NULL, log);
+    log[sizeof(log) - 1] = '\0';
     fprintf(stderr, "Shader program linking failed: %s\n", log);
     glDeleteProgram(shaderProgram);
     shaderProgram = 0;

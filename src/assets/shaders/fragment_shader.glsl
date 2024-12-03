@@ -1,9 +1,3 @@
-/**
- * @file graphics/fragment_shader.glsl
- * @brief Fragment shader implementing Phong lighting model with ambient, diffuse and specular components
- * @author frankischilling
- * @date 2024-11-20
- */
 #version 330 core
 #extension GL_ARB_separate_shader_objects : enable
 

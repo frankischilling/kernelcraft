@@ -7,8 +7,8 @@ Ray rayCast(const Camera* camera) {
   vec3_normalize(&rayDirection, &rayDirection);
   for (float t = 0.1f; t < 10; t += 0.1f) {
     Vec3 rayPoint = {rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t, rayOrigin.z + rayDirection.z * t};
-
-    if (getBlockType(&rayPoint) != BLOCK_AIR) {
+    Vec3i onGrid = getPositionOnGrid(&rayPoint);
+    if (!getBlock(&onGrid)) {
       Ray hitRay = {1, rayPoint};
       return hitRay;
     }

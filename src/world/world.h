@@ -58,7 +58,7 @@ void renderChunks(GLuint shaderProgram, const Camera* camera);
 void cleanupChunks();
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
 
-Block* getBlock(Vec3* coords);
-BlockID getBlockType(Vec3* coords);
+Vec3i getPositionOnGrid(const Vec3* pos);
+Block* getBlock(Vec3i* coords);
 
 #endif // WORLD_H

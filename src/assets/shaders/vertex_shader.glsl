@@ -1,11 +1,3 @@
-/**
- * @file graphics/vertex_shader.glsl
- * @brief Vertex shader implementing basic 3D transformations and normal calculations
- *        for Phong lighting model. Transforms vertices from model space to clip space
- *        and prepares lighting calculations for the fragment shader.
- * @author frankischilling
- * @date 2024-11-19
- */
 #version 330 core
 #extension GL_ARB_separate_shader_objects : enable
 
