@@ -17,9 +17,14 @@ typedef enum {
   BLOCK_GRASS,
   BLOCK_DIRT,
   BLOCK_STONE,
-} BlockType;
+} BlockID;
 
-// Block colors (RGB)
+// block struct
+typedef struct {
+  BlockID id;
+} Block;
+
+// Block colors (R0.GB)
 static const Vec3 blockColors[] = {
     {0.0f, 0.0f, 0.0f}, // AIR (not used)
     {0.4f, 0.6f, 0.3f}, // GRASS

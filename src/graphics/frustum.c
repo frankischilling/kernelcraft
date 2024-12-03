@@ -6,7 +6,7 @@
  */
 #include "frustum.h"
 #include "../math/math.h"
-#include "../world/block_types.h"
+#include "../world/block.h"
 #include "../world/world.h" // For getBlockType function
 #include <math.h>
 
@@ -91,13 +91,13 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   normalize_plane(frustum->planes[5]);
 }
 
-bool is_face_visible(float x, float y, float z, int face, const Camera* camera) {
-  Vec3 blockCenter = {x, y, z};
+bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
+  Vec3 blockCenter = *pos;
   Vec3 toCam;
   vec3_subtract(&toCam, &camera->position, &blockCenter);
   vec3_normalize(&toCam, &toCam);
 
-  Vec3 faceNormal = {0.0f, 0.0f, 0.0f};
+  Vec3 faceNormal = VEC3_ZERO;
   switch (face) {
   case 0:
     faceNormal.x = 1.0f;
@@ -122,9 +122,9 @@ bool is_face_visible(float x, float y, float z, int face, const Camera* camera) 
   return vec3_dot(&toCam, &faceNormal) > 0.0f;
 }
 
-bool is_block_occluded(float x, float y, float z, float size, const Camera* camera) {
+bool is_block_occluded(Vec3* pos, float size, const Camera* camera) {
   // Get the block type of current block
-  BlockType current = getBlockType(x, y, z);
+  BlockID current = getBlockType(pos);
   if (current == BLOCK_AIR) {
     return true;
   }
@@ -143,11 +143,10 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
   };
 
   for (int i = 0; i < 6; i++) {
-    float checkX = x + faceOffsets[i].x;
-    float checkY = y + faceOffsets[i].y;
-    float checkZ = z + faceOffsets[i].z;
+    Vec3 checkVector;
+    vec3_add(&checkVector, pos, &faceOffsets[i]);
 
-    BlockType neighbor = getBlockType(checkX, checkY, checkZ);
+    BlockID neighbor = getBlockType(&checkVector);
     if (neighbor == BLOCK_AIR) {
       // If any face is exposed to air, the block is visible
       return false;
@@ -155,9 +154,9 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
   }
 
   // If we're very close to the block, don't cull it
-  float dx = camera->position.x - x;
-  float dy = camera->position.y - y;
-  float dz = camera->position.z - z;
+  float dx = camera->position.x - pos->x;
+  float dy = camera->position.y - pos->y;
+  float dz = camera->position.z - pos->z;
   float distSq = dx * dx + dy * dy + dz * dz;
   if (distSq < size * size * 4.0f) { // Adjust this value as needed
     return false;
@@ -166,11 +165,11 @@ bool is_block_occluded(float x, float y, float z, float size, const Camera* came
   return true; // Block is completely surrounded by other blocks
 }
 
-BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size, const Camera* camera) {
+BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {
   // First check distance to camera for depth-based culling
-  float dx = x - camera->position.x;
-  float dy = y - camera->position.y;
-  float dz = z - camera->position.z;
+  float dx = pos->x - camera->position.x;
+  float dy = pos->y - camera->position.y;
+  float dz = pos->z - camera->position.z;
   float distSq = dx * dx + dy * dy + dz * dz;
 
   // If the block is too far, consider it hidden
@@ -180,7 +179,7 @@ BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, flo
 
   // Then check frustum culling
   for (int i = 0; i < 6; i++) {
-    float d = frustum->planes[i][0] * x + frustum->planes[i][1] * y + frustum->planes[i][2] * z + frustum->planes[i][3];
+    float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
 
     float r = size * 0.5f * (fabsf(frustum->planes[i][0]) + fabsf(frustum->planes[i][1]) + fabsf(frustum->planes[i][2]));
 
@@ -192,7 +191,7 @@ BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, flo
   // Check if any face is visible to the camera
   bool any_face_visible = false;
   for (int face = 0; face < 6; face++) {
-    if (is_face_visible(x, y, z, face, camera)) {
+    if (is_face_visible(pos, face, camera)) {
       any_face_visible = true;
       break;
     }
@@ -203,7 +202,7 @@ BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, flo
   }
 
   // Check occlusion LAST
-  if (is_block_occluded(x, y, z, size, camera)) {
+  if (is_block_occluded(pos, size, camera)) {
     return BLOCK_HIDDEN;
   }
 
