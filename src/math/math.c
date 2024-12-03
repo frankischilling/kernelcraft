@@ -113,6 +113,22 @@ void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* u
   result[15] = 1.0f;
 }
 
+// Orthographic projection matrix
+void mat4_ortho(Mat4 result, float left, float right, float bottom, float top, float nearVal, float farVal) {
+  // Zero out the matrix first
+  for (int i = 0; i < 16; i++) {
+    result[i] = 0.0f;
+  }
+
+  result[0] = 2.0f / (right - left);
+  result[5] = 2.0f / (top - bottom);
+  result[10] = -2.0f / (farVal - nearVal);
+  result[12] = -(right + left) / (right - left);
+  result[13] = -(top + bottom) / (top - bottom);
+  result[14] = -(farVal + nearVal) / (farVal - nearVal);
+  result[15] = 1.0f;
+}
+
 static const int permutation[256] = {
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225, 140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,  23,  190, 6,   148,
     247, 120, 234, 75,  0,   26,  197, 62,  94,  252, 219, 203, 117, 35,  11,  32,  57,  177, 33,  88,  237, 149, 56,  87,  174, 20,  125, 136, 171, 168, 68,  175,

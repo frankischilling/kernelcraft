@@ -1,10 +1,9 @@
 /**
  * @file graphics/hud.h
  * @brief HUD manager
- * @author VladimirJanus
+ * @author VladimirJanus, frankischilling
  * @date 2024-11-30
  */
-
 #include <stdio.h>
 #include "hud.h"
 #include "../utils/text.h"
@@ -19,34 +18,88 @@ static DebugEntry entryWorldCoords;
 static DebugEntry entryChunkCoords;
 static DebugEntry entryLookingAtBlockCoords;
 
-void HUDDraw(GLuint shaderProgram, Camera* camera, float fps) {
-  UpdateEntries(camera, fps);
+void DrawCrosshair(GLuint crosshairShaderProgram) {
+  extern int windowWidth;
+  extern int windowHeight;
 
-  currentEntryIndex = 0;
-  EntryDraw(shaderProgram, &entryBiome);
-  EntryDraw(shaderProgram, &entryChunkCoords);
-  EntryDraw(shaderProgram, &entryWorldCoords);
-  EntryDraw(shaderProgram, &entryCubeCount);
-  EntryDraw(shaderProgram, &entryFPS);
-  EntryDraw(shaderProgram, &entryBuildInfo);
-  Ray cast = rayCast(camera);
-  if (cast.hit) {
-    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%.1f Y:%.1f Z:%.1f", cast.coords.x, cast.coords.z, cast.coords.y);
-    EntryDraw(shaderProgram, &entryLookingAtBlockCoords);
+  // Crosshair size (e.g., 2% of window height)
+  float crosshairSize = windowHeight * 0.02f;
+
+  // Center of the window
+  float centerX = windowWidth / 2.0f;
+  float centerY = windowHeight / 2.0f;
+
+  // Crosshair vertices in screen coordinates
+  float vertices[] = {
+      // Horizontal line
+      centerX - crosshairSize, centerY,
+      centerX + crosshairSize, centerY,
+      // Vertical line
+      centerX, centerY - crosshairSize,
+      centerX, centerY + crosshairSize
+  };
+
+  // Orthographic projection matrix
+  Mat4 orthoProjection;
+  mat4_ortho(orthoProjection, 0.0f, (float)windowWidth, 0.0f, (float)windowHeight, -1.0f, 1.0f);
+
+  // OpenGL setup (VAO, VBO)
+  static GLuint VAO = 0, VBO = 0;
+  if (VAO == 0) {
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
   }
 
-  DrawCrosshair(shaderProgram);
-}
-static void DrawCrosshair(GLuint shaderProgram) {
-  float screenWidth = 1920.0f;
-  float screenHeight = 1080.0f;
-  float centerX = screenWidth / 2.0f;
-  float centerY = screenHeight / 2.0f;
+  glBindVertexArray(VAO);
 
-  float crosshairLength = 10.0f;
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
-  // MISSING DRAWING THE ACTUAL CROSSHAIR
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
+
+  // Use crosshair shader program
+  glUseProgram(crosshairShaderProgram);
+
+  // Pass projection matrix to shader
+  glUniformMatrix4fv(glGetUniformLocation(crosshairShaderProgram, "projection"), 1, GL_FALSE, orthoProjection);
+
+  // Set crosshair color
+  glUniform3f(glGetUniformLocation(crosshairShaderProgram, "objectColor"), 1.0f, 1.0f, 1.0f);
+
+  // Disable depth test
+  glDisable(GL_DEPTH_TEST);
+
+  // Draw crosshair lines
+  glDrawArrays(GL_LINES, 0, 4);
+
+  // Enable depth test
+  glEnable(GL_DEPTH_TEST);
+
+  // Cleanup
+  glBindVertexArray(0);
 }
+
+void HUDDraw(GLuint shaderProgram, GLuint crosshairShaderProgram, Camera* camera, float fps) {
+    UpdateEntries(camera, fps);
+
+    currentEntryIndex = 0;
+    EntryDraw(shaderProgram, &entryBiome);
+    EntryDraw(shaderProgram, &entryChunkCoords);
+    EntryDraw(shaderProgram, &entryWorldCoords);
+    EntryDraw(shaderProgram, &entryCubeCount);
+    EntryDraw(shaderProgram, &entryFPS);
+    EntryDraw(shaderProgram, &entryBuildInfo);
+    Ray cast = rayCast(camera);
+    if (cast.hit) {
+        snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text),
+                 "Block coordinates: X:%.1f Y:%.1f Z:%.1f", cast.coords.x, cast.coords.z, cast.coords.y);
+        EntryDraw(shaderProgram, &entryLookingAtBlockCoords);
+    }
+
+    DrawCrosshair(crosshairShaderProgram);
+}
+
 static void EntryDraw(GLuint shaderProgram, DebugEntry* entry) {
   renderText(shaderProgram, entry->text, 10.0f, 100.0f + currentEntryIndex);
   currentEntryIndex += 20;

@@ -45,6 +45,7 @@ float vec3_dot(const Vec3* a, const Vec3* b);
 void mat4_identity(Mat4 result);
 void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float far);
 void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* up);
+void mat4_ortho(Mat4 result, float left, float right, float bottom, float top, float nearVal, float farVal);
 
 // Noise generation
 float noise2d(float x, float z);

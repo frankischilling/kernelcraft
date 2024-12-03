@@ -13,10 +13,10 @@ typedef struct {
   char text[64];
 } DebugEntry;
 
-void HUDDraw(GLuint shaderProgram, Camera* camera, float fps);
+void HUDDraw(GLuint shaderProgram, GLuint crosshairShaderProgram, Camera* camera, float fps);
 void HUDInit(char* buildName, char* buildVersion);
 static void EntryDraw(GLuint shaderProgram, DebugEntry* entry);
 static void UpdateEntries(Camera* camera, float fps);
-static void DrawCrosshair(GLuint shaderProgram);
+void DrawCrosshair(GLuint crosshairShaderProgram);
 
 #endif // HUD_H
