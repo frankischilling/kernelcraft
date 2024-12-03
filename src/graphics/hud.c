@@ -5,11 +5,11 @@
  * @date 2024-11-30
  */
 
-#include <stdio.h>
 #include "hud.h"
+#include "../utils/raycast.h"
 #include "../utils/text.h"
 #include "../world/world.h"
-#include "../utils/raycast.h"
+#include <stdio.h>
 static float currentEntryIndex;
 static DebugEntry entryBiome;
 static DebugEntry entryFPS;
@@ -57,8 +57,8 @@ static void UpdateEntries(Camera* camera, float fps) {
   snprintf(entryCubeCount.text, sizeof(entryCubeCount.text), "Visible Cubes: %d", getVisibleCubesCount());
 
   snprintf(entryWorldCoords.text, sizeof(entryWorldCoords.text), "World coordinates: X:%.1f Y:%.1f Z:%.1f", camera->position.x, camera->position.y, camera->position.z);
-  int currentChunkX = (int)floor(camera->position.x / (CHUNK_SIZE_X * CUBE_SIZE));
-  int currentChunkZ = (int)floor(camera->position.z / (CHUNK_SIZE_Z * CUBE_SIZE));
+  int currentChunkX = (int)floor(camera->position.x / (CHUNK_SIZE * CUBE_SIZE));
+  int currentChunkZ = (int)floor(camera->position.z / (CHUNK_SIZE * CUBE_SIZE));
   snprintf(entryChunkCoords.text, sizeof(entryChunkCoords.text), "Chunk coordinates: X:%d Z:%d", currentChunkX, currentChunkZ);
 }
 void HUDInit(char* buildName, char* buildVersion) {

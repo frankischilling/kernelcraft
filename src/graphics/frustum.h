@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include "../graphics/camera.h"
 #include "../math/math.h"
-#include "../world/block_types.h"
+#include "../world/block.h"
 
 // Frustum structure to hold the six planes
 typedef struct {
@@ -20,14 +20,14 @@ typedef struct {
 
 // Visibility status for blocks
 typedef enum {
-  BLOCK_HIDDEN,
-  BLOCK_VISIBLE,
+  BLOCK_HIDDEN = 0,
+  BLOCK_VISIBLE = 1,
 } BlockVisibility;
 
 // Function declarations
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view);
-bool is_block_occluded(float x, float y, float z, float size, const Camera* camera);
-BlockVisibility frustum_check_cube(const Frustum* frustum, float x, float y, float z, float size, const Camera* camera);
-bool is_face_visible(float x, float y, float z, int face, const Camera* camera);
+bool is_block_occluded(Vec3* pos, float size, const Camera* camera);
+BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size, const Camera* camera);
+bool is_face_visible(Vec3* pos, int face, const Camera* camera);
 
 #endif

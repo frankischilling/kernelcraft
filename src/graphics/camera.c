@@ -53,18 +53,18 @@ void updateViewMatrix(Camera* camera, float* viewMatrix) {
   camera->front.z = frontZ;
 
   // Normalize the front vector
-  vec3_normalize(&camera->front,&camera->front);
+  vec3_normalize(&camera->front, &camera->front);
 
   // Calculate the right and up vectors
   Vec3 right = {camera->up.y * camera->front.z - camera->up.z * camera->front.y, camera->up.z * camera->front.x - camera->up.x * camera->front.z,
-                    camera->up.x * camera->front.y - camera->up.y * camera->front.x};
+                camera->up.x * camera->front.y - camera->up.y * camera->front.x};
 
   // Normalize the right vector
-  vec3_normalize(&right,&right);
+  vec3_normalize(&right, &right);
 
   // Recalculate the up vector
   Vec3 newUp = {right.y * camera->front.z - right.z * camera->front.y, right.z * camera->front.x - right.x * camera->front.z,
-                    right.x * camera->front.y - right.y * camera->front.x};
+                right.x * camera->front.y - right.y * camera->front.x};
 
   // Construct the view matrix
   // This is a simplified version; typically, you'd use a library for this
@@ -88,5 +88,3 @@ void updateViewMatrix(Camera* camera, float* viewMatrix) {
   viewMatrix[14] = -camera->position.z;
   viewMatrix[15] = 1.0f;
 }
-
-
