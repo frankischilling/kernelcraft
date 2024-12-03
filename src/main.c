@@ -116,7 +116,7 @@ int main() {
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
     renderChunkGrid(shaderProgram, &camera);
-    // renderChunks(shaderProgram, &camera);
+    renderChunks(shaderProgram, &camera);
     renderWorld(shaderProgram, &camera);
 
     HUDDraw(shaderProgram, &camera, fps);

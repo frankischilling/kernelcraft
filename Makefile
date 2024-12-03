@@ -4,7 +4,7 @@ ifeq ($(OS),Windows_NT)
 	LIBRARY_DIR = C:/Progs/vcpkg/installed/x64-windows
 	WIN_KITS_DIR = C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0
 
-	CFLAGS = -Wall -Wextra -pedantic -g -I./src -I"$(LIBRARY_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
+	CFLAGS = -Wall -I./src -I"$(LIBRARY_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
 	LDFLAGS = -L"$(LIBRARY_DIR)/lib" -lopengl32 -lglfw3dll -lglew32 -lm -lfreeglut
 
 	EXECUTABLE = $(BIN_DIR)/minecraft_clone.exe
@@ -42,7 +42,7 @@ all: $(EXECUTABLE) copy_assets
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CREATE_BIN_DIR)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) >> $(LOG_FILE) 2>&1
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) > $(LOG_FILE) 2>&1
 	@echo "Build completed. Executable: $@"
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CREATE_SUBDIR)
