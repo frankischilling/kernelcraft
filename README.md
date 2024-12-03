@@ -139,7 +139,6 @@ Use the ESC key to be able to use the cursor again.
   - [wip] Implement texture atlas system
     - [x] Create atlas image from textures using a Python script.
     - [ ] Integrate texture atlas into rendering pipeline
-  - [ ] Add basic crosshair, that will update based window size
   - [ ] Add support for transparency and alpha blending
   - [ ] Add support for skyboxes and clouds 
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)

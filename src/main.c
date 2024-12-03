@@ -1,10 +1,3 @@
-/**
- * @file main.c
- * @brief Main application entry point for kernelcraft
- * @date 2024-12-03
- * @version 0.0.3-alpha
- * @authors frankischilling, VladimirJanus
- */
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <GLFW/glfw3.h>
@@ -21,8 +14,7 @@
 
 #define BUILD_VERSION "v0.0.3-alpha"
 #define BUILD_NAME "kernelcraft"
-int windowWidth = 1920; // Default initial width
-int windowHeight = 1080; // Default initial height
+
 static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
@@ -44,8 +36,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-  windowWidth = width;
-  windowHeight = height;
   glViewport(0, 0, width, height);
 }
 
@@ -76,8 +66,6 @@ int main() {
   glEnable(GL_DEPTH_TEST);
 
   GLuint shaderProgram = loadShaders("assets/shaders/vertex_shader.glsl", "assets/shaders/fragment_shader.glsl");
-  GLuint crosshairShaderProgram = loadShaders("assets/shaders/crosshair_vertex_shader.glsl", "assets/shaders/crosshair_fragment_shader.glsl");
-
   if (!shaderProgram) {
     fprintf(stderr, "Failed to load shaders\n");
     return -1;
@@ -131,7 +119,7 @@ int main() {
     renderChunks(shaderProgram, &camera);
     renderWorld(shaderProgram, &camera);
 
-    HUDDraw(shaderProgram, crosshairShaderProgram, &camera, fps);
+    HUDDraw(shaderProgram, &camera, fps);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
