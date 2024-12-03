@@ -7,7 +7,7 @@ Screenshot of version v0.0.2
 
 ![Screenshot](./img/textures.png)
 
-Screenshot of version v0.0.3-alpha
+Screenshot of version v0.0.4
 
 ## Project Philosophy
 
