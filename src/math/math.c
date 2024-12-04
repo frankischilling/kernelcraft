@@ -14,34 +14,95 @@ void vec3_add(Vec3* result, const Vec3* a, const Vec3* b) {
   result->y = a->y + b->y;
   result->z = a->z + b->z;
 }
-
 void vec3_subtract(Vec3* result, const Vec3* a, const Vec3* b) {
   result->x = a->x - b->x;
   result->y = a->y - b->y;
   result->z = a->z - b->z;
 }
-
 void vec3_scale(Vec3* result, const Vec3* v, float scale) {
   result->x = v->x * scale;
   result->y = v->y * scale;
   result->z = v->z * scale;
 }
-
 void vec3_normalize(Vec3* result, const Vec3* v) {
   float length = sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
   result->x = v->x / length;
   result->y = v->y / length;
   result->z = v->z / length;
 }
-
 void vec3_cross(Vec3* result, const Vec3* a, const Vec3* b) {
   result->x = a->y * b->z - a->z * b->y;
   result->y = a->z * b->x - a->x * b->z;
   result->z = a->x * b->y - a->y * b->x;
 }
-
 float vec3_dot(const Vec3* a, const Vec3* b) {
   return a->x * b->x + a->y * b->y + a->z * b->z;
+}
+float vec3_distance(const Vec3* a, const Vec3* b) {
+  Vec3 diff;
+  vec3_subtract(&diff, a, b);
+  return sqrtf(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+}
+
+void vec3i_add(Vec3i* result, const Vec3i* a, const Vec3i* b) {
+  result->x = a->x + b->x;
+  result->y = a->y + b->y;
+  result->z = a->z + b->z;
+}
+void vec3i_subtract(Vec3i* result, const Vec3i* a, const Vec3i* b) {
+  result->x = a->x - b->x;
+  result->y = a->y - b->y;
+  result->z = a->z - b->z;
+}
+void vec3i_scale(Vec3i* result, const Vec3i* v, int scale) {
+  result->x = v->x * scale;
+  result->y = v->y * scale;
+  result->z = v->z * scale;
+}
+void vec3i_normalize(Vec3i* result, const Vec3i* v) {
+  float length = sqrtf((float)(v->x * v->x + v->y * v->y + v->z * v->z));
+  result->x = (int)(v->x / length);
+  result->y = (int)(v->y / length);
+  result->z = (int)(v->z / length);
+}
+void vec3i_cross(Vec3i* result, const Vec3i* a, const Vec3i* b) {
+  result->x = a->y * b->z - a->z * b->y;
+  result->y = a->z * b->x - a->x * b->z;
+  result->z = a->x * b->y - a->y * b->x;
+}
+int vec3i_dot(const Vec3i* a, const Vec3i* b) {
+  return a->x * b->x + a->y * b->y + a->z * b->z;
+}
+float vec3i_distance(const Vec3i* a, const Vec3i* b) {
+  Vec3i diff;
+  vec3i_subtract(&diff, a, b);
+  return sqrtf(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+}
+
+void vec2i_add(Vec2i* result, const Vec2i* a, const Vec2i* b) {
+  result->a = a->a + b->a;
+  result->b = a->b + b->b;
+}
+void vec2i_subtract(Vec2i* result, const Vec2i* a, const Vec2i* b) {
+  result->a = a->a - b->a;
+  result->b = a->b - b->b;
+}
+void vec2i_scale(Vec2i* result, const Vec2i* v, int scale) {
+  result->a = v->a * scale;
+  result->b = v->b * scale;
+}
+void vec2i_normalize(Vec2i* result, const Vec2i* v) {
+  float length = sqrtf((float)(v->a * v->a + v->b * v->b));
+  result->a = (int)(v->a / length);
+  result->b = (int)(v->b / length);
+}
+int vec2i_dot(const Vec2i* a, const Vec2i* b) {
+  return a->a * b->a + a->b * b->b;
+}
+float vec2i_distance(const Vec2i* a, const Vec2i* b) {
+  Vec2i diff;
+  vec2i_subtract(&diff, a, b);
+  return sqrtf(diff.a * diff.a + diff.b * diff.b);
 }
 
 float toRadians(float degrees) {

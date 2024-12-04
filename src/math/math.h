@@ -16,17 +16,30 @@ typedef struct {
   float y;
   float z;
 } Vec3;
-#define Vec3_EMPTY                                                                                                                                                                 \
+typedef struct {
+  int x;
+  int y;
+  int z;
+} Vec3i;
+typedef struct {
+  int a;
+  int b;
+} Vec2i;
+#define VEC3_ZERO                                                                                                                                                                  \
   (Vec3) {                                                                                                                                                                         \
     0.0f, 0.0f, 0.0f                                                                                                                                                               \
   }
-#define Vec3_UP                                                                                                                                                                    \
+#define VEC3_UP                                                                                                                                                                    \
   (Vec3) {                                                                                                                                                                         \
     0.0f, 1.0f, 0.0f                                                                                                                                                               \
   }
-#define Vec3_FRONT                                                                                                                                                                 \
+#define VEC3_FRONT                                                                                                                                                                 \
   (Vec3) {                                                                                                                                                                         \
-    0.0f, 1.0f, 0.0f                                                                                                                                                               \
+    0.0f, 0.0f, 1.0f                                                                                                                                                               \
+  }
+#define VEC3_RIGHT                                                                                                                                                                 \
+  (Vec3) {                                                                                                                                                                         \
+    1.0f, 0.0f, 0.0f                                                                                                                                                               \
   }
 typedef float Mat4[16];
 
@@ -40,6 +53,22 @@ void vec3_scale(Vec3* result, const Vec3* v, float scale);
 void vec3_normalize(Vec3* result, const Vec3* v);
 void vec3_cross(Vec3* result, const Vec3* a, const Vec3* b);
 float vec3_dot(const Vec3* a, const Vec3* b);
+float vec3_distance(const Vec3* a, const Vec3* b);
+
+void vec3i_add(Vec3i* result, const Vec3i* a, const Vec3i* b);
+void vec3i_subtract(Vec3i* result, const Vec3i* a, const Vec3i* b);
+void vec3i_scale(Vec3i* result, const Vec3i* v, int scale);
+void vec3i_normalize(Vec3i* result, const Vec3i* v);
+void vec3i_cross(Vec3i* result, const Vec3i* a, const Vec3i* b);
+int vec3i_dot(const Vec3i* a, const Vec3i* b);
+float vec3i_distance(const Vec3i* a, const Vec3i* b);
+
+void vec2i_add(Vec2i* result, const Vec2i* a, const Vec2i* b);
+void vec2i_subtract(Vec2i* result, const Vec2i* a, const Vec2i* b);
+void vec2i_scale(Vec2i* result, const Vec2i* v, int scale);
+void vec2i_normalize(Vec2i* result, const Vec2i* v);
+int vec2i_dot(const Vec2i* a, const Vec2i* b);
+float vec2i_distance(const Vec2i* a, const Vec2i* b);
 
 // Matrix operations
 void mat4_identity(Mat4 result);

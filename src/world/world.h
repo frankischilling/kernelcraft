@@ -14,21 +14,26 @@
 #include "../graphics/frustum.h"
 #include "../graphics/shader.h"
 #include "../math/math.h"
-#include "block_types.h"
+#include "block.h"
 
-#define WORLD_SIZE_X 256
-#define WORLD_SIZE_Z 256
+#define WORLD_SIZE 256
 #define WORLD_HEIGHT 64
 #define CUBE_SIZE 1.0f
+#define CHUNK_SIZE 16   // block count
+#define CHUNK_HEIGHT 64 // block count
+#define CHUNKS_PER_AXIS WORLD_SIZE / CHUNK_SIZE
+
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
 
-#define CHUNK_SIZE_X 16
-#define CHUNK_SIZE_Y 64
-#define CHUNK_SIZE_Z 16
+typedef enum {
+  BIOME_PLAINS,
+  BIOME_HILLS,
+} BiomeID;
 
 typedef struct {
-  BlockType blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
-  Vec3 position; // Position of the chunk in world coordinates
+  Block blocks[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE];
+  Vec2i position; // Chunk coordinates
+  BiomeID id;
 } Chunk;
 
 typedef struct {
@@ -37,11 +42,6 @@ typedef struct {
   float persistence;
   float heightScale;
 } BiomeParameters;
-
-typedef enum {
-  BIOME_PLAINS,
-  BIOME_HILLS,
-} BiomeType;
 
 BiomeParameters getInterpolatedBiomeParameters(float x, float z);
 // World Functions
@@ -58,6 +58,7 @@ void renderChunks(GLuint shaderProgram, const Camera* camera);
 void cleanupChunks();
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
 
-// Add this after line 52 (near the other function declarations)
-BlockType getBlockType(float x, float y, float z);
+Vec3i getPositionOnGrid(const Vec3* pos);
+Block* getBlock(Vec3i* coords);
+
 #endif // WORLD_H
