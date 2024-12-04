@@ -1,7 +1,7 @@
 /**
  * @file world/world.h
  * @brief World generation and rendering.
- * @author frankischilling
+ * @author frankischilling, VladimirJanus
  * @version 0.1
  * @date 2024-11-19
  *
@@ -22,6 +22,10 @@
 #define CHUNK_SIZE 16   // block count
 #define CHUNK_HEIGHT 64 // block count
 #define CHUNKS_PER_AXIS WORLD_SIZE / CHUNK_SIZE
+#define CHUNK_DIMENSIONS                                                                                                                                                           \
+  (Vec3) {                                                                                                                                                                         \
+    CHUNK_SIZE *CUBE_SIZE, CHUNK_HEIGHT *CUBE_SIZE, CHUNK_SIZE *CUBE_SIZE,                                                                                                         \
+  }
 
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
 

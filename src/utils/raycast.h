@@ -1,7 +1,10 @@
+
 #ifndef RAYCAST_H
 #define RAYCAST_H
 
+#include <GL/glew.h>
 #include "../graphics/camera.h"
+#include "../world/world.h"
 #include "../math/math.h"
 typedef struct {
   bool hit;

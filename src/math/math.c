@@ -1,13 +1,23 @@
 /**
  * @file math/math.c
  * @brief Math module for vector and matrix operations.
- * @author frankischilling
+ * @author frankischilling, VladimirJanus
  * @version 0.1
  * @date 2024-11-19
  *
  */
 #include "math.h"
 #include <math.h>
+
+void plane_normalize(Plane plane) {
+  float magnitude = sqrtf(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
+  if (magnitude != 0.0f) {
+    plane[0] /= magnitude;
+    plane[1] /= magnitude;
+    plane[2] /= magnitude;
+    plane[3] /= magnitude;
+  }
+}
 
 void vec3_add(Vec3* result, const Vec3* a, const Vec3* b) {
   result->x = a->x + b->x;

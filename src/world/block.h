@@ -1,13 +1,13 @@
 /**
- * @file world/block_types.h
+ * @file world/block.h
  * @brief Block type definitions for the game world.
- * @author frankischilling
+ * @author frankischilling, VladimirJanus
  * @version 0.1
  * @date 2024-11-23
  *
  */
-#ifndef BLOCK_TYPES_H
-#define BLOCK_TYPES_H
+#ifndef BLOCK_H
+#define BLOCK_H
 
 #include "../math/math.h"
 
@@ -32,4 +32,4 @@ static const Vec3 blockColors[] = {
     {0.5f, 0.5f, 0.5f}  // STONE
 };
 
-#endif // BLOCK_TYPES_H
+#endif // BLOCK_H

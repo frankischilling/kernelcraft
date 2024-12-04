@@ -1,7 +1,7 @@
 /**
  * @file world/world.c
  * @brief World generation and rendering.
- * @author frankischilling
+ * @author frankischilling, VladimirJanus
  * @version 0.1
  * @date 2024-11-19
  *
@@ -310,7 +310,11 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
       if (vec2i_distance(&cameraXZ, &chunkXZ) > CHUNK_SIZE * RENDER_DISTANCE / 2) {
         continue;
       }
-
+      Vec3 chunkDimensions = CHUNK_DIMENSIONS;
+      BlockVisibility chunkVisible = frustum_check_block(&frustum, &chunkCenter, &chunkDimensions, camera);
+      if (chunkVisible == BLOCK_HIDDEN) {
+        continue;
+      }
       // Add alternating color pattern for chunks
       Vec3 chunkColor;
       if ((x + z) % 2 == 0) {
@@ -417,8 +421,8 @@ Vec3i getPositionOnGrid(const Vec3* pos) {
 
 Block* getBlock(Vec3i* pos) {
   // Convert world coordinates to chunk coordinates
-  int chunkX = floorf(pos->x / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
-  int chunkZ = floorf(pos->z / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
+  int chunkI = floorf(pos->x / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
+  int chunkJ = floorf(pos->z / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
   // Get local coordinates within the chunk
   int localX = (int)((pos->x % CHUNK_SIZE) / CUBE_SIZE);
   int localZ = (int)((pos->z % CHUNK_SIZE) / CUBE_SIZE);
@@ -427,16 +431,17 @@ Block* getBlock(Vec3i* pos) {
   if (localZ < 0)
     localZ += CHUNK_SIZE;
 
-  if (localX < 0 || localX > 15 || pos->y < 0 || localZ < 0 || localZ > 15) {
-    printf(" OUT OF BOUNDS p: %d, %d, %d chunk: %d,%d\n", localX, pos->y, localZ, chunkX, chunkZ);
-  }
-  // Get the chunk
-  Chunk* chunk = getChunk(chunkX, chunkZ);
-  if (!chunk) {
-    printf("NULL CHUNK WHEN p: %d, %d, %d chunk: %d,%d\n", pos->x, pos->y, pos->z, chunkX, chunkZ);
+  if (localX < 0 || localX > 15 || pos->y < 0 || localZ < 0 || localZ > 15 || chunkI < 0 || chunkJ < 0 || chunkI > CHUNKS_PER_AXIS - 1 || chunkJ > CHUNKS_PER_AXIS - 1) {
+    // printf(" OUT OF BOUNDS p: %d, %d, %d chunk: %d,%d\n", localX, pos->y, localZ, chunkI, chunkJ);
     return NULL;
   }
-  // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d \n", localX, pos->y, localZ, chunkX, chunkZ, pos->x, pos->y, pos->z);
+  // Get the chunk
+  Chunk* chunk = getChunk(chunkI, chunkJ);
+  if (!chunk) {
+    printf("NULL CHUNK WHEN p: %d, %d, %d chunk: %d,%d\n", pos->x, pos->y, pos->z, chunkI, chunkJ);
+    return NULL;
+  }
+  // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d \n", localX, pos->y, localZ, chunkI, chunkJ, pos->x, pos->y, pos->z);
 
   return &chunk->blocks[localX][pos->y][localZ];
 }

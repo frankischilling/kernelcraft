@@ -10,15 +10,6 @@
 #include "../world/world.h" // For getBlock function
 #include <math.h>
 #include <stdio.h>
-static void normalize_plane(float plane[4]) {
-  float magnitude = sqrtf(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
-  if (magnitude != 0.0f) {
-    plane[0] /= magnitude;
-    plane[1] /= magnitude;
-    plane[2] /= magnitude;
-    plane[3] /= magnitude;
-  }
-}
 
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   // Combine projection and view matrices
@@ -53,42 +44,42 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   frustum->planes[0][1] = clip[7] + clip[4];
   frustum->planes[0][2] = clip[11] + clip[8];
   frustum->planes[0][3] = clip[15] + clip[12];
-  normalize_plane(frustum->planes[0]);
+  plane_normalize(frustum->planes[0]);
 
   // Right plane
   frustum->planes[1][0] = clip[3] - clip[0];
   frustum->planes[1][1] = clip[7] - clip[4];
   frustum->planes[1][2] = clip[11] - clip[8];
   frustum->planes[1][3] = clip[15] - clip[12];
-  normalize_plane(frustum->planes[1]);
+  plane_normalize(frustum->planes[1]);
 
   // Bottom plane
   frustum->planes[2][0] = clip[3] + clip[1];
   frustum->planes[2][1] = clip[7] + clip[5];
   frustum->planes[2][2] = clip[11] + clip[9];
   frustum->planes[2][3] = clip[15] + clip[13];
-  normalize_plane(frustum->planes[2]);
+  plane_normalize(frustum->planes[2]);
 
   // Top plane
   frustum->planes[3][0] = clip[3] - clip[1];
   frustum->planes[3][1] = clip[7] - clip[5];
   frustum->planes[3][2] = clip[11] - clip[9];
   frustum->planes[3][3] = clip[15] - clip[13];
-  normalize_plane(frustum->planes[3]);
+  plane_normalize(frustum->planes[3]);
 
   // Near plane
   frustum->planes[4][0] = clip[3] + clip[2];
   frustum->planes[4][1] = clip[7] + clip[6];
   frustum->planes[4][2] = clip[11] + clip[10];
   frustum->planes[4][3] = clip[15] + clip[14];
-  normalize_plane(frustum->planes[4]);
+  plane_normalize(frustum->planes[4]);
 
   // Far plane
   frustum->planes[5][0] = clip[3] - clip[2];
   frustum->planes[5][1] = clip[7] - clip[6];
   frustum->planes[5][2] = clip[11] - clip[10];
   frustum->planes[5][3] = clip[15] - clip[14];
-  normalize_plane(frustum->planes[5]);
+  plane_normalize(frustum->planes[5]);
 }
 
 bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
@@ -123,10 +114,13 @@ bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
 
 bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
   // Get the block type of current block
-
-  BlockID current = getBlock(pos)->id;
+  Block* block = getBlock(pos);
+  if (!block) {
+    printf("BLOCK IS NULL AT %d, %d, %d this shouldnt happen\n", pos->x, pos->y, pos->z);
+  }
+  BlockID current = block->id;
   if (current == BLOCK_AIR) {
-    printf("WHY IS ERROR CHECKED p: %d, %d, %d \n", pos->x, pos->y, pos->z);
+    printf("AIR CHECKED FOR OCCLUSION AT p: %d, %d, %d this shouldnt happen\n", pos->x, pos->y, pos->z);
     return true;
   }
 
@@ -150,6 +144,9 @@ bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
       checkVector.y = 0;
     }
     Block* block = getBlock(&checkVector);
+    if (!block) {
+      return false;
+    }
     BlockID neighbor = block->id;
     if (neighbor == BLOCK_AIR) {
       // If any face is exposed to air, the block is visible
@@ -167,11 +164,24 @@ bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
 }
 
 BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {
-  // Then check frustum culling
   for (int i = 0; i < 6; i++) {
     float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
 
     float r = size * 0.5f * (fabsf(frustum->planes[i][0]) + fabsf(frustum->planes[i][1]) + fabsf(frustum->planes[i][2]));
+
+    if (d < -r) {
+      return BLOCK_HIDDEN;
+    }
+  }
+
+  return BLOCK_VISIBLE;
+}
+
+BlockVisibility frustum_check_block(const Frustum* frustum, Vec3* pos, Vec3* sizes, const Camera* camera) {
+  for (int i = 0; i < 6; i++) {
+    float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
+
+    float r = 0.5f * (sizes->x * fabsf(frustum->planes[i][0]) + sizes->y * fabsf(frustum->planes[i][1]) + sizes->z * fabsf(frustum->planes[i][2]));
 
     if (d < -r) {
       return BLOCK_HIDDEN;

@@ -25,26 +25,17 @@ typedef struct {
   int a;
   int b;
 } Vec2i;
-#define VEC3_ZERO                                                                                                                                                                  \
-  (Vec3) {                                                                                                                                                                         \
-    0.0f, 0.0f, 0.0f                                                                                                                                                               \
-  }
-#define VEC3_UP                                                                                                                                                                    \
-  (Vec3) {                                                                                                                                                                         \
-    0.0f, 1.0f, 0.0f                                                                                                                                                               \
-  }
-#define VEC3_FRONT                                                                                                                                                                 \
-  (Vec3) {                                                                                                                                                                         \
-    0.0f, 0.0f, 1.0f                                                                                                                                                               \
-  }
-#define VEC3_RIGHT                                                                                                                                                                 \
-  (Vec3) {                                                                                                                                                                         \
-    1.0f, 0.0f, 0.0f                                                                                                                                                               \
-  }
+#define VEC3_ZERO (Vec3){0.0f, 0.0f, 0.0f}
+#define VEC3_UP (Vec3){0.0f, 1.0f, 0.0f}
+#define VEC3_FRONT (Vec3){0.0f, 0.0f, 1.0f}
+#define VEC3_RIGHT (Vec3){1.0f, 0.0f, 0.0f}
 typedef float Mat4[16];
-
+typedef float Plane[4];
 // Helper functions
 float toRadians(float degrees);
+
+// Plane operations
+void plane_normalize(Plane plane);
 
 // Vector operations
 void vec3_add(Vec3* result, const Vec3* a, const Vec3* b);
