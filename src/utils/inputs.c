@@ -29,20 +29,28 @@ void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
     vec3_scale(&temp, &camera->front, velocity);
     vec3_subtract(&camera->position, &camera->position, &temp);
   }
+  // Up/Down
+  if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+    vec3_scale(&temp, &camera->up, velocity);
+    vec3_add(&camera->position, &camera->position, &temp);
+  }
+  if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+    vec3_scale(&temp, &camera->up, velocity);
+    vec3_subtract(&camera->position, &camera->position, &temp);
+  }
 
-  // Calculate right vector
   Vec3 right;
   vec3_cross(&right, &camera->front, &camera->up);
   vec3_normalize(&right, &right);
 
   // Left/Right
-  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-    vec3_scale(&temp, &right, velocity);
-    vec3_subtract(&camera->position, &camera->position, &temp);
-  }
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
     vec3_scale(&temp, &right, velocity);
     vec3_add(&camera->position, &camera->position, &temp);
+  }
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+    vec3_scale(&temp, &right, velocity);
+    vec3_subtract(&camera->position, &camera->position, &temp);
   }
 }
 

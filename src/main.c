@@ -39,14 +39,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-int main() {
+int main(int argc, char** argv) {
   if (!glfwInit()) {
     fprintf(stderr, "Failed to initialize GLFW\n");
     return -1;
   }
 
-  int argc = 1;
-  char* argv[1] = {(char*)"Something"};
   glutInit(&argc, argv);
   GLFWwindow* window = glfwCreateWindow(1920, 1080, "kernelcraft", NULL, NULL);
   if (!window) {

@@ -14,7 +14,7 @@
 #include "../graphics/frustum.h"
 #include "../graphics/shader.h"
 #include "../math/math.h"
-#include "block.h"
+#include "../graphics/cube.h"
 
 #define WORLD_SIZE 256
 #define WORLD_HEIGHT 64

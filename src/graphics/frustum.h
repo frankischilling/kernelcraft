@@ -11,18 +11,12 @@
 #include <stdbool.h>
 #include "../graphics/camera.h"
 #include "../math/math.h"
-#include "../world/block.h"
+#include "cube.h"
 
 // Frustum structure to hold the six planes
 typedef struct {
-  Plane planes[6]; // Six planes (left, right, top, bottom, near, far), each with ABCD coefficients
+  Plane planes[6]; // Six planes (right, left, top, bottom, near, far), each with ABCD coefficients
 } Frustum;
-
-// Visibility status for blocks
-typedef enum {
-  BLOCK_HIDDEN = 0,
-  BLOCK_VISIBLE = 1,
-} BlockVisibility;
 
 // Function declarations
 void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view);

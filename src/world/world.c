@@ -62,13 +62,13 @@ void initChunks() {
           int height = (int)floor(getTerrainHeight(worldX, worldZ));
           for (int j = 0; j < CHUNK_HEIGHT; j++) {
             if (j < height - DIRT_LAYERS) {
-              chunk->blocks[i][j][k] = (Block){BLOCK_STONE};
+              chunk->blocks[i][j][k] = (Block){BLOCK_STONE, false, {0, 0, 0, 0, 0, 0}};
             } else if (j < height) {
-              chunk->blocks[i][j][k] = (Block){BLOCK_DIRT};
+              chunk->blocks[i][j][k] = (Block){BLOCK_DIRT, false, {0, 0, 0, 0, 0, 0}};
             } else if (j == (int)height) {
-              chunk->blocks[i][j][k] = (Block){BLOCK_GRASS};
+              chunk->blocks[i][j][k] = (Block){BLOCK_GRASS, false, {0, 0, 0, 0, 0, 0}};
             } else {
-              chunk->blocks[i][j][k] = (Block){BLOCK_AIR};
+              chunk->blocks[i][j][k] = (Block){BLOCK_AIR, false, {0, 0, 0, 0, 0, 0}};
             }
           }
         }
@@ -78,7 +78,6 @@ void initChunks() {
     }
   }
 }
-
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
   static GLuint gridVAO = 0;
   static GLuint gridVBO = 0;
@@ -200,10 +199,9 @@ static const GLfloat cubeVerticesWithNormals[] = {
     -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f, -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.5f, 0.5f,
     -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f};
 
-static BiomeParameters biomeParameters[] = {
-    // Plains biome - flatter, lower amplitude
-    {0.03f, 0.5f, 0.3f, 4.0f}, // Lower frequency and amplitude for flatter terrain
-    // Hills biome - more varied, higher amplitude
+static BiomeParameters biomeParameters[] = { // Plains biome - flatter, lower amplitude
+    {0.03f, 0.5f, 0.3f, 4.0f},               // Lower frequency and amplitude for flatter terrain
+                                             // Hills biome - more varied, higher amplitude
     {0.1f, 1.2f, 0.5f, 12.0f}};
 
 static float getBiomeBlendFactor(float x, float z) {
@@ -286,7 +284,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
   frustum_update(&frustum, projection, view);
 
   // Set light properties
-  Vec3 lightPos = {5.0f, 30.0f, 5.0f};
+  Vec3 lightPos = {5.0f, 50.0f, 5.0f};
   Vec3 lightColor = {1.0f, 1.0f, 1.0f};
 
   glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, (float*)&lightPos);
@@ -295,7 +293,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
   glBindVertexArray(VAO);
 
-  const float RENDER_DISTANCE = 6.0f;
+  const float RENDER_DISTANCE = 4.0f;
 
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -339,11 +337,26 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
             }
             Vec3i pos = {chunkWorldCoords.x + i * CUBE_SIZE, j * CUBE_SIZE, chunkWorldCoords.z + k * CUBE_SIZE};
             // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d type:%d\n", i, j, k, x, z, pos.x, pos.y, pos.z, block->id);
+
             bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
 
             if (occluded) {
-              continue;
+              // continue;
             }
+            if (!block->checkedNeighbours) {
+              block->checkedNeighbours = true;
+              for (int face = 0; face < 6; face++) {
+                Vec3i nPos;
+                vec3i_add(&nPos, &pos, &vec3iFaceMap[face]);
+                Block* n = getBlock(&nPos);
+                if (!n || n->id == BLOCK_AIR) {
+                  block->neighbour[face] = false;
+                } else {
+                  block->neighbour[face] = true;
+                }
+              }
+            }
+
             visibleCubes++;
             // Blend block color with chunk color
             Vec3 finalColor;
@@ -366,6 +379,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             // Bind the appropriate texture for each face
             for (int face = 0; face < 6; face++) {
+              if (block->neighbour[face]) {
+                // continue;
+              }
               if (!is_face_visible(&pos, face, camera)) {
                 continue;
               }
@@ -374,9 +390,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
               } else if (block->id == BLOCK_DIRT) {
                 glBindTexture(GL_TEXTURE_2D, dirtTexture);
               } else if (block->id == BLOCK_GRASS) {
-                if (face == 2) { // Top face
+                if (face == TOP) {
                   glBindTexture(GL_TEXTURE_2D, grassTopTexture);
-                } else if (face == 3) { // Bottom face
+                } else if (face == BOTTOM) {
                   glBindTexture(GL_TEXTURE_2D, dirtTexture);
                 } else { // Side faces
                   glBindTexture(GL_TEXTURE_2D, grassSideTexture);
