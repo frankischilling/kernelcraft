@@ -25,10 +25,13 @@ typedef struct {
   int a;
   int b;
 } Vec2i;
-#define VEC3_ZERO (Vec3){0.0f, 0.0f, 0.0f}
-#define VEC3_UP (Vec3){0.0f, 1.0f, 0.0f}
-#define VEC3_FRONT (Vec3){0.0f, 0.0f, 1.0f}
-#define VEC3_RIGHT (Vec3){1.0f, 0.0f, 0.0f}
+#define VEC3_ZERO {0, 0, 0}
+#define VEC3_RIGHT {1, 0, 0}
+#define VEC3_UP {0, 1, 0}
+#define VEC3_FRONT {0, 0, 1}
+#define VEC3_LEFT {-1, 0, 0}
+#define VEC3_DOWN {0, -1, 0}
+#define VEC3_REAR {0, 0, -1}
 typedef float Mat4[16];
 typedef float Plane[4];
 // Helper functions

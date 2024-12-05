@@ -311,8 +311,10 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
         continue;
       }
       Vec3 chunkDimensions = CHUNK_DIMENSIONS;
-      BlockVisibility chunkVisible = frustum_check_block(&frustum, &chunkCenter, &chunkDimensions, camera);
-      if (chunkVisible == BLOCK_HIDDEN) {
+
+      // Check if the chunk is in the view frustum
+      bool chunkVisible = frustum_block_visible(&frustum, &chunkCenter, &chunkDimensions, camera);
+      if (!chunkVisible) {
         continue;
       }
       // Add alternating color pattern for chunks
@@ -327,8 +329,6 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
         chunkColor.z = 1.0f;
       }
 
-      // Check if the chunk is in the view frustum
-
       // Render each block in the chunk
       for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_HEIGHT; j++) {
@@ -341,7 +341,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
             // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d type:%d\n", i, j, k, x, z, pos.x, pos.y, pos.z, block->id);
             bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
 
-            if (occluded == true) {
+            if (occluded) {
               continue;
             }
             visibleCubes++;
@@ -366,6 +366,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             // Bind the appropriate texture for each face
             for (int face = 0; face < 6; face++) {
+              if (!is_face_visible(&pos, face, camera)) {
+                continue;
+              }
               if (block->id == BLOCK_STONE) {
                 glBindTexture(GL_TEXTURE_2D, stoneTexture);
               } else if (block->id == BLOCK_DIRT) {

@@ -82,34 +82,38 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   plane_normalize(frustum->planes[5]);
 }
 
-bool is_face_visible(Vec3* pos, int face, const Camera* camera) {
-  Vec3 toCam;
-  vec3_subtract(&toCam, &camera->position, pos);
-  vec3_normalize(&toCam, &toCam);
+bool is_face_visible(Vec3i* posi, int face, const Camera* camera) {
+  Vec3 pos = (Vec3){posi->x, posi->y, posi->z};
+  Vec3 toBlock;
+  vec3_subtract(&toBlock, &pos, &camera->position);
+  vec3_normalize(&toBlock, &toBlock);
 
   Vec3 faceNormal = VEC3_ZERO;
   switch (face) {
   case 0:
-    faceNormal.x = 1.0f;
+    faceNormal = (Vec3)VEC3_RIGHT;
     break; // Right face
   case 1:
-    faceNormal.x = -1.0f;
+    faceNormal = (Vec3)VEC3_LEFT;
     break; // Left face
   case 2:
-    faceNormal.y = 1.0f;
+    faceNormal = (Vec3)VEC3_UP;
     break; // Top face
   case 3:
-    faceNormal.y = -1.0f;
+    faceNormal = (Vec3)VEC3_DOWN;
     break; // Bottom face
   case 4:
-    faceNormal.z = 1.0f;
+    faceNormal = (Vec3)VEC3_FRONT;
     break; // Front face
   case 5:
-    faceNormal.z = -1.0f;
-    break; // Back face
+    faceNormal = (Vec3)VEC3_REAR;
+    break; // Rear face
   }
 
-  return vec3_dot(&toCam, &faceNormal) > 0.0f;
+  if (toBlock.x < 0 && toBlock.z > 0 || toBlock.x > 0 && toBlock.z < 0) {
+    faceNormal = (Vec3){-faceNormal.x, faceNormal.y, -faceNormal.z};
+  }
+  return vec3_dot(&toBlock, &faceNormal) < 0.0f;
 }
 
 bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
@@ -163,30 +167,30 @@ bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
   return true; // Block is completely surrounded by other blocks
 }
 
-BlockVisibility frustum_check_cube(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {
+bool frustum_cube_visible(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {
   for (int i = 0; i < 6; i++) {
     float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
 
     float r = size * 0.5f * (fabsf(frustum->planes[i][0]) + fabsf(frustum->planes[i][1]) + fabsf(frustum->planes[i][2]));
 
     if (d < -r) {
-      return BLOCK_HIDDEN;
+      return false;
     }
   }
 
-  return BLOCK_VISIBLE;
+  return true;
 }
 
-BlockVisibility frustum_check_block(const Frustum* frustum, Vec3* pos, Vec3* sizes, const Camera* camera) {
+bool frustum_block_visible(const Frustum* frustum, Vec3* pos, Vec3* sizes, const Camera* camera) {
   for (int i = 0; i < 6; i++) {
     float d = frustum->planes[i][0] * pos->x + frustum->planes[i][1] * pos->y + frustum->planes[i][2] * pos->z + frustum->planes[i][3];
 
     float r = 0.5f * (sizes->x * fabsf(frustum->planes[i][0]) + sizes->y * fabsf(frustum->planes[i][1]) + sizes->z * fabsf(frustum->planes[i][2]));
 
     if (d < -r) {
-      return BLOCK_HIDDEN;
+      return false;
     }
   }
 
-  return BLOCK_VISIBLE;
+  return true;
 }
