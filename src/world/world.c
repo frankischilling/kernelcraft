@@ -7,9 +7,12 @@
  *
  */
 #include <GL/glew.h>
+#include <GL/glut.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "world.h"
 #include "../graphics/camera.h"
 #include "../graphics/cube.h"
@@ -157,13 +160,27 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
 }
 
 void cleanupChunks() {
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
-      free(chunks[x][z]);
+    if (!chunks) {
+        printf("cleanupChunks: No chunks to clean up.\n");
+        return;
     }
-    free(chunks[x]);
-  }
-  free(chunks);
+    printf("cleanupChunks: Cleaning up chunks.\n");
+    for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
+        if (!chunks[x]) {
+            continue;
+        }
+        for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+            if (chunks[x][z]) {
+                free(chunks[x][z]);
+                chunks[x][z] = NULL;
+            }
+        }
+        free(chunks[x]);
+        chunks[x] = NULL;
+    }
+    free(chunks);
+    chunks = NULL;
+    printf("cleanupChunks: Cleanup completed.\n");
 }
 
 Chunk* getChunk(int x, int z) {
@@ -272,126 +289,127 @@ void initWorld() {
 }
 
 void renderWorld(GLuint shaderProgram, const Camera* camera) {
-  visibleCubes = 0; // Reset counter
+    visibleCubes = 0; // Reset counter
 
-  // Create and update frustum
-  Frustum frustum;
-  Mat4 projection, view;
-  mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
+    // Create and update frustum
+    Frustum frustum;
+    Mat4 projection, view;
+    mat4_perspective(projection, 70.0f, 1920.0f / 1080.0f, 0.1f, 1000.0f);
 
-  Vec3 target;
-  vec3_add(&target, &camera->position, &camera->front);
-  mat4_lookAt(view, &camera->position, &target, &camera->up);
+    Vec3 target;
+    vec3_add(&target, &camera->position, &camera->front);
+    mat4_lookAt(view, &camera->position, &target, &camera->up);
 
-  frustum_update(&frustum, projection, view);
+    frustum_update(&frustum, projection, view);
 
-  // Set light properties
-  Vec3 lightPos = {5.0f, 30.0f, 5.0f};
-  Vec3 lightColor = {1.0f, 1.0f, 1.0f};
+    // Set light properties
+    Vec3 lightPos = {5.0f, 30.0f, 5.0f};
+    Vec3 lightColor = {1.0f, 1.0f, 1.0f};
 
-  glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, (float*)&lightPos);
-  glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, (float*)&lightColor);
-  glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, (float*)&camera->position);
+    glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, (float*)&lightPos);
+    glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, (float*)&lightColor);
+    glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, (float*)&camera->position);
 
-  glBindVertexArray(VAO);
+    glBindVertexArray(VAO);
 
-  const float RENDER_DISTANCE = 6.0f;
+    const float RENDER_DISTANCE = 6.0f;
 
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
-      Chunk* chunk = chunks[x][z];
+    for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
+        for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+            Chunk* chunk = chunks[x][z];
 
-      // check if chunk out of render distance
-      Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
-      Vec3 chunkCenter = getChunkCenter(&chunk->position);
-      Vec2i cameraXZ = {camera->position.x, camera->position.z};
-      Vec2i chunkXZ = {chunkCenter.x, chunkCenter.z};
+            // Check if chunk is out of render distance
+            Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
+            Vec3 chunkCenter = getChunkCenter(&chunk->position);
+            Vec2i cameraXZ = {camera->position.x, camera->position.z};
+            Vec2i chunkXZ = {chunkCenter.x, chunkCenter.z};
 
-      if (vec2i_distance(&cameraXZ, &chunkXZ) > CHUNK_SIZE * RENDER_DISTANCE / 2) {
-        continue;
-      }
-      Vec3 chunkDimensions = CHUNK_DIMENSIONS;
-
-      // Check if the chunk is in the view frustum
-      bool chunkVisible = frustum_block_visible(&frustum, &chunkCenter, &chunkDimensions, camera);
-      if (!chunkVisible) {
-        continue;
-      }
-      // Add alternating color pattern for chunks
-      Vec3 chunkColor;
-      if ((x + z) % 2 == 0) {
-        chunkColor.x = 1.0f; // More reddish
-        chunkColor.y = 0.8f;
-        chunkColor.z = 0.8f;
-      } else {
-        chunkColor.x = 0.8f; // More bluish
-        chunkColor.y = 0.8f;
-        chunkColor.z = 1.0f;
-      }
-
-      // Render each block in the chunk
-      for (int i = 0; i < CHUNK_SIZE; i++) {
-        for (int j = 0; j < CHUNK_HEIGHT; j++) {
-          for (int k = 0; k < CHUNK_SIZE; k++) {
-            Block* block = &chunk->blocks[i][j][k];
-            if (block->id == BLOCK_AIR) {
-              continue;
-            }
-            Vec3i pos = {chunkWorldCoords.x + i * CUBE_SIZE, j * CUBE_SIZE, chunkWorldCoords.z + k * CUBE_SIZE};
-            // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d type:%d\n", i, j, k, x, z, pos.x, pos.y, pos.z, block->id);
-            bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
-
-            if (occluded) {
-              continue;
-            }
-            visibleCubes++;
-            // Blend block color with chunk color
-            Vec3 finalColor;
-            finalColor.x = blockColors[block->id].x * chunkColor.x;
-            finalColor.y = blockColors[block->id].y * chunkColor.y;
-            finalColor.z = blockColors[block->id].z * chunkColor.z;
-
-            Mat4 model;
-            mat4_identity(model);
-            model[12] = (float)pos.x;
-            model[13] = (float)pos.y;
-            model[14] = (float)pos.z;
-
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
-
-            glUseProgram(shaderProgram);
-
-            // Set the texture sampler uniform to use texture unit 0
-            glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
-
-            // Bind the appropriate texture for each face
-            for (int face = 0; face < 6; face++) {
-              if (!is_face_visible(&pos, face, camera)) {
+            if (vec2i_distance(&cameraXZ, &chunkXZ) > CHUNK_SIZE * RENDER_DISTANCE / 2) {
                 continue;
-              }
-              if (block->id == BLOCK_STONE) {
-                glBindTexture(GL_TEXTURE_2D, stoneTexture);
-              } else if (block->id == BLOCK_DIRT) {
-                glBindTexture(GL_TEXTURE_2D, dirtTexture);
-              } else if (block->id == BLOCK_GRASS) {
-                if (face == 2) { // Top face
-                  glBindTexture(GL_TEXTURE_2D, grassTopTexture);
-                } else if (face == 3) { // Bottom face
-                  glBindTexture(GL_TEXTURE_2D, dirtTexture);
-                } else { // Side faces
-                  glBindTexture(GL_TEXTURE_2D, grassSideTexture);
-                }
-              }
-              // Draw the face
-              glDrawArrays(GL_TRIANGLES, face * 6, 6);
             }
-          }
-        }
-      }
-    }
-  }
 
-  glBindVertexArray(0);
+            Vec3 chunkDimensions = CHUNK_DIMENSIONS;
+
+            // Check if the chunk is in the view frustum
+            bool chunkVisible = frustum_block_visible(&frustum, &chunkCenter, &chunkDimensions, camera);
+            if (!chunkVisible) {
+                continue;
+            }
+
+            // Add alternating color pattern for chunks
+            Vec3 chunkColor;
+            if ((x + z) % 2 == 0) {
+                chunkColor = (Vec3){1.0f, 0.8f, 0.8f};
+            } else {
+                chunkColor = (Vec3){0.8f, 0.8f, 1.0f};
+            }
+
+            // Render each block in the chunk
+            for (int i = 0; i < CHUNK_SIZE; i++) {
+                for (int j = 0; j < CHUNK_HEIGHT; j++) {
+                    for (int k = 0; k < CHUNK_SIZE; k++) {
+                        Block* block = &chunk->blocks[i][j][k];
+                        if (block->id == BLOCK_AIR) {
+                            continue;
+                        }
+
+                        Vec3i pos = {chunkWorldCoords.x + i * CUBE_SIZE, j * CUBE_SIZE, chunkWorldCoords.z + k * CUBE_SIZE};
+
+                        bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
+                        if (occluded) {
+                            continue;
+                        }
+
+                        visibleCubes++;
+                        
+                        // Blend block color with chunk color
+                        Vec3 finalColor = {
+                            blockColors[block->id].x * chunkColor.x,
+                            blockColors[block->id].y * chunkColor.y,
+                            blockColors[block->id].z * chunkColor.z
+                        };
+
+                        Mat4 model;
+                        mat4_identity(model);
+                        model[12] = (float)pos.x;
+                        model[13] = (float)pos.y;
+                        model[14] = (float)pos.z;
+
+                        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
+
+                        glUseProgram(shaderProgram);
+
+                        // Set the texture sampler uniform to use texture unit 0
+                        glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
+
+                        // Bind the appropriate texture for each face
+                        for (int face = 0; face < 6; face++) {
+                            if (!is_face_visible(&pos, face, camera)) {
+                                continue;
+                            }
+                            if (block->id == BLOCK_STONE) {
+                                glBindTexture(GL_TEXTURE_2D, stoneTexture);
+                            } else if (block->id == BLOCK_DIRT) {
+                                glBindTexture(GL_TEXTURE_2D, dirtTexture);
+                            } else if (block->id == BLOCK_GRASS) {
+                                if (face == 2) { // Top face
+                                    glBindTexture(GL_TEXTURE_2D, grassTopTexture);
+                                } else if (face == 3) { // Bottom face
+                                    glBindTexture(GL_TEXTURE_2D, dirtTexture);
+                                } else { // Side faces
+                                    glBindTexture(GL_TEXTURE_2D, grassSideTexture);
+                                }
+                            }
+                            // Draw the face
+                            glDrawArrays(GL_TRIANGLES, face * 6, 6);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    glBindVertexArray(0);
 }
 
 void cleanupWorld() {
@@ -447,4 +465,77 @@ Block* getBlock(Vec3i* pos) {
   // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d \n", localX, pos->y, localZ, chunkI, chunkJ, pos->x, pos->y, pos->z);
 
   return &chunk->blocks[localX][pos->y][localZ];
+}
+
+void menuRenderWorldList(char worlds[][MAX_WORLD_NAME], int worldCount, int screenWidth, int screenHeight) {
+    float startY = screenHeight / 2.0f - worldCount * 20 / 2;
+    for (int i = 0; i < worldCount; i++) {
+        float y = startY + i * 30;
+        glRasterPos2f(100, y);
+        for (const char* c = worlds[i]; *c; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+    }
+}
+
+void createWorld(const char* worldName) {
+    char worldPath[256];
+    snprintf(worldPath, sizeof(worldPath), "saves/%s", worldName);
+
+    mkdir("saves", 0777); // Create the saves directory if it doesn't exist
+    FILE* worldFile = fopen(worldPath, "wb");
+    if (!worldFile) {
+        fprintf(stderr, "Failed to create world: %s\n", worldName);
+        return;
+    }
+
+    // Initialize and save the new world
+    initChunks();
+    fwrite(chunks, sizeof(Chunk***), CHUNKS_PER_AXIS * CHUNKS_PER_AXIS, worldFile);
+    fclose(worldFile);
+
+    printf("World '%s' created successfully!\n", worldName);
+}
+
+void loadWorld(const char* worldName) {
+    char worldPath[256];
+    snprintf(worldPath, sizeof(worldPath), "saves/%s", worldName);
+
+    FILE* worldFile = fopen(worldPath, "rb");
+    if (!worldFile) {
+        fprintf(stderr, "Failed to load world: %s. File not found.\n", worldName);
+        return;
+    }
+
+    // Clear existing chunks
+    cleanupChunks();
+
+    // Reinitialize chunks
+    chunks = (Chunk***)malloc(CHUNKS_PER_AXIS * sizeof(Chunk**));
+    for (int i = 0; i < CHUNKS_PER_AXIS; i++) {
+        chunks[i] = (Chunk**)malloc(CHUNKS_PER_AXIS * sizeof(Chunk*));
+        for (int j = 0; j < CHUNKS_PER_AXIS; j++) {
+            chunks[i][j] = (Chunk*)malloc(sizeof(Chunk));
+            fread(chunks[i][j], sizeof(Chunk), 1, worldFile);
+        }
+    }
+    fclose(worldFile);
+
+    fprintf(stdout, "World '%s' loaded successfully!\n", worldName);
+}
+
+void saveWorld(const char* worldName) {
+    char worldPath[256];
+    snprintf(worldPath, sizeof(worldPath), "saves/%s", worldName);
+
+    FILE* worldFile = fopen(worldPath, "wb");
+    if (!worldFile) {
+        fprintf(stderr, "Failed to save world: %s\n", worldName);
+        return;
+    }
+
+    fwrite(chunks, sizeof(Chunk***), CHUNKS_PER_AXIS * CHUNKS_PER_AXIS, worldFile);
+    fclose(worldFile);
+
+    printf("World '%s' saved successfully!\n", worldName);
 }

@@ -16,6 +16,7 @@
 #include "../math/math.h"
 #include "block.h"
 
+#define MAX_WORLD_NAME 32
 #define WORLD_SIZE 256
 #define WORLD_HEIGHT 64
 #define CUBE_SIZE 1.0f
@@ -28,7 +29,6 @@
   }
 
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
-
 typedef enum {
   BIOME_PLAINS,
   BIOME_HILLS,
@@ -55,12 +55,15 @@ void cleanupWorld();
 const char* getCurrentBiomeText(float x, float z);
 int getVisibleCubesCount();
 float getTerrainHeight(float x, float z);
-
+void loadWorld(const char* worldName);
+void createWorld(const char* worldName);
+void saveWorld(const char* worldName);
 // Chunk functions
 void initChunks();
 void renderChunks(GLuint shaderProgram, const Camera* camera);
 void cleanupChunks();
 void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
+void menuRenderWorldList(char worlds[][MAX_WORLD_NAME], int worldCount, int screenWidth, int screenHeight);
 
 Vec3i getPositionOnGrid(const Vec3* pos);
 Block* getBlock(Vec3i* coords);

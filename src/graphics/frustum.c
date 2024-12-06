@@ -110,7 +110,7 @@ bool is_face_visible(Vec3i* posi, int face, const Camera* camera) {
     break; // Rear face
   }
 
-  if (toBlock.x < 0 && toBlock.z > 0 || toBlock.x > 0 && toBlock.z < 0) {
+  if ((toBlock.x < 0 && toBlock.z > 0) || (toBlock.x > 0 && toBlock.z < 0)) {
     faceNormal = (Vec3){-faceNormal.x, faceNormal.y, -faceNormal.z};
   }
   return vec3_dot(&toBlock, &faceNormal) < 0.0f;
