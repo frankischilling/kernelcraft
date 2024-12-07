@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "graphics/camera.h"
-#include "graphics/cube.h"
+#include "world/cube.h"
 #include "graphics/shader.h"
 #include "math/math.h"
 #include "utils/inputs.h"
@@ -39,14 +39,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-int main() {
+int main(int argc, char** argv) {
   if (!glfwInit()) {
     fprintf(stderr, "Failed to initialize GLFW\n");
     return -1;
   }
 
-  int argc = 1;
-  char* argv[1] = {(char*)"Something"};
   glutInit(&argc, argv);
   GLFWwindow* window = glfwCreateWindow(1920, 1080, "kernelcraft", NULL, NULL);
   if (!window) {
@@ -116,9 +114,10 @@ int main() {
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
     renderChunkGrid(shaderProgram, &camera);
-    renderWorld(shaderProgram, &camera);
+    RenderResult result = renderWorld(shaderProgram, &camera);
 
-    HUDDraw(shaderProgram, &camera, fps);
+    DebugData data = (DebugData){&camera, fps, result.visisbleCubes};
+    HUDDraw(shaderProgram, &data);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

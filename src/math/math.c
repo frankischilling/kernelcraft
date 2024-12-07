@@ -8,6 +8,8 @@
  */
 #include "math.h"
 #include <math.h>
+Vec3 vec3FaceMap[6] = {VEC3_RIGHT, VEC3_LEFT, VEC3_UP, VEC3_DOWN, VEC3_FRONT, VEC3_REAR};
+Vec3i vec3iFaceMap[6] = {VEC3_RIGHT, VEC3_LEFT, VEC3_UP, VEC3_DOWN, VEC3_FRONT, VEC3_REAR};
 
 void plane_normalize(Plane plane) {
   float magnitude = sqrtf(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
@@ -150,35 +152,35 @@ void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float f
 }
 
 void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* up) {
-  Vec3 f, s, u, temp;
+  Vec3 f, r, u, temp;
 
   // Calculate forward vector
   vec3_subtract(&temp, center, eye);
   vec3_normalize(&f, &temp);
 
-  // Calculate side vector
+  // Calculate right vector
   vec3_cross(&temp, &f, up);
-  vec3_normalize(&s, &temp);
+  vec3_normalize(&r, &temp);
 
   // Calculate up vector
-  vec3_cross(&u, &s, &f);
+  vec3_cross(&u, &r, &f);
 
-  result[0] = s.x;
+  result[0] = r.x;
   result[1] = u.x;
   result[2] = -f.x;
   result[3] = 0.0f;
 
-  result[4] = s.y;
+  result[4] = r.y;
   result[5] = u.y;
   result[6] = -f.y;
   result[7] = 0.0f;
 
-  result[8] = s.z;
+  result[8] = r.z;
   result[9] = u.z;
   result[10] = -f.z;
   result[11] = 0.0f;
 
-  result[12] = -vec3_dot(&s, eye);
+  result[12] = -vec3_dot(&r, eye);
   result[13] = -vec3_dot(&u, eye);
   result[14] = vec3_dot(&f, eye);
   result[15] = 1.0f;

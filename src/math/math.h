@@ -1,7 +1,7 @@
 /**
  * @file math/math.h
  * @brief Math module for vector and matrix operations.
- * @author frankischilling
+ * @author frankischilling, Vladimir Janus
  * @version 0.1
  * @date 2024-11-19
  *
@@ -27,11 +27,23 @@ typedef struct {
 } Vec2i;
 #define VEC3_ZERO {0, 0, 0}
 #define VEC3_RIGHT {1, 0, 0}
-#define VEC3_UP {0, 1, 0}
-#define VEC3_FRONT {0, 0, 1}
 #define VEC3_LEFT {-1, 0, 0}
+#define VEC3_UP {0, 1, 0}
 #define VEC3_DOWN {0, -1, 0}
+#define VEC3_FRONT {0, 0, 1}
 #define VEC3_REAR {0, 0, -1}
+enum Face {
+  RIGHT = 0,
+  LEFT = 1,
+  TOP = 2,
+  BOTTOM = 3,
+  FRONT = 4,
+  REAR = 5,
+};
+
+extern Vec3 vec3FaceMap[6];
+extern Vec3i vec3iFaceMap[6];
+
 typedef float Mat4[16];
 typedef float Plane[4];
 // Helper functions
