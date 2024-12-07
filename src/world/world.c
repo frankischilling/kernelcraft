@@ -12,16 +12,16 @@
 #include <stdlib.h>
 #include "world.h"
 #include "../graphics/camera.h"
-#include "../graphics/cube.h"
 #include "../graphics/frustum.h"
 #include "../graphics/shader.h"
 #include "../graphics/texture.h"
 #include "../math/math.h"
-#include "block.h"
+#include "cube.h"
+#include "chunk.h"
 static GLuint stoneTexture, dirtTexture, grassTopTexture, grassSideTexture;
 
 // 2d array of chunk pointers
-static Chunk*** chunks = NULL;
+Chunk*** chunks = NULL;
 //                    index I      J coord X      Z
 // FIRST  QUADRANT chunks[8 ,15][8 ,15] [0 , 7][0 , 7]
 // SECOND QUADRANT chunks[8 ,15][0 , 7] [0 , 7][-8,-1]
@@ -29,17 +29,6 @@ static Chunk*** chunks = NULL;
 // FOURTH QUADRANT chunks[0 , 7][8 ,15] [-8,-1][0 , 7]
 
 static GLuint VBO, VAO;
-
-static int visibleCubes = 0;
-
-Vec3 convertChunkToWorld(Vec2i* chunkPos) {
-  Vec3 worldCoords = (Vec3){chunkPos->a * CHUNK_SIZE, 0, chunkPos->b * CHUNK_SIZE};
-  return worldCoords;
-}
-Vec3 getChunkCenter(Vec2i* chunkPos) {
-  Vec3 worldCoords = convertChunkToWorld(chunkPos);
-  return (Vec3){worldCoords.x + CHUNK_SIZE / 2, CHUNK_HEIGHT / 2, worldCoords.z + CHUNK_SIZE / 2};
-}
 
 // Chunk functions
 void initChunks() {
@@ -154,7 +143,6 @@ void renderChunkGrid(GLuint shaderProgram, const Camera* camera) {
   glDrawArrays(GL_LINES, 0, (WORLD_SIZE / CHUNK_SIZE * 2 + 2) * 2);
   glBindVertexArray(0);
 }
-
 void cleanupChunks() {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -163,13 +151,6 @@ void cleanupChunks() {
     free(chunks[x]);
   }
   free(chunks);
-}
-
-Chunk* getChunk(int x, int z) {
-  if (x < 0 || x >= CHUNKS_PER_AXIS || z < 0 || z >= CHUNKS_PER_AXIS) {
-    return NULL;
-  }
-  return chunks[x][z];
 }
 
 static const GLfloat cubeVerticesWithNormals[] = {
@@ -203,13 +184,11 @@ static BiomeParameters biomeParameters[] = { // Plains biome - flatter, lower am
     {0.03f, 0.5f, 0.3f, 4.0f},               // Lower frequency and amplitude for flatter terrain
                                              // Hills biome - more varied, higher amplitude
     {0.1f, 1.2f, 0.5f, 12.0f}};
-
 static float getBiomeBlendFactor(float x, float z) {
   // Use a different noise frequency for biome transitions
   float biomeNoise = perlin(x * 0.02f, 0, z * 0.02f);
   return smoothstep(0.4f, 0.6f, biomeNoise);
 }
-
 BiomeParameters getInterpolatedBiomeParameters(float x, float z) {
   float blendFactor = getBiomeBlendFactor(x, z);
   BiomeParameters result;
@@ -221,7 +200,6 @@ BiomeParameters getInterpolatedBiomeParameters(float x, float z) {
 
   return result;
 }
-
 // Add this function to get height based on biome
 float getTerrainHeight(float x, float z) {
   BiomeParameters params = getInterpolatedBiomeParameters(x, z);
@@ -237,6 +215,16 @@ float getTerrainHeight(float x, float z) {
   }
 
   return height * params.heightScale;
+}
+const char* getCurrentBiomeText(float x, float z) {
+  float blendFactor = getBiomeBlendFactor(x, z);
+  if (blendFactor < 0.4f) {
+    return "Plains";
+  } else if (blendFactor > 0.6f) {
+    return "Hills";
+  } else {
+    return "Transition"; // Optional: show when we're between biomes
+  }
 }
 
 void initWorld() {
@@ -269,8 +257,8 @@ void initWorld() {
   grassSideTexture = loadTexture("assets/textures/grass-side.png");
 }
 
-void renderWorld(GLuint shaderProgram, const Camera* camera) {
-  visibleCubes = 0; // Reset counter
+RenderResult renderWorld(GLuint shaderProgram, const Camera* camera) {
+  int visibleCubes = 0; // Reset counter
 
   // Create and update frustum
   Frustum frustum;
@@ -300,7 +288,7 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
       Chunk* chunk = chunks[x][z];
 
       // check if chunk out of render distance
-      Vec3 chunkWorldCoords = convertChunkToWorld(&chunk->position);
+      Vec3 chunkWorldCoords = chunkToWorld(&chunk->position);
       Vec3 chunkCenter = getChunkCenter(&chunk->position);
       Vec2i cameraXZ = {camera->position.x, camera->position.z};
       Vec2i chunkXZ = {chunkCenter.x, chunkCenter.z};
@@ -338,11 +326,11 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
             Vec3i pos = {chunkWorldCoords.x + i * CUBE_SIZE, j * CUBE_SIZE, chunkWorldCoords.z + k * CUBE_SIZE};
             // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d type:%d\n", i, j, k, x, z, pos.x, pos.y, pos.z, block->id);
 
-            bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
+            // bool occluded = is_block_occluded(&pos, CUBE_SIZE, camera);
 
-            if (occluded) {
-              // continue;
-            }
+            // if (occluded) {
+            //  continue;
+            //}
             if (!block->checkedNeighbours) {
               block->checkedNeighbours = true;
               for (int face = 0; face < 6; face++) {
@@ -366,9 +354,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             Mat4 model;
             mat4_identity(model);
-            model[12] = (float)pos.x;
-            model[13] = (float)pos.y;
-            model[14] = (float)pos.z;
+            model[12] = (float)pos.x + 0.5f;
+            model[13] = (float)pos.y + 0.5f;
+            model[14] = (float)pos.z + 0.5f;
 
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
 
@@ -379,27 +367,30 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
 
             // Bind the appropriate texture for each face
             for (int face = 0; face < 6; face++) {
+              GLuint texture = 0;
               if (block->neighbour[face]) {
-                // continue;
-              }
-              if (!is_face_visible(&pos, face, camera)) {
                 continue;
               }
-              if (block->id == BLOCK_STONE) {
-                glBindTexture(GL_TEXTURE_2D, stoneTexture);
-              } else if (block->id == BLOCK_DIRT) {
-                glBindTexture(GL_TEXTURE_2D, dirtTexture);
-              } else if (block->id == BLOCK_GRASS) {
+
+              switch (block->id) {
+              case BLOCK_STONE:
+                texture = stoneTexture;
+                break;
+              case BLOCK_DIRT:
+                texture = dirtTexture;
+                break;
+              case BLOCK_GRASS:
                 if (face == TOP) {
-                  glBindTexture(GL_TEXTURE_2D, grassTopTexture);
+                  texture = grassTopTexture;
                 } else if (face == BOTTOM) {
-                  glBindTexture(GL_TEXTURE_2D, dirtTexture);
+                  texture = dirtTexture;
                 } else { // Side faces
-                  glBindTexture(GL_TEXTURE_2D, grassSideTexture);
+                  texture = grassSideTexture;
                 }
+                break;
               }
-              // Draw the face
-              glDrawArrays(GL_TRIANGLES, face * 6, 6);
+
+              renderCubeFace(face, texture);
             }
           }
         }
@@ -408,8 +399,9 @@ void renderWorld(GLuint shaderProgram, const Camera* camera) {
   }
 
   glBindVertexArray(0);
+  RenderResult result = {visibleCubes};
+  return result;
 }
-
 void cleanupWorld() {
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
@@ -419,48 +411,29 @@ void cleanupWorld() {
   glDeleteTextures(1, &grassSideTexture);
 }
 
-const char* getCurrentBiomeText(float x, float z) {
-  float blendFactor = getBiomeBlendFactor(x, z);
-  if (blendFactor < 0.4f) {
-    return "Plains";
-  } else if (blendFactor > 0.6f) {
-    return "Hills";
-  } else {
-    return "Transition"; // Optional: show when we're between biomes
+// Get a pointer to the chunk at the given position.
+Chunk* getChunk(Vec2i* chunkPos) {
+  if (chunkPos->a < 0 || chunkPos->a >= CHUNKS_PER_AXIS || chunkPos->b < 0 || chunkPos->b >= CHUNKS_PER_AXIS) {
+    // printf("INVALID CHUNK PASSED pos: %d,%d\n", chunkPos->a, chunkPos->b);
+    return NULL;
   }
+  return chunks[chunkPos->a][chunkPos->b];
 }
 
-int getVisibleCubesCount() {
-  return visibleCubes;
-}
-
-Vec3i getPositionOnGrid(const Vec3* pos) {
-  return (Vec3i){(int)pos->x, (int)pos->y, (int)pos->z};
-}
-
+// Get the block at the specified world position.
 Block* getBlock(Vec3i* pos) {
-  // Convert world coordinates to chunk coordinates
-  int chunkI = floorf(pos->x / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
-  int chunkJ = floorf(pos->z / (CHUNK_SIZE * CUBE_SIZE)) + CHUNKS_PER_AXIS / 2;
-  // Get local coordinates within the chunk
-  int localX = (int)((pos->x % CHUNK_SIZE) / CUBE_SIZE);
-  int localZ = (int)((pos->z % CHUNK_SIZE) / CUBE_SIZE);
-  if (localX < 0)
-    localX += CHUNK_SIZE;
-  if (localZ < 0)
-    localZ += CHUNK_SIZE;
-
-  if (localX < 0 || localX > 15 || pos->y < 0 || localZ < 0 || localZ > 15 || chunkI < 0 || chunkJ < 0 || chunkI > CHUNKS_PER_AXIS - 1 || chunkJ > CHUNKS_PER_AXIS - 1) {
-    // printf(" OUT OF BOUNDS p: %d, %d, %d chunk: %d,%d\n", localX, pos->y, localZ, chunkI, chunkJ);
+  if (pos->y < 0 || pos->y > CHUNK_HEIGHT) {
     return NULL;
   }
+  Vec2i chunkPos = blockToChunk(pos);
+  Vec3i localPos = getLocal(pos);
+
   // Get the chunk
-  Chunk* chunk = getChunk(chunkI, chunkJ);
+  Chunk* chunk = getChunk(&chunkPos);
   if (!chunk) {
-    printf("NULL CHUNK WHEN p: %d, %d, %d chunk: %d,%d\n", pos->x, pos->y, pos->z, chunkI, chunkJ);
+    // printf("NULL CHUNK WHEN p: %d, %d, %d chunk: %d,%d\n", pos->x, pos->y, pos->z, chunkPos.a, chunkPos.b);
     return NULL;
   }
-  // printf("p: %d, %d, %d chunk: %d,%d world: %d,%d,%d \n", localX, pos->y, localZ, chunkI, chunkJ, pos->x, pos->y, pos->z);
 
-  return &chunk->blocks[localX][pos->y][localZ];
+  return &chunk->blocks[localPos.x][pos->y][localPos.z];
 }

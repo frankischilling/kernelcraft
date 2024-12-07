@@ -8,9 +8,10 @@
 #include "../math/math.h"
 typedef struct {
   bool hit;
-  Vec3 coords;
+  Vec3 hitCoords;
+  Vec3i blockCoords;
 } Ray;
 
 Ray rayCast(const Camera* camera);
 
-#endif //RAYCAST_H
+#endif // RAYCAST_H

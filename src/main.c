@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "graphics/camera.h"
-#include "graphics/cube.h"
+#include "world/cube.h"
 #include "graphics/shader.h"
 #include "math/math.h"
 #include "utils/inputs.h"
@@ -114,9 +114,10 @@ int main(int argc, char** argv) {
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
 
     renderChunkGrid(shaderProgram, &camera);
-    renderWorld(shaderProgram, &camera);
+    RenderResult result = renderWorld(shaderProgram, &camera);
 
-    HUDDraw(shaderProgram, &camera, fps);
+    DebugData data = (DebugData){&camera, fps, result.visisbleCubes};
+    HUDDraw(shaderProgram, &data);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

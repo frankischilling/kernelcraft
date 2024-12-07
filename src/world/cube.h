@@ -21,8 +21,8 @@ enum BlockID {
 // block struct
 typedef struct {
   enum BlockID id;
-  bool checkedNeighbours;
-  bool neighbour[6];
+  bool checkedNeighbors;
+  bool neighbor[6];
 } Block;
 
 // Block colors (R0.GB)
@@ -33,5 +33,6 @@ static const Vec3 blockColors[] = {
     {0.5f, 0.5f, 0.5f}  // STONE
 };
 void initCube();
+void renderCubeFace(int face, GLuint texture);
 
 #endif // CUBE_H

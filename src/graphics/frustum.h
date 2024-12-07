@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include "../graphics/camera.h"
 #include "../math/math.h"
-#include "cube.h"
+#include "../world/cube.h"
 
 // Frustum structure to hold the six planes
 typedef struct {
