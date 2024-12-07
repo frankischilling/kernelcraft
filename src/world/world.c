@@ -331,16 +331,16 @@ RenderResult renderWorld(GLuint shaderProgram, const Camera* camera) {
             // if (occluded) {
             //  continue;
             //}
-            if (!block->checkedNeighbours) {
-              block->checkedNeighbours = true;
+            if (!block->checkedNeighbors) {
+              block->checkedNeighbors = true;
               for (int face = 0; face < 6; face++) {
                 Vec3i nPos;
                 vec3i_add(&nPos, &pos, &vec3iFaceMap[face]);
                 Block* n = getBlock(&nPos);
                 if (!n || n->id == BLOCK_AIR) {
-                  block->neighbour[face] = false;
+                  block->neighbor[face] = false;
                 } else {
-                  block->neighbour[face] = true;
+                  block->neighbor[face] = true;
                 }
               }
             }
@@ -368,7 +368,7 @@ RenderResult renderWorld(GLuint shaderProgram, const Camera* camera) {
             // Bind the appropriate texture for each face
             for (int face = 0; face < 6; face++) {
               GLuint texture = 0;
-              if (block->neighbour[face]) {
+              if (block->neighbor[face]) {
                 continue;
               }
 
