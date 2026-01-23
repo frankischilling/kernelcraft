@@ -5,12 +5,15 @@
 #include "math.h"
 #include <stdbool.h>
 #include <GL/gl.h>
+#include <stddef.h>
 
 typedef struct KC_MeshGPU {
     GLuint vbo;
     GLuint ibo;
     GLuint vao;      /* 0 if VAOs unsupported */
     GLsizei idx_count;
+    size_t vbo_cap_bytes;
+    size_t ibo_cap_bytes;
 } KC_MeshGPU;
 
 typedef struct KC_Renderer {

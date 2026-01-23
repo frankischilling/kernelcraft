@@ -1,6 +1,14 @@
 #include "renderer.h"
 #include "log.h"
 #include <GL/glx.h>   /* glXGetProcAddress */
+#include <string.h>
+#include <stddef.h>
+
+static size_t next_pow2_sz(size_t x) {
+    size_t p = 1;
+    while (p < x) p <<= 1;
+    return p;
+}
 
 KC_GL g_gl; /* used by texture.c too */
 
@@ -104,8 +112,8 @@ bool kc_renderer_init(KC_Renderer* r) {
     if (!r->program) return false;
 
     /* Cache attrib locations ONCE (no per-draw glGetAttribLocation) */
-    r->a_pos = glGetAttribLocation(r->program, "a_pos");
-    r->a_uv  = glGetAttribLocation(r->program, "a_uv");
+    r->a_pos = g_gl.GetAttribLocation(r->program, "a_pos");
+    r->a_uv  = g_gl.GetAttribLocation(r->program, "a_uv");
     if (r->a_pos < 0 || r->a_uv < 0) {
         KC_ERR("Missing shader attribs (a_pos=%d, a_uv=%d)", r->a_pos, r->a_uv);
         return false;
@@ -153,8 +161,8 @@ void kc_renderer_end(KC_Renderer* r) {
     if (r->has_vao && p_glBindVertexArray) {
         p_glBindVertexArray(0);
     } else {
-        glDisableVertexAttribArray((GLuint)r->a_pos);
-        glDisableVertexAttribArray((GLuint)r->a_uv);
+        g_gl.DisableVertexAttribArray((GLuint)r->a_pos);
+        g_gl.DisableVertexAttribArray((GLuint)r->a_uv);
         g_gl.BindBuffer(GL_ARRAY_BUFFER, 0);
         g_gl.BindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
@@ -171,17 +179,28 @@ bool kc_renderer_upload_mesh(KC_Renderer* r, KC_MeshGPU* gpu, const KC_MeshData*
     if (!gpu->vbo) g_gl.GenBuffers(1, &gpu->vbo);
     if (!gpu->ibo) g_gl.GenBuffers(1, &gpu->ibo);
 
-    g_gl.BindBuffer(GL_ARRAY_BUFFER, gpu->vbo);
-    g_gl.BufferData(GL_ARRAY_BUFFER,
-                    (GLsizeiptr)(cpu->vert_count * sizeof(KC_Vertex)),
-                    cpu->verts,
-                    GL_STATIC_DRAW);
+    const size_t need_v = cpu->vert_count * sizeof(KC_Vertex);
+    const size_t need_i = cpu->idx_count  * sizeof(uint32_t);
 
+    /* VBO: grow only when needed, otherwise subdata */
+    g_gl.BindBuffer(GL_ARRAY_BUFFER, gpu->vbo);
+    if (need_v > gpu->vbo_cap_bytes) {
+        size_t newcap = next_pow2_sz(need_v);
+        if (newcap < 4096) newcap = 4096; /* avoid tiny reallocs */
+        g_gl.BufferData(GL_ARRAY_BUFFER, (GLsizeiptr)newcap, NULL, GL_STATIC_DRAW);
+        gpu->vbo_cap_bytes = newcap;
+    }
+    g_gl.BufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)need_v, cpu->verts);
+
+    /* IBO: same strategy */
     g_gl.BindBuffer(GL_ELEMENT_ARRAY_BUFFER, gpu->ibo);
-    g_gl.BufferData(GL_ELEMENT_ARRAY_BUFFER,
-                    (GLsizeiptr)(cpu->idx_count * sizeof(uint32_t)),
-                    cpu->indices,
-                    GL_STATIC_DRAW);
+    if (need_i > gpu->ibo_cap_bytes) {
+        size_t newcap = next_pow2_sz(need_i);
+        if (newcap < 2048) newcap = 2048;
+        g_gl.BufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)newcap, NULL, GL_STATIC_DRAW);
+        gpu->ibo_cap_bytes = newcap;
+    }
+    g_gl.BufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)need_i, cpu->indices);
 
     gpu->idx_count = (GLsizei)cpu->idx_count;
 

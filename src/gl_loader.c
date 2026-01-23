@@ -38,9 +38,12 @@ bool kc_gl_load(KC_GL* gl) {
     LOAD(GenBuffers);
     LOAD(BindBuffer);
     LOAD(BufferData);
+    LOAD(BufferSubData);
     LOAD(DeleteBuffers);
 
+    LOAD(GetAttribLocation);
     LOAD(EnableVertexAttribArray);
+    LOAD(DisableVertexAttribArray);
     LOAD(VertexAttribPointer);
 
     LOAD(ActiveTexture);

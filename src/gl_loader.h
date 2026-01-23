@@ -27,9 +27,12 @@ typedef struct KC_GL {
     PFNGLGENBUFFERSPROC              GenBuffers;
     PFNGLBINDBUFFERPROC              BindBuffer;
     PFNGLBUFFERDATAPROC              BufferData;
+    PFNGLBUFFERSUBDATAPROC           BufferSubData;
     PFNGLDELETEBUFFERSPROC           DeleteBuffers;
 
+    PFNGLGETATTRIBLOCATIONPROC       GetAttribLocation;
     PFNGLENABLEVERTEXATTRIBARRAYPROC EnableVertexAttribArray;
+    PFNGLDISABLEVERTEXATTRIBARRAYPROC DisableVertexAttribArray;
     PFNGLVERTEXATTRIBPOINTERPROC     VertexAttribPointer;
 
     PFNGLACTIVETEXTUREPROC           ActiveTexture;

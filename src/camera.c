@@ -39,7 +39,9 @@ void kc_camera_update(KC_Camera* c, const KC_Input* in, float dt, float move_spe
     mdx = clampf(mdx, -500.0f, 500.0f);
     mdy = clampf(mdy, -500.0f, 500.0f);
 
-    float alpha = 1.0f - expf(-KC_MOUSE_SMOOTHING * dt);
+    float alpha = 1.0f;
+    if (dt > 0.0f) alpha = 1.0f - expf(-KC_MOUSE_SMOOTHING * dt);
+
     c->sm_mdx += (mdx - c->sm_mdx) * alpha;
     c->sm_mdy += (mdy - c->sm_mdy) * alpha;
 
