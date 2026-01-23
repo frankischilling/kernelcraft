@@ -1,78 +1,84 @@
-CC = gcc
+# Kernelcraft (rewrite) - minimal Minecraft-like sandbox (C99 + OpenGL + X11/GLX)
+# Build deps (typical): mesa (libGL), libX11, headers for both.
+#
+# Directory layout:
+#   src/   -> engine/game sources
+#   libs/  -> third party headers (stb_image.h)
+#   textures/ -> runtime assets (NOT built; expected in your repo)
+#
+# Usage:
+#   make            (release-ish build)
+#   make debug      (debug build)
+#   make run        (build then run)
+#   make clean
 
-ifeq ($(OS),Windows_NT)
-	LIBRARY_DIR = C:/Progs/vcpkg/installed/x64-windows
-	WIN_KITS_DIR = C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0
+CC      ?= gcc
+AR      ?= ar
+RM      ?= rm -f
 
-	CFLAGS = -Wall -I./src -I"$(LIBRARY_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
-	LDFLAGS = -L"$(LIBRARY_DIR)/lib" -lopengl32 -lglfw3dll -lglew32 -lm -lfreeglut
+TARGET  := kernelcraft
+BIN_DIR := bin
+OBJ_DIR := build
 
-	EXECUTABLE = $(BIN_DIR)/minecraft_clone.exe
+SRCS := \
+  src/main.c \
+  src/log.c \
+  src/platform_x11.c \
+  src/gl_loader.c \
+  src/math.c \
+  src/camera.c \
+  src/texture.c \
+  src/atlas.c \
+  src/mesh_builder.c \
+  src/world.c \
+  src/chunk_manager.c \
+  src/renderer.c
 
-	CREATE_BIN_DIR = @if not exist "$(BIN_DIR)" mkdir "$(BIN_DIR)"
-	CREATE_SUBDIR = @if not exist "$(dir $@)" mkdir "$(dir $@)"
+OBJS := $(SRCS:%.c=$(OBJ_DIR)/%.o)
+DEPS := $(OBJS:.o=.d)
 
-	COPY_ASSET_DIR = @xcopy "$(SRC_DIR)\assets" "$(BIN_DIR)\assets\" /E /I /Q
+INCLUDES := -Isrc -Ilibs
 
-	DLLS_TO_COPY = freeglut.dll glew32.dll glfw3.dll
-else
-	CFLAGS = -Wall -I./src
-	LDFLAGS = -lGL -lglfw -lGLEW -lm -lglut
+CFLAGS_COMMON := -std=c99 -D_POSIX_C_SOURCE=200809L \
+  -Wall -Wextra -Wpedantic \
+  -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wwrite-strings \
+  -Wconversion -Wsign-conversion \
+  -fno-common
 
-	EXECUTABLE = $(BIN_DIR)/minecraft_clone
+# NOTE: -Wconversion can be noisy. If it becomes annoying during iteration,
+# you can drop it, but it's useful early to keep the code tight.
 
-	CREATE_BIN_DIR = @mkdir -p $(BIN_DIR)
-	CREATE_SUBDIR = @mkdir -p $(dir $@)
+CFLAGS_RELEASE := -O2 -DNDEBUG
+CFLAGS_DEBUG   := -O0 -g3 -DDEBUG
 
-	COPY_ASSET_DIR = @cp -r $(ASSET_DIR)/ $(BIN_DIR)/
+LDFLAGS := -lX11 -lGL -lm
 
-endif
+# Default: release-ish
+CFLAGS := $(CFLAGS_COMMON) $(CFLAGS_RELEASE)
 
-SRC_DIR = src
-OBJ_DIR = obj
-BIN_DIR = bin
-ASSET_DIR = $(SRC_DIR)/assets
-BIN_ASSET_DIR = $(BIN_DIR)/assets
-LOG_FILE = build.log
+.PHONY: all debug release clean run
 
-SOURCES = $(wildcard $(SRC_DIR)/**/*.c $(SRC_DIR)/*.c)
-OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
+all: release
 
-all: $(EXECUTABLE) copy_assets
+release: CFLAGS := $(CFLAGS_COMMON) $(CFLAGS_RELEASE)
+release: $(BIN_DIR)/$(TARGET)
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CREATE_BIN_DIR)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) > $(LOG_FILE) 2>&1
-	@echo "Build completed. Executable: $@"
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CREATE_SUBDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ >> $(LOG_FILE) 2>&1
+debug: CFLAGS := $(CFLAGS_COMMON) $(CFLAGS_DEBUG)
+debug: $(BIN_DIR)/$(TARGET)
 
-copy_assets:
-	$(COPY_ASSET_DIR)
-ifeq ($(OS),Windows_NT)
-	@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
-endif
-	@echo "Assets copied to: $(BIN_ASSET_DIR)"
+run: $(BIN_DIR)/$(TARGET)
+	@./$(BIN_DIR)/$(TARGET)
 
-run: $(EXECUTABLE) copy_assets
-	@echo "Running $(EXECUTABLE)..."
-ifeq ($(OS),Windows_NT)
-	@cd $(BIN_DIR) && $(notdir $(EXECUTABLE))
-else
-	@cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
-endif
+$(BIN_DIR)/$(TARGET): $(OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+
+# Compile rules (with dependency generation)
+$(OBJ_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
 clean:
-ifeq ($(OS),Windows_NT)
-	@if exist $(OBJ_DIR) rmdir /s /q $(OBJ_DIR)
-	@if exist $(BIN_DIR) rmdir /s /q $(BIN_DIR)
-	@if exist $(LOG_FILE) del /q $(LOG_FILE)
-else
-	@rm -rf $(OBJ_DIR)
-	@rm -rf $(BIN_DIR)
-	@rm -f $(LOG_FILE)
-endif
-	@echo "Clean completed."
+	$(RM) -r $(OBJ_DIR) $(BIN_DIR)
 
-.PHONY: all clean run copy_assets
+-include $(DEPS)
