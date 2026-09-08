@@ -21,6 +21,8 @@ run:
 	$(WINDOWS_BUILD) -Run
 test test-gl:
 	$(WINDOWS_BUILD) -Test
+test-build:
+	$(WINDOWS_POWERSHELL) -NoProfile -ExecutionPolicy Bypass -File tests/test_build.ps1
 benchmark:
 	$(WINDOWS_BUILD) -Benchmark
 clean:
@@ -29,7 +31,7 @@ test-sanitize:
 	@echo "MinGW GCC does not provide the sanitizer runtime. Use build.cmd -Configuration Debug -Test for native Windows checks."
 	@$(WINDOWS_POWERSHELL) -NoProfile -Command "exit 1"
 
-.PHONY: all clean run copy_assets test test-gl benchmark test-sanitize
+.PHONY: all clean run copy_assets test test-gl test-build benchmark test-sanitize
 else
 # Respect CC from the environment as well as command-line overrides.
 ifeq ($(origin CC),default)

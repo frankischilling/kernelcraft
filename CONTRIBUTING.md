@@ -16,7 +16,9 @@ for rendering/startup changes, and `make test-build` for Makefile changes.
 `make CC=clang CFLAGS='-O2 -g -Werror' all test` provides another compiler check.
 On native Windows, use `.\build.cmd -Test` and repeat with
 `-Configuration Debug` when changing startup or build behavior. See the README
-for dependencies and `docs/texture-array.md` for the current continuation point.
+for dependencies and `docs/windows-incremental-build.md` for the current continuation point.
+For Windows build changes, also run `powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_build.ps1`
+or native `make test-build`. This checks the object cache in a temporary project copy.
 Run Debug and sanitizer builds sequentially in one checkout: `test-sanitize`
 also writes the Debug output directories.
 
