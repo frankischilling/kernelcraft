@@ -1,4 +1,5 @@
 #include "world/world.h"
+#include "graphics/frustum.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,14 @@ static int failures;
       failures++;                                                                                                                                                                  \
     }                                                                                                                                                                              \
   } while (0)
+
+static void writeBlock(Vec3i* pos, int id) {
+#ifdef KERNELCRAFT_BASELINE
+  getBlock(pos)->id = id;
+#else
+  CHECK(setBlock(pos, id));
+#endif
+}
 
 static void test_coordinates(void) {
   Vec3 position = {-0.1f, -0.1f, -16.1f};
@@ -34,15 +43,14 @@ static void test_coordinates(void) {
 
 static void test_occlusion(void) {
   Vec3i center = {0, 20, 0};
-  Block* block = getBlock(&center);
-  block->id = BLOCK_STONE;
+  writeBlock(&center, BLOCK_STONE);
   for (int face = 0; face < 6; face++) {
     Vec3i neighbor = {center.x + vec3iFaceMap[face].x, center.y + vec3iFaceMap[face].y, center.z + vec3iFaceMap[face].z};
-    getBlock(&neighbor)->id = BLOCK_STONE;
+    writeBlock(&neighbor, BLOCK_STONE);
   }
   CHECK(is_block_occluded(&center, 1, NULL));
   Vec3i top = {0, 21, 0};
-  getBlock(&top)->id = BLOCK_AIR;
+  writeBlock(&top, BLOCK_AIR);
   CHECK(!is_block_occluded(&center, 1, NULL));
 }
 
@@ -120,8 +128,8 @@ static void test_mesh(void) {
 
   clear_world();
   Vec3i seamLeft = {-1, 63, 0}, seamRight = {0, 63, 0};
-  getBlock(&seamLeft)->id = BLOCK_STONE;
-  getBlock(&seamRight)->id = BLOCK_STONE;
+  writeBlock(&seamLeft, BLOCK_STONE);
+  writeBlock(&seamRight, BLOCK_STONE);
   CHECK(buildChunkMesh(chunk, &mesh));
   CHECK(mesh.indexCount == 30 && mesh.surfaceBlocks == 1);
   CHECK(mesh.min.y == 63 && mesh.max.y == 64);
@@ -170,7 +178,7 @@ static void test_generated_meshes(void) {
                                   {chunk->position.a * 16 + i, j + 1, chunk->position.b * 16 + k}, {chunk->position.a * 16 + i, j - 1, chunk->position.b * 16 + k},
                                   {chunk->position.a * 16 + i, j, chunk->position.b * 16 + k + 1}, {chunk->position.a * 16 + i, j, chunk->position.b * 16 + k - 1}};
             for (int face = 0; face < 6; face++) {
-              Block* neighbor = getBlock(&neighbors[face]);
+              const Block* neighbor = getBlock(&neighbors[face]);
               if (!neighbor || neighbor->id == BLOCK_AIR)
                 expectedFaces++;
             }

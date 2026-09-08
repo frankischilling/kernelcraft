@@ -21,6 +21,7 @@ bool initChunks(void) {
         return false;
       }
       chunks[x][z] = chunk;
+      chunk->dirty = true;
       chunk->position = (Vec2i){x - CHUNKS_PER_AXIS / 2, z - CHUNKS_PER_AXIS / 2};
       int heights[CHUNK_SIZE][CHUNK_SIZE];
       for (int i = 0; i < CHUNK_SIZE; i++) {
@@ -102,18 +103,47 @@ const char* getCurrentBiomeText(float x, float z) {
   }
 }
 
-Chunk* getChunk(Vec2i* pos) {
-  if (pos->a < 0 || pos->a >= CHUNKS_PER_AXIS || pos->b < 0 || pos->b >= CHUNKS_PER_AXIS)
+Chunk* getChunk(const Vec2i* pos) {
+  if (!pos || pos->a < 0 || pos->a >= CHUNKS_PER_AXIS || pos->b < 0 || pos->b >= CHUNKS_PER_AXIS)
     return NULL;
   return chunks[pos->a][pos->b];
 }
 
-Block* getBlock(Vec3i* pos) {
-  if (pos->y < 0 || pos->y >= CHUNK_HEIGHT || pos->x < -WORLD_SIZE / 2 || pos->x >= WORLD_SIZE / 2 || pos->z < -WORLD_SIZE / 2 || pos->z >= WORLD_SIZE / 2)
+const Block* getBlock(const Vec3i* pos) {
+  if (!pos || pos->y < 0 || pos->y >= CHUNK_HEIGHT || pos->x < -WORLD_SIZE / 2 || pos->x >= WORLD_SIZE / 2 || pos->z < -WORLD_SIZE / 2 || pos->z >= WORLD_SIZE / 2)
     return NULL;
   // Shift into the finite world's nonnegative block coordinates before dividing.
   int x = pos->x + WORLD_SIZE / 2;
   int z = pos->z + WORLD_SIZE / 2;
   Chunk* chunk = chunks[x / CHUNK_SIZE][z / CHUNK_SIZE];
   return chunk ? &chunk->blocks[x % CHUNK_SIZE][pos->y][z % CHUNK_SIZE] : NULL;
+}
+
+static void dirtyNeighbor(int x, int z) {
+  Chunk* chunk = getChunk(&(Vec2i){x, z});
+  if (chunk)
+    chunk->dirty = true;
+}
+
+bool setBlock(const Vec3i* pos, int id) {
+  const Block* old = getBlock(pos);
+  if (!old || !blockIDValid(id))
+    return false;
+  if (old->id == id)
+    return true;
+  bool exposureChanged = blockIsSolid(old->id) != blockIsSolid(id);
+  int x = pos->x + WORLD_SIZE / 2, z = pos->z + WORLD_SIZE / 2;
+  int cx = x / CHUNK_SIZE, cz = z / CHUNK_SIZE;
+  int lx = x % CHUNK_SIZE, lz = z % CHUNK_SIZE;
+  Chunk* chunk = chunks[cx][cz];
+  chunk->blocks[lx][pos->y][lz].id = (uint8_t)id;
+  chunk->dirty = true;
+  // A material-only change cannot expose a neighbor's face.
+  if (exposureChanged) {
+    if (lx == 0) dirtyNeighbor(cx - 1, cz);
+    if (lx == CHUNK_SIZE - 1) dirtyNeighbor(cx + 1, cz);
+    if (lz == 0) dirtyNeighbor(cx, cz - 1);
+    if (lz == CHUNK_SIZE - 1) dirtyNeighbor(cx, cz + 1);
+  }
+  return true;
 }

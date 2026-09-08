@@ -4,12 +4,10 @@
  * @author frankischilling
  * @date 2024-11-19
  */
-#include <GLFW/glfw3.h>
 #include <math.h>
 #include <stdbool.h>
 
 #include "../math/math.h"
-#include "../utils/inputs.h"
 #include "camera.h"
 
 void initCamera(Camera* camera) {

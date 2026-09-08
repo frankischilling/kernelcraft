@@ -23,6 +23,9 @@ typedef struct {
   uint8_t id;
 } Block;
 
+bool blockIDValid(int id);
+bool blockIsSolid(int id);
+
 // Six vertices per face, each with position, normal, and UV coordinates.
 const float* getCubeFaceVertices(int face);
 

@@ -125,6 +125,10 @@ try {
             ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $worldSources + @('-o', $worldTest, '-lm'))
 
+        $editTest = Join-Path $outputDirectory 'test-edits.exe'
+        $editSources = @((Join-Path $projectDirectory 'tests/test_edits.c')) + @($worldSources | Select-Object -Skip 1)
+        Invoke-Native $compiler ($flags + $editSources + @('-o', $editTest, '-lm'))
+
         $shaderTest = Join-Path $outputDirectory 'test-shader.exe'
         $shaderSources = @('tests/test_shader.c', 'src/graphics/shader.c', 'src/graphics/texture.c') | ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
@@ -132,7 +136,7 @@ try {
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
         Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
-        $executables += @($worldTest, $shaderTest, $smokeTest)
+        $executables += @($worldTest, $editTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -159,6 +163,7 @@ try {
         Push-Location $outputDirectory
         try {
             Invoke-Native $worldTest
+            Invoke-Native $editTest
             Invoke-Native $shaderTest
         } finally { Pop-Location }
         Push-Location ([IO.Path]::GetTempPath())

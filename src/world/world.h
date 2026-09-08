@@ -1,6 +1,6 @@
 /**
  * @file world/world.h
- * @brief World generation and rendering.
+ * @brief CPU world data and terrain generation.
  * @author frankischilling, VladimirJanus
  * @version 0.1
  * @date 2024-11-19
@@ -9,19 +9,11 @@
 #ifndef WORLD_H
 #define WORLD_H
 
-#include <GL/glew.h>
-#include "../graphics/camera.h"
-#include "../graphics/frustum.h"
-#include "../graphics/shader.h"
 #include "../math/math.h"
 #include "chunk.h"
 #include "cube.h"
 
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
-
-typedef struct {
-  int visisbleCubes;
-} RenderResult;
 
 typedef struct {
   float frequency;
@@ -32,15 +24,15 @@ typedef struct {
 BiomeParameters getInterpolatedBiomeParameters(float x, float z);
 float getTerrainHeight(float x, float z);
 const char* getCurrentBiomeText(float x, float z);
-// World Functions
-bool initWorld(GLuint shaderProgram);
-RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection);
-void cleanupWorld(void);
-
-// Chunk functions
+// World owns all chunks until cleanupChunks or the next initChunks call.
 bool initChunks(void);
 void cleanupChunks(void);
 
-Chunk* getChunk(Vec2i* chunkPos);
-Block* getBlock(Vec3i* pos);
+// Chunk indices are array coordinates [0, CHUNKS_PER_AXIS), not signed world coordinates.
+// Direct chunk access is for generation, meshing, and fixtures; gameplay edits use setBlock.
+Chunk* getChunk(const Vec2i* chunkPos);
+// NULL for a missing world, null position, or coordinates outside the finite world.
+const Block* getBlock(const Vec3i* pos);
+// Returns false for invalid coordinates/IDs. A successful no-op does not dirty meshes.
+bool setBlock(const Vec3i* pos, int id);
 #endif // WORLD_H

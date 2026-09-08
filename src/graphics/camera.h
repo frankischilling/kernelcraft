@@ -8,7 +8,6 @@
 #define CAMERA_H
 
 #include "../math/math.h"
-#include <GLFW/glfw3.h>
 
 typedef struct {
   Vec3 position;
@@ -22,8 +21,6 @@ typedef struct {
 
 // Function declarations
 void initCamera(Camera* camera);
-void processInput(GLFWwindow* window, Camera* camera, float deltaTime);
-void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void updateCameraVectors(Camera* camera);
 
 #endif

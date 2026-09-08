@@ -5,6 +5,7 @@
 #include "graphics/camera.h"
 #include "graphics/hud.h"
 #include "graphics/shader.h"
+#include "graphics/world_renderer.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/text.h"
@@ -150,6 +151,7 @@ int main(int argc, char** argv) {
   double lastFrame = glfwGetTime();
   lastTime = lastFrame;
 
+  int exitStatus = EXIT_SUCCESS;
   while (!glfwWindowShouldClose(window)) {
     double currentFrame = glfwGetTime();
     float deltaTime = (float)(currentFrame - lastFrame);
@@ -181,7 +183,11 @@ int main(int argc, char** argv) {
     mat4_perspective(projection, 70.0f, (float)width / height, 0.1f, 1000.0f);
     RenderResult result = renderWorld(&camera, view, projection);
 
-    DebugData data = (DebugData){&camera, fps, result.visisbleCubes};
+    if (!result.success) {
+      exitStatus = EXIT_FAILURE;
+      break;
+    }
+    DebugData data = (DebugData){&camera, fps, result.surfaceBlocks};
     HUDDraw(shaderProgram, &data);
 
     glfwSwapBuffers(window);
@@ -193,5 +199,5 @@ int main(int argc, char** argv) {
   glDeleteProgram(shaderProgram);
   glfwDestroyWindow(window);
   glfwTerminate();
-  return 0;
+  return exitStatus;
 }
