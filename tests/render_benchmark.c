@@ -187,6 +187,218 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   glDeleteProgram(referenceShader);
   return success;
 }
+
+static bool selectionPixelNear(const unsigned char* pixels, const Mat4 matrix, Vec3 point) {
+  float w = matrix[3] * point.x + matrix[7] * point.y + matrix[11] * point.z + matrix[15];
+  float x = matrix[0] * point.x + matrix[4] * point.y + matrix[8] * point.z + matrix[12];
+  float y = matrix[1] * point.x + matrix[5] * point.y + matrix[9] * point.z + matrix[13];
+  if (w <= 0)
+    return false;
+  int screenX = (int)((x / w + 1) * 480), screenY = (int)((y / w + 1) * 270);
+  for (int dy = -2; dy <= 2; dy++)
+    for (int dx = -2; dx <= 2; dx++) {
+      int px = screenX + dx, py = screenY + dy;
+      if (px < 0 || px >= 960 || py < 0 || py >= 540)
+        continue;
+      const unsigned char* color = pixels + (py * 960 + px) * 3;
+      if (color[0] > 240 && color[1] > 180 && color[2] < 100)
+        return true;
+    }
+  return false;
+}
+
+static bool testSelectionVisibility(GLuint shader) {
+  const Vec3i selected = {-1, 20, 0};
+  const float angles[] = {0, 30, -30, 60, -60, 75, -75, 82, -82};
+  unsigned char* pixels = malloc(960 * 540 * 3);
+  if (!pixels)
+    return false;
+  bool success = true;
+  for (int face = 0; face < 6; face++) {
+    for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+      for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+        Chunk* chunk = getChunk(&(Vec2i){x, z});
+        memset(chunk->blocks, 0, sizeof(chunk->blocks));
+      }
+    Vec3 normal = vec3FaceMap[face], u = normal.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
+    vec3_cross(&v, &normal, &u);
+    // The selected face is in the middle of a flush 3x3 surface.
+    for (int a = -1; a <= 1; a++)
+      for (int b = -1; b <= 1; b++)
+        setBlock(&(Vec3i){selected.x + (int)(a * u.x + b * v.x), selected.y + (int)(a * u.y + b * v.y), selected.z + (int)(a * u.z + b * v.z)}, BLOCK_STONE);
+    if (!initWorld(shader)) {
+      success = false;
+      break;
+    }
+    Vec3 center = {selected.x + 0.5f + normal.x * 0.5f, selected.y + 0.5f + normal.y * 0.5f, selected.z + 0.5f + normal.z * 0.5f};
+    for (size_t angle = 0; angle < sizeof(angles) / sizeof(angles[0]); angle++) {
+      float outward = 4 * cosf(toRadians(angles[angle])), tangent = 4 * sinf(toRadians(angles[angle]));
+      Camera camera = {.position = {center.x + normal.x * outward + (v.x + u.x) * tangent * 0.70710678f, center.y + normal.y * outward + (v.y + u.y) * tangent * 0.70710678f,
+                                    center.z + normal.z * outward + (v.z + u.z) * tangent * 0.70710678f},
+                       .up = v};
+      vec3_subtract(&camera.front, &center, &camera.position);
+      Mat4 view, projection, combined;
+      mat4_lookAt(view, &camera.position, &center, &camera.up);
+      mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+      mat4_multiply(combined, projection, view);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      RenderResult result = renderWorld(&camera, view, projection);
+      Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
+      if (!result.success || !hit.hit || hit.blockCoords.x != selected.x || hit.blockCoords.y != selected.y || hit.blockCoords.z != selected.z) {
+        fprintf(stderr, "Selection fixture missed face %d at angle %.0f\n", face, angles[angle]);
+        success = false;
+        continue;
+      }
+      drawSelection(&hit, view, projection);
+      glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      for (int edge = 0; edge < 4; edge++) {
+        int visible = 0;
+        for (int sample = 0; sample < 32; sample++) {
+          float along = -0.4f + 0.8f * sample / 31;
+          float a = edge < 2 ? along : (edge == 2 ? -0.5f : 0.5f);
+          float b = edge < 2 ? (edge == 0 ? -0.5f : 0.5f) : along;
+          Vec3 point = {center.x + a * u.x + b * v.x, center.y + a * u.y + b * v.y, center.z + a * u.z + b * v.z};
+          visible += selectionPixelNear(pixels, combined, point);
+        }
+        if (visible < 29) {
+          fprintf(stderr, "Selection face %d angle %.0f edge %d: only %d/32 visible samples\n", face, angles[angle], edge, visible);
+          success = false;
+        }
+      }
+    }
+  }
+  free(pixels);
+  return success;
+}
+
+static bool testCloseSelection(GLuint shader) {
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      Chunk* chunk = getChunk(&(Vec2i){x, z});
+      memset(chunk->blocks, 0, sizeof(chunk->blocks));
+    }
+  setBlock(&(Vec3i){-1, 20, 0}, BLOCK_STONE);
+  if (!initWorld(shader))
+    return false;
+  const Vec3 normals[] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+  for (int face = 0; face < 6; face++) {
+    Vec3 n = normals[face], center = {-0.5f + n.x * 0.5f, 20.5f + n.y * 0.5f, 0.5f + n.z * 0.5f};
+    // A two-block-high passage leaves 0.38 blocks between the eye and ceiling.
+    // At this distance each face fills the screen, with all outline edges clipped.
+    Camera camera = {.position = {center.x + n.x * 0.38f, center.y + n.y * 0.38f, center.z + n.z * 0.38f}, .front = {-n.x, -n.y, -n.z}, .up = {0, n.y ? 0 : 1, n.y ? 1 : 0}};
+    Mat4 view, projection;
+    mat4_lookAt(view, &camera.position, &center, &camera.up);
+    mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderResult result = renderWorld(&camera, view, projection);
+    Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
+    unsigned char before[64 * 64 * 3], after[sizeof(before)];
+    glReadPixels(448, 238, 64, 64, GL_RGB, GL_UNSIGNED_BYTE, before);
+    drawSelection(&hit, view, projection);
+    glReadPixels(448, 238, 64, 64, GL_RGB, GL_UNSIGNED_BYTE, after);
+    int highlighted = 0;
+    for (size_t pixel = 0; pixel < sizeof(before); pixel += 3)
+      highlighted += abs(after[pixel] - before[pixel]) > 5 || abs(after[pixel + 1] - before[pixel + 1]) > 5 || abs(after[pixel + 2] - before[pixel + 2]) > 5;
+    printf("Close selection face %d: %d/4096 highlighted pixels\n", face, highlighted);
+    if (!result.success || !hit.hit || hit.normal.x != n.x || hit.normal.y != n.y || hit.normal.z != n.z || highlighted <= 4000 || glGetError() != GL_NO_ERROR)
+      return false;
+  }
+  return true;
+}
+
+static bool testSelectionOcclusionAndState(GLuint shader) {
+  // testCloseSelection left the isolated selected block at (-1,20,0).
+  setBlock(&(Vec3i){0, 20, 0}, BLOCK_STONE);
+  Camera camera = {.position = {-0.5f, 20.5f, 4.5f}, .front = {0, 0, -1}, .up = {0, 1, 0}};
+  Vec3 target = {-0.5f, 20.5f, 1};
+  Mat4 view, projection;
+  mat4_lookAt(view, &camera.position, &target, &camera.up);
+  mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  if (!renderWorld(&camera, view, projection).success)
+    return false;
+  Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
+  if (!hit.hit || hit.blockCoords.x != -1 || hit.normal.z != 1)
+    return false;
+  unsigned char neighborBefore[16 * 10 * 3], neighborAfter[sizeof(neighborBefore)];
+  float depthBefore[64 * 64], depthAfter[64 * 64];
+  glReadPixels(580, 265, 16, 10, GL_RGB, GL_UNSIGNED_BYTE, neighborBefore);
+  glReadPixels(448, 238, 64, 64, GL_DEPTH_COMPONENT, GL_FLOAT, depthBefore);
+  // Deliberately differ from the overlay's setup, then verify the caller's state.
+  glEnable(GL_BLEND);
+  glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
+  glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_SUBTRACT);
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(3, 7);
+  glDisable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GREATER);
+  glColor4f(0.2f, 0.4f, 0.6f, 0.8f);
+  glLineWidth(1);
+  glMatrixMode(GL_TEXTURE);
+  drawSelection(&hit, view, projection);
+  const GLenum names[] = {GL_CURRENT_PROGRAM, GL_MATRIX_MODE,     GL_DEPTH_FUNC,         GL_DEPTH_WRITEMASK,      GL_BLEND_SRC_RGB, GL_BLEND_DST_RGB,
+                          GL_BLEND_SRC_ALPHA, GL_BLEND_DST_ALPHA, GL_BLEND_EQUATION_RGB, GL_BLEND_EQUATION_ALPHA, GL_CULL_FACE_MODE};
+  const GLint expected[] = {(GLint)shader,    GL_TEXTURE, GL_GREATER, GL_TRUE, GL_ONE, GL_ZERO, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_FUNC_REVERSE_SUBTRACT,
+                            GL_FUNC_SUBTRACT, GL_FRONT};
+  bool restored = !glIsEnabled(GL_DEPTH_TEST) && glIsEnabled(GL_BLEND) && glIsEnabled(GL_CULL_FACE) && glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  for (size_t state = 0; state < sizeof(names) / sizeof(names[0]); state++) {
+    GLint value;
+    glGetIntegerv(names[state], &value);
+    restored &= value == expected[state];
+  }
+  GLint polygonMode[2];
+  GLfloat factor, units, color[4], width;
+  glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &factor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &units);
+  glGetFloatv(GL_CURRENT_COLOR, color);
+  glGetFloatv(GL_LINE_WIDTH, &width);
+  restored &= polygonMode[0] == GL_LINE && polygonMode[1] == GL_LINE && factor == 3 && units == 7 && width == 1 && color[0] == 0.2f && color[1] == 0.4f && color[2] == 0.6f &&
+              color[3] == 0.8f;
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_POLYGON_OFFSET_FILL);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glMatrixMode(GL_MODELVIEW);
+  glReadPixels(580, 265, 16, 10, GL_RGB, GL_UNSIGNED_BYTE, neighborAfter);
+  glReadPixels(448, 238, 64, 64, GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
+  if (!restored || memcmp(neighborBefore, neighborAfter, sizeof(neighborBefore)) || memcmp(depthBefore, depthAfter, sizeof(depthBefore))) {
+    fprintf(stderr, "Selection changed caller state, neighboring pixels, or depth storage\n");
+    return false;
+  }
+  // Even a stale selection must not draw through a nearer voxel.
+  setBlock(&(Vec3i){-1, 20, 2}, BLOCK_STONE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  if (!renderWorld(&camera, view, projection).success)
+    return false;
+  size_t bytes = 960 * 540 * 3;
+  unsigned char* before = malloc(bytes);
+  unsigned char* after = malloc(bytes);
+  bool occluded = before && after;
+  if (occluded) {
+    glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, before);
+    drawSelection(&hit, view, projection);
+    glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
+    occluded = memcmp(before, after, bytes) == 0;
+    Ray miss = {0};
+    drawSelection(&miss, view, projection);
+    glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
+    occluded &= memcmp(before, after, bytes) == 0;
+  }
+  free(before);
+  free(after);
+  if (!occluded || glGetError() != GL_NO_ERROR) {
+    fprintf(stderr, "Selection leaked through foreground terrain or drew a missed target\n");
+    return false;
+  }
+  puts("Selection close-up, neighboring face, foreground occlusion, and GL state tests passed");
+  return true;
+}
 #endif
 
 int main(int argc, char** argv) {
@@ -402,6 +614,12 @@ int main(int argc, char** argv) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
       return 14;
     }
+  if (!testSelectionVisibility(shader))
+    return 16;
+  if (!testCloseSelection(shader))
+    return 17;
+  if (!testSelectionOcclusionAndState(shader))
+    return 18;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

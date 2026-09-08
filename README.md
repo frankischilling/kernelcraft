@@ -154,7 +154,9 @@ also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Left click destroys
 the target; right click places on its face. Keys 1/2/3 select grass, dirt, and
 stone. Each press edits once within six world units; a gold outline marks the
-selected block. Placement rejects occupied/out-of-world cells and body overlap
+selected block. A faint gold tint marks the targeted face, keeping selection
+visible under low ceilings when the outline is off-screen. See the
+[close-up highlight check](docs/selection-highlight.md). Placement rejects occupied/out-of-world cells and body overlap
 in both modes. The body is 0.6 units wide and 1.8 high, with the eye 1.62 above
 its feet; one block is one unit.
 
