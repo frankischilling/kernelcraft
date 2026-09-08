@@ -14,7 +14,9 @@ There were no open PRs when work started.
 The wireframe previously expanded 0.003 units outside the selected voxel.
 Those expanded edges could lie inside another solid block. The outline now
 uses exact face boundaries with polygon line offset to separate its depth from
-the terrain. Four-corner faces retain just the borders, without triangle
+the terrain. The slope contribution is capped at 0.0005 of the depth range;
+uncapped slope offset can pull nearly edge-on borders through foreground blocks.
+Four-corner faces retain just the borders, without triangle
 diagonals. All visible faces receive an outline, including edges shared with
 the floor and neighboring blocks. Foreground terrain still occludes the
 selection; the face tint and editing behavior are unchanged.
@@ -28,6 +30,14 @@ border had 0/32 visible samples and a side border fell to 12/32. All views pass
 afterward on Mesa llvmpipe and native Intel UHD Graphics. Before/after frame
 captures also show the missing bottom line restored.
 
+Read-only review found the excessive slope offset in the initial implementation.
+A taller foreground wall reproduced it at four of five nearly coplanar top/side
+views on Mesa; an independent Intel check also reproduced it. The bounded slope
+offset passes all five views and keeps the 36 neighbor views passing. Each
+foreground comparison requires the entire framebuffer to remain unchanged.
+Follow-up review independently reran the rebuilt native Intel benchmark and
+found no remaining actionable issue.
+
 These commands passed in `C:/Users/imike/kernelcraft-neighbor-outline`:
 
 ```powershell
@@ -39,7 +49,8 @@ wsl -d Ubuntu -- env MESA_GL_VERSION_OVERRIDE=3.3COMPAT MESA_GLSL_VERSION_OVERRI
 Linux used GCC 13.3.0 and native Windows used MinGW64 GCC 13.2.0. The suites
 cover CPU behavior, application startup/input/editing, persistence, textures,
 outlines, close-up highlighting, foreground occlusion, and GL state restoration.
-Logs are `%TEMP%/kernelcraft-neighbor-{baseline,red,linux,windows,gl33}.log`.
+Logs are `%TEMP%/kernelcraft-neighbor-{baseline,red,linux-bounded,windows-bounded,gl33}.log`.
+The review regression is in `kernelcraft-neighbor-grazing-{red,bounded}.log`.
 Passing a filename prefix to the built `benchmark` executable also writes
 `PREFIX-selection-neighbors.ppm` for visual comparison.
 

@@ -478,6 +478,29 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
     drawSelection(&miss, view, projection);
     glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
     occluded &= memcmp(before, after, bytes) == 0;
+    // Put the selected outline fully inside a taller foreground silhouette.
+    // Near-coplanar top/side views must not bias hidden lines through this wall.
+    for (int x = -2; x <= 0; x++)
+      for (int y = 19; y <= 21; y++)
+        setBlock(&(Vec3i){x, y, 2}, BLOCK_STONE);
+    const Vec3 grazingEyes[] = {{-0.5f, 20.999f, 4.5f}, {-0.5f, 21.001f, 4.5f}, {-0.5f, 21.01f, 4.5f}, {-0.001f, 20.5f, 4.5f}, {0.001f, 20.5f, 4.5f}};
+    for (size_t eye = 0; eye < sizeof(grazingEyes) / sizeof(grazingEyes[0]); eye++) {
+      camera.position = grazingEyes[eye];
+      vec3_subtract(&camera.front, &target, &camera.position);
+      mat4_lookAt(view, &camera.position, &target, &camera.up);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      if (!renderWorld(&camera, view, projection).success) {
+        occluded = false;
+        break;
+      }
+      glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, before);
+      drawSelection(&hit, view, projection);
+      glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
+      if (memcmp(before, after, bytes)) {
+        fprintf(stderr, "Selection leaked through foreground at grazing view %zu\n", eye);
+        occluded = false;
+      }
+    }
   }
   free(before);
   free(after);
