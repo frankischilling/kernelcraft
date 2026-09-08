@@ -60,18 +60,48 @@ These commands passed with exit 0:
 make -s -j4 bin/linux/Release/test-startup
 xvfb-run -a bin/linux/Release/test-startup --no-save
 make -j4 CC=gcc CFLAGS='-O2 -g -Werror' all test test-gl
+make -j4 CC=clang CFLAGS='-O2 -g -Werror' all test test-gl
+make -j4 CC=gcc CONFIGURATION=Debug CFLAGS='-O0 -g3 -Werror' all test test-gl
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CC=clang test-sanitize
 ```
 
 ```powershell
 .\build.cmd -Test
+.\build.cmd -Configuration Debug -Test
 exit $LASTEXITCODE
 ```
 
-Linux runs in Ubuntu under WSL with Mesa/Xvfb, GCC 13.3.0, GLFW 3.3.10,
-GLEW 2.2.0, and FreeGLUT 3.4.0. Native Windows uses MinGW64 GCC 13.2.0,
+Linux runs in Ubuntu under WSL with Mesa/Xvfb, GCC 13.3.0, Clang 18.1.3,
+GLFW 3.3.10, GLEW 2.2.0, and FreeGLUT 3.4.0. Native Windows uses MinGW64 GCC 13.2.0,
 GLFW 3.3.8, GLEW 2.2.0, FreeGLUT 3.4.0, and Intel UHD Graphics. The tests
 render through real contexts with scripted window state and input. They do
 not establish physical minimize/restore, monitor scaling, or input feel.
+
+The Linux commands with multiword flags ran from a temporary Bash script via
+`wsl -d Ubuntu -- bash /mnt/c/Users/imike/AppData/Local/Temp/kernelcraft-validation.sh`
+with stage arguments, preserving Make's quoted flag values. Logs are under
+`%TEMP%/kernelcraft-minimize-{gcc,clang,debug,sanitize}.log`. An initial inline
+PowerShell/WSL command lost those quotes and did not run the requested suite;
+that attempt is excluded from the results above.
+
+`timeout 8s xvfb-run -a make run` reached the normal game executable, then
+returned the intentional timeout status 124. This checks the documented launch
+path, not clean shutdown or interactive play. Application fixtures separately
+passed normal shutdown and process-restart checks. The existing user save's
+SHA-256 remained `6e531f1eb6bc2dff821454184501e5db0cdd537acdecf790ee73484b6cf15e1d`.
+
+The independent coding-agent review found that the first implementation also
+discarded a valid mouse event when F changed movement mode. A regression failed
+with exit 1, then passed after separating `pauseInput` from simulation timing
+reset. The reviewer rechecked the repair and found no outstanding actionable
+issues. All application/build commands above were repeated after that repair;
+the sanitizer suite covers the unchanged CPU modules. This was a code review,
+not a human approval.
+
+`make test-build` was not rerun locally because the build scripts were unchanged;
+the existing hosted GCC job runs it. Windows sanitizers, macOS, and physical
+desktop input checks were not run. The native input API is unavailable in this
+session. No performance comparison is drawn from concurrent validation runs.
 
 ## Workflow and continuation
 
@@ -86,6 +116,10 @@ that installed skill root, with its Bash helper and supported commands
 inspected. Commit Author is composed through that helper. The configured
 identity is Francis Hagan `<frankhagan890@gmail.com>` and the active GitHub
 account is `frankischilling`. No global Git settings or existing hooks changed.
+
+Implementation commits are `3b7bb2b` and `8f702e9`, pushed in
+[draft PR #19](https://github.com/frankischilling/kernelcraft/pull/19).
+The new PR remains open for review; issue #18 closes on merged delivery.
 
 Build/run remains `make run` on Linux or `.\build.cmd -Run` on Windows.
 For disposable playtesting, pass `--no-save` to the built executable. Minimize
