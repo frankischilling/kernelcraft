@@ -121,7 +121,7 @@ try {
 
     if ($Test) {
         $worldTest = Join-Path $outputDirectory 'test-world.exe'
-        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
+        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
             ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $worldSources + @('-o', $worldTest, '-lm'))
 
@@ -133,6 +133,10 @@ try {
         $selectionSources = @((Join-Path $projectDirectory 'tests/test_selection.c')) + @($worldSources | Select-Object -Skip 1)
         Invoke-Native $compiler ($flags + $selectionSources + @('-o', $selectionTest, '-lm'))
 
+        $playerTest = Join-Path $outputDirectory 'test-player.exe'
+        $playerSources = @((Join-Path $projectDirectory 'tests/test_player.c')) + @($worldSources | Select-Object -Skip 1)
+        Invoke-Native $compiler ($flags + $playerSources + @('-o', $playerTest, '-lm'))
+
         $shaderTest = Join-Path $outputDirectory 'test-shader.exe'
         $shaderSources = @('tests/test_shader.c', 'src/graphics/shader.c', 'src/graphics/texture.c') | ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
@@ -140,7 +144,7 @@ try {
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
         Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
-        $executables += @($worldTest, $editTest, $selectionTest, $shaderTest, $smokeTest)
+        $executables += @($worldTest, $editTest, $selectionTest, $playerTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -169,6 +173,7 @@ try {
             Invoke-Native $worldTest
             Invoke-Native $editTest
             Invoke-Native $selectionTest
+            Invoke-Native $playerTest
             Invoke-Native $shaderTest
         } finally { Pop-Location }
         Push-Location ([IO.Path]::GetTempPath())
