@@ -48,20 +48,24 @@ void drawSelection(const Ray* selection, const Mat4 view, const Mat4 projection)
     break;
   }
   glColor3f(1.0f, 0.85f, 0.2f);
-  const float inset = 0.003f; // Move edges outside the voxel to avoid coplanar flicker.
-  glBegin(GL_LINES);
-  for (int corner = 0; corner < 8; corner++)
-    for (int axis = 0; axis < 3; axis++) {
-      int other = corner ^ (1 << axis);
-      if (corner > other)
-        continue;
-      const int ends[] = {corner, other};
-      for (int end = 0; end < 2; end++) {
-        int bits = ends[end];
-        glVertex3f((p.x + ((bits & 1) ? 1 : 0)) * CUBE_SIZE + ((bits & 1) ? inset : -inset), (p.y + ((bits & 2) ? 1 : 0)) * CUBE_SIZE + ((bits & 2) ? inset : -inset),
-                   (p.z + ((bits & 4) ? 1 : 0)) * CUBE_SIZE + ((bits & 4) ? inset : -inset));
-      }
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  // Expanding the box buries its bottom/side edges inside adjoining blocks.
+  // Keep exact face bounds and bias the depth of their polygon borders instead.
+  // Polygon offset does not affect standalone GL_LINES; quads also avoid the
+  // diagonal that would appear when outlining each face's two triangles.
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glEnable(GL_POLYGON_OFFSET_LINE);
+  glPolygonOffset(-1, -1);
+  const int corners[] = {0, 1, 2, 4};
+  glBegin(GL_QUADS);
+  for (int face = 0; face < 6; face++) {
+    const float* vertices = getCubeFaceVertices(face);
+    for (int corner = 0; corner < 4; corner++) {
+      const float* vertex = vertices + corners[corner] * 8;
+      glVertex3f((p.x + 0.5f + vertex[0]) * CUBE_SIZE, (p.y + 0.5f + vertex[1]) * CUBE_SIZE, (p.z + 0.5f + vertex[2]) * CUBE_SIZE);
     }
+  }
   glEnd();
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
