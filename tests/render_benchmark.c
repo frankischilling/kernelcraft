@@ -3,6 +3,13 @@
 #include "graphics/hud.h"
 #include "graphics/shader.h"
 #include "world/world.h"
+#ifndef KERNELCRAFT_BASELINE
+#include "graphics/world_renderer.h"
+#include "graphics/selection.h"
+#include "world/edit.h"
+#else
+#define surfaceBlocks visisbleCubes
+#endif
 #include <GL/freeglut.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -10,6 +17,9 @@
 #include <string.h>
 
 static unsigned long draws, uploads, lookups;
+#ifndef KERNELCRAFT_BASELINE
+static int failUpload;
+#endif
 static PFNGLBUFFERSUBDATAPROC realBufferSubData;
 static PFNGLBUFFERDATAPROC realBufferData;
 static PFNGLGETUNIFORMLOCATIONPROC realGetUniformLocation;
@@ -30,6 +40,15 @@ static void GLAPIENTRY countSubData(GLenum target, GLintptr offset, GLsizeiptr s
 }
 static void GLAPIENTRY countData(GLenum target, GLsizeiptr size, const void* data, GLenum usage) {
   uploads++;
+#ifndef KERNELCRAFT_BASELINE
+  if (failUpload && --failUpload == 0) {
+    printf("Injecting buffer upload failure (target %u)\n", target);
+    // Invalid usage generates a GL error without requesting an allocation.
+    // A negative index-buffer size crashed Intel driver 32.0.101.7077.
+    realBufferData(target, size, data, GL_NONE);
+    return;
+  }
+#endif
   realBufferData(target, size, data, usage);
 }
 static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
@@ -38,6 +57,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 }
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, NULL, _IONBF, 0);
   glutInit(&argc, argv);
   if (!glfwInit())
     return 1;
@@ -102,20 +122,29 @@ int main(int argc, char** argv) {
       result = renderWorld(shader, &camera);
 #else
       result = renderWorld(&camera, view, projection);
+      if (!result.success || result.chunksRebuilt || result.chunksConsidered != CHUNKS_PER_AXIS * CHUNKS_PER_AXIS)
+        return 7;
 #endif
-      DebugData data = {&camera, 60.0f, result.visisbleCubes};
+      DebugData data = {&camera, 60.0f, result.surfaceBlocks};
+#ifndef KERNELCRAFT_BASELINE
+      data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
+      data.selectedBlock = BLOCK_GRASS;
+      data.captured = true;
+      data.stats = &result;
+      drawSelection(&data.selection, view, projection);
+#endif
       HUDDraw(shader, &data);
       glFinish();
     }
     elapsed = glfwGetTime() - start;
-    printf("pitch=%5.1f frame_ms=%.3f draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu visible_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60, draws / 60,
-           uploads / 60, lookups / 60, result.visisbleCubes);
+    printf("pitch=%5.1f frame_ms=%.3f terrain_grid_draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu surface_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60,
+           draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
 #ifndef KERNELCRAFT_BASELINE
     if (uploads || lookups || draws > 60 * (4 * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + 1))
       return 2;
-    if (scenario == 2 && result.visisbleCubes != 0)
+    if (scenario == 2 && result.surfaceBlocks != 0)
       return 3;
-    if (scenario != 2 && (result.visisbleCubes == 0 || draws <= 60))
+    if (scenario != 2 && (result.surfaceBlocks == 0 || draws <= 60))
       return 3;
 #endif
     GLenum error = glGetError();
@@ -167,7 +196,7 @@ int main(int argc, char** argv) {
       memset(chunk->blocks, 0, sizeof(chunk->blocks));
     }
   Vec3i blockPosition = {0, 0, 0};
-  getBlock(&blockPosition)->id = BLOCK_STONE;
+  setBlock(&blockPosition, BLOCK_STONE);
   if (!initWorld(shader))
     return 1;
   Camera inside = {.position = {0.5f, 0.5f, 0.5f}, .front = {0, 0, 1}, .up = {0, 1, 0}};
@@ -179,10 +208,56 @@ int main(int argc, char** argv) {
   RenderResult insideResult = renderWorld(&inside, view, projection);
   unsigned char centerPixel[4] = {0};
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
-  if (insideResult.visisbleCubes != 1 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0)) {
+  if (insideResult.surfaceBlocks != 1 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0)) {
     fprintf(stderr, "The block surface disappeared during free flight inside terrain\n");
     return 6;
   }
+  // Edits must update both sides of a chunk seam in the next frame.
+  setBlock(&blockPosition, BLOCK_AIR);
+  Vec3i left = {-1, 20, 1}, right = {0, 20, 1};
+  setBlock(&left, BLOCK_STONE);
+  setBlock(&right, BLOCK_STONE);
+  Camera editCamera = {.position = {-3, 20.5f, 1.5f}, .front = {1, 0, 0}, .up = {0, 1, 0}};
+  target = (Vec3){0, 20.5f, 1.5f};
+  mat4_lookAt(view, &editCamera.position, &target, &editCamera.up);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  RenderResult edited = renderWorld(&editCamera, view, projection);
+  if (!edited.success || edited.submittedFaces != 10 || edited.chunksRebuilt != 3)
+    return 7;
+  uploads = 0;
+  setBlock(&left, BLOCK_AIR);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  edited = renderWorld(&editCamera, view, projection);
+  glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces != 6 || uploads != 2 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
+    return 8;
+  uploads = 0;
+  edited = renderWorld(&editCamera, view, projection);
+  if (!edited.success || edited.chunksRebuilt || uploads)
+    return 9;
+  setBlock(&right, BLOCK_AIR);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  edited = renderWorld(&editCamera, view, projection);
+  glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces || edited.terrainDrawCalls || centerPixel[0] || centerPixel[1] || centerPixel[2])
+    return 10;
+  // An upload can fail after an earlier buffer was already replaced. Do not
+  // draw mismatched CPU/GPU state, clear the dirty flag, or lose cleanup handles.
+  for (int failedBuffer = 1; failedBuffer <= 2; failedBuffer++) {
+    setBlock(&right, BLOCK_STONE);
+    failUpload = failedBuffer;
+    draws = 0;
+    edited = renderWorld(&editCamera, view, projection);
+    if (edited.success || draws || !getChunk(&(Vec2i){8, 8})->dirty)
+      return 11;
+    cleanupWorld();
+    if (glGetError() != GL_NO_ERROR || !initWorld(shader))
+      return 12;
+    setBlock(&right, BLOCK_AIR);
+    if (!renderWorld(&editCamera, view, projection).success)
+      return 13;
+  }
+  puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

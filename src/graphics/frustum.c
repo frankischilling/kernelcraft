@@ -81,13 +81,13 @@ bool is_face_visible(Vec3i* pos, int face, const Camera* camera) {
 bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
   (void)size;
   (void)camera;
-  Block* block = getBlock(pos);
+  const Block* block = getBlock(pos);
   if (!block || block->id == BLOCK_AIR)
     return true;
   for (int face = 0; face < 6; face++) {
     Vec3i neighborPos;
     vec3i_add(&neighborPos, pos, &vec3iFaceMap[face]);
-    Block* neighbor = getBlock(&neighborPos);
+    const Block* neighbor = getBlock(&neighborPos);
     if (!neighbor || neighbor->id == BLOCK_AIR)
       return false;
   }

@@ -1,5 +1,8 @@
 # Foundation checkpoint
 
+This records the build/input increment in PR #10. The current continuation
+record is [block editing](block-editing.md), on `feat/block-editing` in PR #11.
+
 Audit base: `7b078e0a54d428bc97553a9bd998e8fc0a3953e2` (September 8, 2026).
 `origin/main` matched this commit after fetching. The checkout was clean, there
 were no applicable AGENTS.md or contribution instructions, no open issues or
@@ -148,10 +151,10 @@ and a missing positive movement frame in the application test. Each was addresse
 The movement frame now verifies the game-loop input connection and stall clamp.
 No human reviewer approval has been requested or claimed.
 
-The branch contains the prerequisite repair; it has not been merged. The next
-implementation step is issue #9's validated block edit API with dirty propagation
-across chunk seams and incremental GPU uploads. Finish that with CPU mesh tests
-and a running edit fixture before adding DDA controls and player collision.
+The branch contains the prerequisite repair; it has not been merged. Its next
+step, validated block editing with dirty propagation and DDA controls, is now
+implemented on the stacked `feat/block-editing` branch. See its linked checkpoint
+for current results and the next player-collision milestone.
 Selectable seeds, save/load, greedy meshing, and the later roadmap remain undone.
 Interactive navigation/editing/collision/persistence, physical high-DPI changes,
 allocation-failure injection, macOS, and Windows sanitizer runs were not performed.

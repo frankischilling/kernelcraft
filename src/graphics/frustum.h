@@ -7,7 +7,6 @@
 #ifndef FRUSTUM_H
 #define FRUSTUM_H
 
-#include <GL/glew.h>
 #include <stdbool.h>
 #include "../graphics/camera.h"
 #include "../math/math.h"

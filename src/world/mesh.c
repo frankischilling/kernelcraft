@@ -25,12 +25,12 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
     for (int y = 0; y < CHUNK_HEIGHT; y++) {
       for (int z = 0; z < CHUNK_SIZE; z++) {
         uint8_t id = chunk->blocks[x][y][z].id;
-        if (id == BLOCK_AIR)
+        if (!blockIsSolid(id))
           continue;
         for (int face = 0; face < 6; face++) {
           Vec3i pos = {originX + x + vec3iFaceMap[face].x, y + vec3iFaceMap[face].y, originZ + z + vec3iFaceMap[face].z};
-          Block* neighbor = getBlock(&pos);
-          if (neighbor && neighbor->id != BLOCK_AIR)
+          const Block* neighbor = getBlock(&pos);
+          if (neighbor && blockIsSolid(neighbor->id))
             continue;
           exposed[x][y][z] |= (uint8_t)(1u << face);
           faceCounts[faceMaterial(id, face)]++;

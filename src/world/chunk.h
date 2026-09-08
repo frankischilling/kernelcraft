@@ -23,6 +23,7 @@ typedef struct {
   Block blocks[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE];
   Vec2i position; // Chunk coordinates
   BiomeID id;
+  bool dirty; // Cleared only after the renderer has consumed the current block data.
 } Chunk;
 
 Vec3 chunkToWorld(Vec2i* chunkPos);

@@ -8,11 +8,13 @@
  */
 #include "inputs.h"
 #include "../graphics/camera.h"
+#include "../world/edit.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
 static double lastX, lastY;
 static bool firstMouse = true;
+static int selected = BLOCK_GRASS;
 
 void setCursorCaptured(GLFWwindow* window, bool captured) {
   // GLFW may move the cursor while changing mode. Discard the next delta.
@@ -28,6 +30,40 @@ void windowFocusCallback(GLFWwindow* window, int focused) {
 
 static bool acceptsMovement(GLFWwindow* window) {
   return glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+}
+
+static bool acceptsEditing(GLFWwindow* window) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  return width > 0 && height > 0 && acceptsMovement(window);
+}
+
+int selectedBlock(void) {
+  return selected;
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+  (void)scancode;
+  (void)mods;
+  if (action != GLFW_PRESS)
+    return;
+  if (key == GLFW_KEY_ESCAPE && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+    setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
+    return;
+  }
+  if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_3) {
+    const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
+    selected = materials[key - GLFW_KEY_1];
+  }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+  (void)mods;
+  Camera* camera = glfwGetWindowUserPointer(window);
+  if (!camera || action != GLFW_PRESS || !acceptsEditing(window))
+    return;
+  if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT)
+    editTarget(camera->position, camera->front, selected, button == GLFW_MOUSE_BUTTON_RIGHT);
 }
 
 void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
