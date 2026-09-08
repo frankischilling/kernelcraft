@@ -10,9 +10,9 @@ typedef struct {
   bool success;
   int surfaceBlocks; // Blocks represented by submitted meshes, not pixel visibility.
   int chunksConsidered, chunksRendered, chunksRebuilt;
-  int terrainDrawCalls; // Excludes the chunk grid and overlays.
-  size_t submittedFaces, submittedTriangles;
-  double meshUpdateMilliseconds; // CPU mesh construction and GL submission; no GPU wait.
+  int terrainDrawCalls;                      // Excludes the chunk grid and overlays.
+  size_t submittedQuads, submittedTriangles; // Merged rectangles, not unit block faces.
+  double meshUpdateMilliseconds;             // CPU mesh construction and GL submission; no GPU wait.
 } RenderResult;
 
 // These functions require a current GL context. The caller owns the shader.

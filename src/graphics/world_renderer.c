@@ -189,7 +189,7 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
         continue;
       glBindVertexArray(chunk->vao);
       result.terrainDrawCalls++;
-      result.submittedFaces += batch.indexCount / 6;
+      result.submittedQuads += batch.indexCount / 6;
       result.submittedTriangles += batch.indexCount / 3;
       glDrawElements(GL_TRIANGLES, (GLsizei)batch.indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)(batch.firstIndex * sizeof(uint32_t)));
     }

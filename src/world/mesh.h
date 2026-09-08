@@ -28,7 +28,9 @@ typedef struct {
   Vec3 min, max;
 } ChunkMesh;
 
-// Build after all neighboring chunks are populated. The caller owns the result.
+// Greedy rectangles with outward winding and one texture repeat per block.
+// Build after all neighboring chunks are populated. The caller owns the result;
+// pass an unused output or free its previous buffers before rebuilding.
 bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh);
 void freeChunkMesh(ChunkMesh* mesh);
 

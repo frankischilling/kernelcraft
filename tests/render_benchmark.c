@@ -7,6 +7,7 @@
 #include "graphics/world_renderer.h"
 #include "graphics/selection.h"
 #include "world/edit.h"
+#include "graphics/texture.h"
 #else
 #define surfaceBlocks visisbleCubes
 #endif
@@ -55,6 +56,98 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
   lookups++;
   return realGetUniformLocation(program, name);
 }
+
+#ifndef KERNELCRAFT_BASELINE
+/* Compare the running renderer with independent unit-cube submissions. Six
+ * views exercise the top, bottom, and each side of a merged grass prism. */
+static bool testRepeatedTextures(GLuint shader) {
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      Chunk* chunk = getChunk(&(Vec2i){x, z});
+      memset(chunk->blocks, 0, sizeof(chunk->blocks));
+    }
+  for (int x = 1; x < 5; x++)
+    for (int y = 20; y < 23; y++)
+      for (int z = 1; z < 4; z++)
+        setBlock(&(Vec3i){x, y, z}, BLOCK_GRASS);
+  if (!initWorld(shader))
+    return false;
+  GLuint textures[] = {loadTexture("assets/textures/grass-side.png"), loadTexture("assets/textures/grass-top.png"), loadTexture("assets/textures/dirt.png")};
+  GLuint vao = 0, vbo = 0;
+  size_t bytes = 960 * 540 * 3;
+  unsigned char* merged = malloc(bytes);
+  unsigned char* reference = malloc(bytes);
+  bool success = merged && reference && textures[0] && textures[1] && textures[2];
+  glGenVertexArrays(1, &vao);
+  glGenBuffers(1, &vbo);
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+  for (int attribute = 0; attribute < 3; attribute++)
+    glEnableVertexAttribArray(attribute);
+  for (int direction = 0; success && direction < 6; direction++) {
+    Vec3i normal = vec3iFaceMap[direction];
+    Vec3 center = {3, 21.5f, 2.5f};
+    Camera camera = {.position = {center.x + normal.x * 7, center.y + normal.y * 7, center.z + normal.z * 7}, .up = {0, normal.y ? 0 : 1, normal.y ? 1 : 0}};
+    vec3_subtract(&camera.front, &center, &camera.position);
+    Mat4 view, projection;
+    mat4_lookAt(view, &camera.position, &center, &camera.up);
+    mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderResult result = renderWorld(&camera, view, projection);
+    if (!result.success || result.submittedQuads != 6) {
+      success = false;
+      break;
+    }
+    glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, merged);
+    /* renderWorld leaves the same projection, camera, and lighting uniforms
+     * active for the reference. Its grid is outside the compared prism pixels. */
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    for (int x = 1; x < 5; x++)
+      for (int y = 20; y < 23; y++)
+        for (int z = 1; z < 4; z++)
+          for (int face = 0; face < 6; face++) {
+            float vertices[48];
+            memcpy(vertices, getCubeFaceVertices(face), sizeof(vertices));
+            for (int corner = 0; corner < 6; corner++) {
+              vertices[corner * 8] = (vertices[corner * 8] + x + 0.5f) * CUBE_SIZE;
+              vertices[corner * 8 + 1] = (vertices[corner * 8 + 1] + y + 0.5f) * CUBE_SIZE;
+              vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
+            }
+            glBindTexture(GL_TEXTURE_2D, textures[face == TOP ? 1 : face == BOTTOM ? 2 : 0]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+          }
+    glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, reference);
+    size_t compared = 0, different = 0;
+    for (size_t pixel = 0; pixel < bytes; pixel += 3) {
+      if (!reference[pixel] && !reference[pixel + 1] && !reference[pixel + 2])
+        continue;
+      compared++;
+      for (int channel = 0; channel < 3; channel++)
+        if (abs(reference[pixel + channel] - merged[pixel + channel]) > 3) {
+          different++;
+          break;
+        }
+    }
+    /* Nearest sampling can differ at texel boundaries after retriangulation.
+     * Permit at most 0.2% differing pixels, not stretched or rotated tiles. */
+    printf("Repeated texture face %d: %zu/%zu differing pixels\n", direction, different, compared);
+    success = compared > 10000 && different * 500 <= compared && glGetError() == GL_NO_ERROR;
+  }
+  free(merged);
+  free(reference);
+  glBindVertexArray(0);
+  glDeleteVertexArrays(1, &vao);
+  glDeleteBuffers(1, &vbo);
+  glDeleteTextures(3, textures);
+  return success;
+}
+#endif
 
 int main(int argc, char** argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -140,6 +233,7 @@ int main(int argc, char** argv) {
     printf("pitch=%5.1f frame_ms=%.3f terrain_grid_draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu surface_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60,
            draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
 #ifndef KERNELCRAFT_BASELINE
+    printf("submitted_quads=%zu submitted_triangles=%zu chunks_rendered=%d\n", result.submittedQuads, result.submittedTriangles, result.chunksRendered);
     if (uploads || lookups || draws > 60 * (4 * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + 1))
       return 2;
     if (scenario == 2 && result.surfaceBlocks != 0)
@@ -222,14 +316,14 @@ int main(int argc, char** argv) {
   mat4_lookAt(view, &editCamera.position, &target, &editCamera.up);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   RenderResult edited = renderWorld(&editCamera, view, projection);
-  if (!edited.success || edited.submittedFaces != 10 || edited.chunksRebuilt != 3)
+  if (!edited.success || edited.submittedQuads != 10 || edited.chunksRebuilt != 3)
     return 7;
   uploads = 0;
   setBlock(&left, BLOCK_AIR);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   edited = renderWorld(&editCamera, view, projection);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
-  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces != 6 || uploads != 2 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedQuads != 6 || uploads != 2 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
     return 8;
   uploads = 0;
   edited = renderWorld(&editCamera, view, projection);
@@ -239,7 +333,7 @@ int main(int argc, char** argv) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   edited = renderWorld(&editCamera, view, projection);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
-  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces || edited.terrainDrawCalls || centerPixel[0] || centerPixel[1] || centerPixel[2])
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedQuads || edited.terrainDrawCalls || centerPixel[0] || centerPixel[1] || centerPixel[2])
     return 10;
   // An upload can fail after an earlier buffer was already replaced. Do not
   // draw mismatched CPU/GPU state, clear the dirty flag, or lose cleanup handles.
@@ -258,6 +352,10 @@ int main(int argc, char** argv) {
       return 13;
   }
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
+  if (!testRepeatedTextures(shader)) {
+    fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
+    return 14;
+  }
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;
