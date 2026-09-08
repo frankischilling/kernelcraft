@@ -11,8 +11,10 @@ static int failProgram;
 static GLuint createdShaders[2];
 static GLuint createdProgram;
 static int createdCount;
+static int shaderAttempts, programAttempts;
 
 static GLuint GLAPIENTRY createShaderForTest(GLenum type) {
+  shaderAttempts++;
   if (type == failShaderType)
     return 0;
   GLuint shader = realCreateShader(type);
@@ -22,15 +24,17 @@ static GLuint GLAPIENTRY createShaderForTest(GLenum type) {
 }
 
 static GLuint GLAPIENTRY createProgramForTest(void) {
+  programAttempts++;
   createdProgram = failProgram ? 0 : realCreateProgram();
   return createdProgram;
 }
 
-static int testShaderFailure(const char* label, const char* vertex, const char* fragment, GLenum shaderType, int programFailure) {
+static int testShaderFailure(const char* label, const char* vertex, const char* fragment, GLenum shaderType, int programFailure, int expectedShaders, int expectedPrograms) {
   failShaderType = shaderType;
   failProgram = programFailure;
   createdCount = 0;
   createdProgram = 0;
+  shaderAttempts = programAttempts = 0;
   realCreateShader = __glewCreateShader;
   realCreateProgram = __glewCreateProgram;
   __glewCreateShader = createShaderForTest;
@@ -41,6 +45,10 @@ static int testShaderFailure(const char* label, const char* vertex, const char* 
   __glewCreateShader = realCreateShader;
   __glewCreateProgram = realCreateProgram;
   int failed = 0;
+  if (shaderAttempts != expectedShaders || programAttempts != expectedPrograms || (expectedPrograms && !programFailure && !createdProgram)) {
+    fprintf(stderr, "%s did not reach the expected loading stage\n", label);
+    failed = 1;
+  }
   if (program || glGetError() != GL_NO_ERROR) {
     fprintf(stderr, "%s must return zero without using an invalid GL handle\n", label);
     failed = 1;
@@ -94,19 +102,19 @@ int main(void) {
   glDeleteProgram(shader);
   // Only creation is substituted; compilation, linking, and lifetime queries
   // use the driver so invalid handle use and leaked objects remain observable.
-  failed |= testShaderFailure("Vertex creation failure", vertex, fragment, GL_VERTEX_SHADER, 0);
-  failed |= testShaderFailure("Fragment creation failure", vertex, fragment, GL_FRAGMENT_SHADER, 0);
-  failed |= testShaderFailure("Program creation failure", vertex, fragment, 0, 1);
+  failed |= testShaderFailure("Vertex creation failure", vertex, fragment, GL_VERTEX_SHADER, 0, 1, 0);
+  failed |= testShaderFailure("Fragment creation failure", vertex, fragment, GL_FRAGMENT_SHADER, 0, 2, 0);
+  failed |= testShaderFailure("Program creation failure", vertex, fragment, 0, 1, 2, 1);
   if (!writeShader(vertex, "#version 330 core\ninvalid shader"))
     return 1;
-  failed |= testShaderFailure("Vertex compilation failure", vertex, fragment, 0, 0);
+  failed |= testShaderFailure("Vertex compilation failure", vertex, fragment, 0, 0, 1, 0);
   if (!writeShader(vertex, validVertex) || !writeShader(fragment, "#version 330 core\ninvalid shader"))
     return 1;
-  failed |= testShaderFailure("Fragment compilation failure", vertex, fragment, 0, 0);
+  failed |= testShaderFailure("Fragment compilation failure", vertex, fragment, 0, 0, 2, 0);
   if (!writeShader(vertex, "#version 330 core\nout vec3 mismatch;\nvoid main(){mismatch=vec3(1.0);gl_Position=vec4(0.0);}") ||
       !writeShader(fragment, "#version 330 core\nin vec4 mismatch;\nout vec4 color;\nvoid main(){color=mismatch;}"))
     return 1;
-  failed |= testShaderFailure("Program link failure", vertex, fragment, 0, 0);
+  failed |= testShaderFailure("Program link failure", vertex, fragment, 0, 0, 2, 1);
   if (!writeShader(vertex, validVertex) || !writeShader(fragment, validFragment))
     return 1;
   shader = loadShaders(vertex, fragment);
