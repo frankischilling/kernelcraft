@@ -16,9 +16,26 @@ static double lastX, lastY;
 static bool firstMouse = true;
 static int selected = BLOCK_GRASS;
 
+bool initInputs(InputState* input, Camera* camera) {
+  *input = (InputState){.camera = camera};
+  if (!playerFindSpawn(&input->player, camera->position))
+    return false;
+  camera->position = playerEyePosition(&input->player);
+  return true;
+}
+
+void resetInputTiming(InputState* input) {
+  if (!input)
+    return;
+  playerResetTiming(&input->player);
+  input->jumpRequested = false;
+  input->simulationSteps = 0;
+}
+
 void setCursorCaptured(GLFWwindow* window, bool captured) {
   // GLFW may move the cursor while changing mode. Discard the next delta.
   firstMouse = true;
+  resetInputTiming(glfwGetWindowUserPointer(window));
   glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
@@ -42,6 +59,17 @@ int selectedBlock(void) {
   return selected;
 }
 
+static Vec3 inputBodyFeet(const InputState* input) {
+  if (!input->flying)
+    return input->player.position;
+  Vec3 feet = input->camera->position;
+  Vec3 initialEye = playerEyePosition(&input->player);
+  // Preserve the exact standing height when flight starts. Subtracting the eye
+  // offset directly can round below the floor even without any camera motion.
+  feet.y = (float)(input->player.position.y + ((double)feet.y - initialEye.y));
+  return feet;
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   (void)scancode;
   (void)mods;
@@ -55,21 +83,63 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
     selected = materials[key - GLFW_KEY_1];
   }
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (!input || !acceptsEditing(window))
+    return;
+  if (key == GLFW_KEY_SPACE && !input->flying)
+    input->jumpRequested = true;
+  if (key == GLFW_KEY_F) {
+    resetInputTiming(input);
+    input->modeBlocked = false;
+    if (!input->flying) {
+      input->flying = true;
+    } else {
+      Vec3 feet = inputBodyFeet(input);
+      if (playerSetPosition(&input->player, feet) || playerFindSpawn(&input->player, feet)) {
+        input->flying = false;
+        input->camera->position = playerEyePosition(&input->player);
+      } else {
+        input->modeBlocked = true;
+      }
+    }
+  }
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   (void)mods;
-  Camera* camera = glfwGetWindowUserPointer(window);
-  if (!camera || action != GLFW_PRESS || !acceptsEditing(window))
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (!input || action != GLFW_PRESS || !acceptsEditing(window))
     return;
+  Camera* camera = input->camera;
+  Vec3 feet = inputBodyFeet(input);
   if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT)
-    editTarget(camera->position, camera->front, selected, button == GLFW_MOUSE_BUTTON_RIGHT);
+    editTarget(camera->position, camera->front, feet, selected, button == GLFW_MOUSE_BUTTON_RIGHT);
 }
 
-void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
-  if (!camera || !acceptsMovement(window) || !isfinite(deltaTime) || deltaTime <= 0)
+void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
+  if (!input)
     return;
-  float velocity = camera->speed * deltaTime;
+  input->simulationSteps = 0;
+  if (!acceptsEditing(window)) {
+    resetInputTiming(input);
+    return;
+  }
+  if (!isfinite(deltaTime) || deltaTime <= 0)
+    return;
+  Camera* camera = input->camera;
+  if (!input->flying) {
+    float yaw = toRadians(camera->yaw);
+    Vec3 forward = {cosf(yaw), 0, sinf(yaw)}, wish = {0};
+    int longitudinal = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
+    int lateral = (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS);
+    wish.x = forward.x * longitudinal - forward.z * lateral;
+    wish.z = forward.z * longitudinal + forward.x * lateral;
+    input->simulationSteps = playerAdvance(&input->player, wish, input->jumpRequested, deltaTime);
+    input->jumpRequested = false;
+    camera->position = playerEyePosition(&input->player);
+    return;
+  }
+  float velocity = camera->speed * (float)fmin(deltaTime, 0.1);
   Vec3 temp;
 
   // Forward/Backward
@@ -107,11 +177,12 @@ void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
 }
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos) {
-  Camera* camera = (Camera*)glfwGetWindowUserPointer(window);
-  if (!camera || !acceptsMovement(window)) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (!input || !acceptsEditing(window)) {
     firstMouse = true;
     return;
   }
+  Camera* camera = input->camera;
 
   if (firstMouse) {
     lastX = xpos;

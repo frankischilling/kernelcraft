@@ -35,6 +35,7 @@ static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
 static Camera camera;
+static InputState input;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   (void)window;
@@ -135,7 +136,16 @@ int main(int argc, char** argv) {
   HUDInit(BUILD_NAME, BUILD_VERSION);
 
   initCamera(&camera);
-  glfwSetWindowUserPointer(window, &camera);
+  if (!initInputs(&input, &camera)) {
+    fprintf(stderr, "Failed to find a clear player spawn\n");
+    cleanupWorld();
+    cleanupChunks();
+    glDeleteProgram(shaderProgram);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+  glfwSetWindowUserPointer(window, &input);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glfwSetCursorPosCallback(window, mouseCallback);
   glfwSetWindowFocusCallback(window, windowFocusCallback);
@@ -149,7 +159,7 @@ int main(int argc, char** argv) {
   int exitStatus = EXIT_SUCCESS;
   while (!glfwWindowShouldClose(window)) {
     double currentFrame = glfwGetTime();
-    float deltaTime = (float)(currentFrame - lastFrame);
+    double deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 
     frameCount++;
@@ -162,13 +172,12 @@ int main(int argc, char** argv) {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     if (width == 0 || height == 0) {
+      resetInputTiming(&input);
       glfwWaitEvents();
       lastFrame = glfwGetTime();
       continue;
     }
-    // Bound debug-flight displacement after a stalled frame. Player physics
-    // will use its own fixed simulation step when normal movement is added.
-    processInput(window, &camera, fminf(deltaTime, 0.1f));
+    processInput(window, &input, deltaTime);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, width, height);
     Mat4 view, projection;
@@ -190,6 +199,10 @@ int main(int argc, char** argv) {
                       .selection = selection,
                       .selectedBlock = selectedBlock(),
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
+                      .flying = input.flying,
+                      .grounded = input.player.grounded,
+                      .modeBlocked = input.modeBlocked,
+                      .simulationSteps = input.simulationSteps,
                       .stats = &result};
     HUDDraw(shaderProgram, &data);
 

@@ -25,7 +25,8 @@ static const int sizes[][2] = {{640, 360}, {360, 640}, {0, 0}, {1280, 720}};
 } while (0)
 
 static void testInput(GLFWwindow* window) {
-  Camera* camera = glfwGetWindowUserPointer(window);
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
   CHECK(camera != NULL);
   GLFWcursorposfun mouse = glfwSetCursorPosCallback(window, NULL);
   GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
@@ -34,6 +35,11 @@ static void testInput(GLFWwindow* window) {
   glfwSetKeyCallback(window, key);
   glfwSetWindowFocusCallback(window, focus);
   CHECK(mouse && key);
+  CHECK(!input->flying && input->player.grounded && playerCanOccupy(input->player.position));
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->flying);
+  key(window, GLFW_KEY_F, 0, GLFW_REPEAT, 0);
+  CHECK(input->flying);
 
   mouse(window, 10, 10);
   mouse(window, 30, 10);
@@ -48,7 +54,7 @@ static void testInput(GLFWwindow* window) {
   CHECK(cursorMode == GLFW_CURSOR_NORMAL);
   Vec3 position = camera->position;
   pressedKey = GLFW_KEY_W;
-  processInput(window, camera, 0.1f);
+  processInput(window, input, 0.1f);
   CHECK(camera->position.x == position.x && camera->position.y == position.y && camera->position.z == position.z);
 
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
@@ -56,7 +62,7 @@ static void testInput(GLFWwindow* window) {
   CHECK(camera->yaw == yaw && camera->pitch == 0);
   mouse(window, -980, -1000);
   CHECK(fabsf(camera->yaw - yaw - 1.0f) < 0.001f);
-  processInput(window, camera, 0.1f);
+  processInput(window, input, 0.1f);
   CHECK(fabsf(vec3_distance(&camera->position, &position) - 1.0f) < 0.001f);
 
   CHECK(focus != NULL);
@@ -66,7 +72,7 @@ static void testInput(GLFWwindow* window) {
   position = camera->position;
   yaw = camera->yaw;
   mouse(window, 4000, 4000);
-  processInput(window, camera, 0.1f);
+  processInput(window, input, 0.1f);
   CHECK(camera->yaw == yaw);
   CHECK(camera->position.x == position.x && camera->position.y == position.y && camera->position.z == position.z);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
@@ -84,7 +90,8 @@ static void testInput(GLFWwindow* window) {
 }
 
 static void testEditing(GLFWwindow* window) {
-  Camera* camera = glfwGetWindowUserPointer(window);
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
   Camera saved = *camera;
   GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
   GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
@@ -126,6 +133,118 @@ static void testEditing(GLFWwindow* window) {
   *camera = saved;
 }
 
+static void testWalkingControls(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  // A floating platform and a three-block wall isolate controls from terrain shape.
+  for (int x = -2; x <= 2; x++)
+    for (int z = -2; z <= 5; z++) {
+      CHECK(setBlock(&(Vec3i){x, 39, z}, BLOCK_STONE));
+      for (int y = 40; y <= 46; y++)
+        CHECK(setBlock(&(Vec3i){x, y, z}, z == 2 && y <= 42 ? BLOCK_STONE : BLOCK_AIR));
+    }
+  camera->position = (Vec3){0.5f, 40 + PLAYER_EYE_HEIGHT, 0.5f};
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && input->player.grounded);
+  // Looking almost straight up must retain full horizontal walking speed.
+  camera->pitch = 89;
+  updateCameraVectors(camera);
+  pressedKey = GLFW_KEY_W;
+  processInput(window, input, 1.0 / 30);
+  CHECK(fabsf(input->player.position.z - 0.65f) < 0.0001f && input->player.position.y == 40);
+  pressedKey = -1;
+  key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+  key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  Vec3 paused = input->player.position;
+  processInput(window, input, 10);
+  CHECK(input->simulationSteps == 0 && !input->jumpRequested && !input->player.jumpPending);
+  CHECK(input->player.position.y == paused.y && input->player.position.z == paused.z);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying);
+  key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  processInput(window, input, 1.0 / 30);
+  CHECK(input->player.grounded); // Pausing discarded the queued jump.
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  camera->position = (Vec3){0.5f, 40.5f, 2.5f}; // Inside the wall.
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && playerCanOccupy(input->player.position) && input->player.grounded);
+  CHECK(input->player.position.y == 43); // Return to flight's nearest safe surface.
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  camera->position = (Vec3){1000, 1000, -1000};
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && playerCanOccupy(input->player.position));
+  CHECK(setBlock(&(Vec3i){4, 0, 4}, BLOCK_STONE));
+  for (int y = 1; y < 4; y++)
+    CHECK(setBlock(&(Vec3i){4, y, 4}, BLOCK_AIR));
+  CHECK(setBlock(&(Vec3i){4, 4, 4}, BLOCK_STONE));
+  CHECK(playerSetPosition(&input->player, (Vec3){4.6f, 1, 4.5f}));
+  camera->position = playerEyePosition(&input->player);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && input->player.position.x == 4.6f && input->player.position.y == 1 && input->player.position.z == 4.5f);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  camera->position.z += 0.1f;
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && input->player.position.y == 1 && input->player.position.z == 4.6f);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  initCamera(camera);
+}
+
+static void walkingFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  if (frame == 4) {
+    camera->position = (Vec3){0.5f, 40 + PLAYER_EYE_HEIGHT, 0.5f};
+    key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+    CHECK(!input->flying);
+    pressedKey = GLFW_KEY_W;
+  }
+  if (frame == 19) {
+    CHECK(fabsf(input->player.position.z - 1.7f) < 0.00001f && input->player.grounded);
+    pressedKey = GLFW_KEY_SPACE;
+    key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+  }
+  if (frame == 20)
+    CHECK(input->player.position.y > 40 && !input->player.grounded);
+  if (frame > 19 && frame < 45)
+    key(window, GLFW_KEY_SPACE, 0, GLFW_REPEAT, 0);
+  if (frame == 45) {
+    CHECK(input->player.position.y == 40 && input->player.grounded); // Held jump did not repeat.
+    pressedKey = -1;
+    camera->pitch = -89;
+    updateCameraVectors(camera);
+    GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
+    glfwSetMouseButtonCallback(window, click);
+    click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+    CHECK(getBlock(&(Vec3i){0, 40, 1})->id == BLOCK_AIR); // Placement cannot overlap the actual feet/body.
+    click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    CHECK(getBlock(&(Vec3i){0, 39, 1})->id == BLOCK_AIR);
+    key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+  }
+  if (frame == 46)
+    CHECK(input->player.position.y < 40 && input->player.velocity.y < 0);
+  if (frame == 47) {
+    beforeMinimize = camera->position;
+    pressedKey = GLFW_KEY_W;
+    input->player.accumulator = PLAYER_STEP_SECONDS / 2;
+    input->player.jumpPending = true;
+  }
+  if (frame == 48) {
+    CHECK(camera->position.x == beforeMinimize.x && camera->position.y == beforeMinimize.y && camera->position.z == beforeMinimize.z);
+    CHECK(input->player.accumulator == 0 && !input->player.jumpPending);
+    key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  }
+  if (frame == 49) {
+    CHECK(camera->position.x == beforeMinimize.x && camera->position.y == beforeMinimize.y && camera->position.z == beforeMinimize.z);
+    pressedKey = -1;
+    key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  }
+}
+
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
 GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share) {
   (void)width;
@@ -138,14 +257,17 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testInput(window);
+    testWalkingControls(window);
     testEditing(window);
-    Camera* camera = glfwGetWindowUserPointer(window);
+    InputState* input = glfwGetWindowUserPointer(window);
+    Camera* camera = input->camera;
     camera->position.x = -0.5f;
     camera->position.y = 40.5f;
     CHECK(setBlock(&editFixture, BLOCK_STONE));
   }
   if (frame == 0) {
-    Camera* camera = glfwGetWindowUserPointer(window);
+    InputState* input = glfwGetWindowUserPointer(window);
+    Camera* camera = input->camera;
     // A one-second stall must move one unit after the 0.1-second flight clamp.
     // This also catches disconnecting keyboard input from the application loop.
     CHECK(fabsf(camera->position.z - 4.0f) < 0.001f);
@@ -157,7 +279,8 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     pressedKey = -1;
   }
   if (frame == 2) {
-    Camera* camera = glfwGetWindowUserPointer(window);
+    InputState* input = glfwGetWindowUserPointer(window);
+    Camera* camera = input->camera;
     CHECK(camera->position.x == beforeMinimize.x && camera->position.y == beforeMinimize.y && camera->position.z == beforeMinimize.z);
     pressedKey = -1;
     CHECK(setBlock(&(Vec3i){-1, 40, 7}, BLOCK_STONE));
@@ -166,7 +289,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == 0)
     pressedKey = GLFW_KEY_W;
   if (frame == 2) {
-    beforeMinimize = ((Camera*)glfwGetWindowUserPointer(window))->position;
+    beforeMinimize = ((InputState*)glfwGetWindowUserPointer(window))->camera->position;
     pressedKey = GLFW_KEY_W;
   }
   if (frame < 4 && frame != 2) {
@@ -179,11 +302,13 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(getBlock(&editFixture)->id == BLOCK_GRASS);
   }
-  return frame >= 4;
+  if (frame >= 4 && frame < 50)
+    walkingFrame(window);
+  return frame >= 50;
 }
 
 double __wrap_glfwGetTime(void) {
-  return frame < 0 ? 0.0 : (double)(frame + 1);
+  return frame < 0 ? 0.0 : frame < 4 ? (double)(frame + 1) : 4.0 + (frame - 3) / 30.0;
 }
 
 void __wrap_glfwSetInputMode(GLFWwindow* window, int mode, int value) {
@@ -209,14 +334,13 @@ int __wrap_glfwGetKey(GLFWwindow* window, int key) {
 
 void __wrap_glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height) {
   (void)window;
-  int index = frame < 0 ? 0 : frame;
-  CHECK(index < 4);
+  int index = frame < 0 ? 0 : frame == 47 ? 2 : frame > 3 ? 3 : frame;
   *width = sizes[index][0];
   *height = sizes[index][1];
 }
 
 void __wrap_glfwWaitEvents(void) {
-  CHECK(frame == 2);
+  CHECK(frame == 2 || frame == 47);
   GLFWkeyfun key = glfwSetKeyCallback(glfwGetCurrentContext(), NULL);
   glfwSetKeyCallback(glfwGetCurrentContext(), key);
   key(glfwGetCurrentContext(), GLFW_KEY_3, 0, GLFW_PRESS, 0);
@@ -224,8 +348,42 @@ void __wrap_glfwWaitEvents(void) {
   waits++;
 }
 
+static void captureFrame(int width, int height, const unsigned char* pixels) {
+  const char* capturePrefix = getenv("KERNELCRAFT_TEST_CAPTURE");
+  if (capturePrefix) {
+    char path[1024];
+    int length = snprintf(path, sizeof(path), "%s-%d.ppm", capturePrefix, frame);
+    CHECK(length > 0 && (size_t)length < sizeof(path));
+    FILE* capture = fopen(path, "wb");
+    CHECK(capture);
+    fprintf(capture, "P6\n%d %d\n255\n", width, height);
+    for (int row = height - 1; row >= 0; row--)
+      CHECK(fwrite(pixels + (size_t)row * width * 3, 1, (size_t)width * 3, capture) == (size_t)width * 3);
+    CHECK(fclose(capture) == 0);
+  }
+}
+
 void __real_glfwSwapBuffers(GLFWwindow* window);
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
+  if (frame >= 4) {
+    InputState* input = glfwGetWindowUserPointer(window);
+    Vec3 eye = playerEyePosition(&input->player);
+    CHECK(frame < 50 && frame != 47 && !input->flying);
+    CHECK(playerCanOccupy(input->player.position));
+    CHECK(input->camera->position.x == eye.x && input->camera->position.y == eye.y && input->camera->position.z == eye.z);
+    CHECK(input->simulationSteps == (frame == 48 ? 0 : 4));
+    if ((frame == 18 || frame == 20) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
+      unsigned char* pixels = malloc(1280 * 720 * 3);
+      CHECK(pixels);
+      glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      captureFrame(1280, 720, pixels);
+      free(pixels);
+    }
+    CHECK(glGetError() == GL_NO_ERROR);
+    swaps++;
+    __real_glfwSwapBuffers(window);
+    return;
+  }
   CHECK(frame >= 0 && frame < 4 && frame != 2);
   GLint viewport[4], program;
   glGetIntegerv(GL_VIEWPORT, viewport);
@@ -256,18 +414,7 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
       outlinePixels += p[0] > 240 && p[1] > 180 && p[2] < 100;
     }
 
-  const char* capturePrefix = getenv("KERNELCRAFT_TEST_CAPTURE");
-  if (capturePrefix) {
-    char path[1024];
-    int length = snprintf(path, sizeof(path), "%s-%d.ppm", capturePrefix, frame);
-    CHECK(length > 0 && (size_t)length < sizeof(path));
-    FILE* capture = fopen(path, "wb");
-    CHECK(capture);
-    fprintf(capture, "P6\n%d %d\n255\n", width, height);
-    for (int row = height - 1; row >= 0; row--)
-      CHECK(fwrite(pixels + (size_t)row * width * 3, 1, (size_t)width * 3, capture) == (size_t)width * 3);
-    CHECK(fclose(capture) == 0);
-  }
+  captureFrame(width, height, pixels);
   free(pixels);
   if (frame == 1)
     CHECK(pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0);
@@ -287,8 +434,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
     exit(EXIT_FAILURE);
   }
   if (frame >= 0) {
-    CHECK(swaps == 3 && waits == 1);
-    puts("Application editing, selection pixels, input, framebuffer, and shutdown tests passed");
+    CHECK(swaps == 48 && waits == 2);
+    puts("Application walking, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
   }
   __real_glfwDestroyWindow(window);
 }

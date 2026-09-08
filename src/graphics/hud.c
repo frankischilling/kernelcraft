@@ -19,6 +19,7 @@ static DebugEntry entryWorldCoords;
 static DebugEntry entryChunkCoords;
 static DebugEntry entryLookingAtBlockCoords;
 static DebugEntry entryChunks, entryFaces, entryRebuilds;
+static DebugEntry entryMovement;
 
 static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex);
 static void UpdateEntries(DebugData* data);
@@ -60,7 +61,9 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     renderText(state, labels[i], x + 8, state->viewport[3] - 20);
   }
   glColor3f(1, 1, 1);
-  renderText(state, "Fly: WASD + Space/Shift", 10, state->viewport[3] - 80);
+  renderText(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 10, state->viewport[3] - 80);
+  if (data->modeBlocked)
+    renderText(state, "No clear standing space; still flying", 10, state->viewport[3] - 104);
   renderText(state, data->captured ? "Left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 10, state->viewport[3] - 56);
 }
 
@@ -81,6 +84,7 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   EntryDraw(&state, &entryWorldCoords, &i);
   EntryDraw(&state, &entryCubeCount, &i);
   EntryDraw(&state, &entryFPS, &i);
+  EntryDraw(&state, &entryMovement, &i);
   EntryDraw(&state, &entryBuildInfo, &i);
   if (data->stats) {
     EntryDraw(&state, &entryChunks, &i);
@@ -99,6 +103,11 @@ static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex
   *entryIndex += 20;
 }
 static void UpdateEntries(DebugData* data) {
+  snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d",
+           data->flying     ? "Debug flight"
+           : data->grounded ? "Walking: grounded"
+                            : "Walking: airborne",
+           data->simulationSteps);
   snprintf(entryFPS.text, sizeof(entryFPS.text), "FPS: %.1f", data->fps);
   snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(data->camera->position.x, data->camera->position.z));
   snprintf(entryCubeCount.text, sizeof(entryCubeCount.text), "Surface blocks: %d", data->visibleBlocks);

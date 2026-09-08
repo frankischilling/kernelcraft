@@ -10,10 +10,22 @@
 #define INPUTS_H
 
 #include "../graphics/camera.h"
+#include "../world/player.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
-void processInput(GLFWwindow* window, Camera* camera, float deltaTime);
+typedef struct {
+  Camera* camera;
+  Player player;
+  bool flying;
+  bool jumpRequested;
+  bool modeBlocked;
+  int simulationSteps;
+} InputState;
+
+bool initInputs(InputState* input, Camera* camera);
+void resetInputTiming(InputState* input);
+void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void setCursorCaptured(GLFWwindow* window, bool captured);
 void windowFocusCallback(GLFWwindow* window, int focused);
