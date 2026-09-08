@@ -260,6 +260,7 @@ int main(int argc, char** argv) {
                       .modeBlocked = input.modeBlocked,
                       .simulationSteps = input.simulationSteps,
                       .saveStatus = saveStatus,
+                      .showDebug = input.showDebug,
                       .stats = &result};
     HUDDraw(shaderProgram, &data);
 

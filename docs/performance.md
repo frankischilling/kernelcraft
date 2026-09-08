@@ -19,6 +19,11 @@ are considered. Terrain draw calls exclude the grid and overlays. Quad/triangle
 counts report submitted merged geometry, not exposed unit block faces. Update time covers CPU mesh work and GL
 submission, including the dirty scan, without waiting for GPU completion.
 
+The runtime defaults to compact gameplay status; press F3 for these diagnostic
+counters. The benchmark explicitly enables diagnostics. The responsive HUD
+changes its layout and text work, so its current frame timings should not be
+compared directly with the historical HUD measurements below.
+
 ## Measurements
 
 These are historical measurements of the static-mesh increment in PR #7, not a
