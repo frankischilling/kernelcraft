@@ -27,7 +27,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **main.c**: The entry point of the application. It initializes the OpenGL context and handles the main rendering loop.
   - **assets/**: Contains assets like shaders and textures.
   - **graphics/**: Contains rendering-related code.
-    - **world_renderer.c**: Uploads chunk meshes and draws visible texture batches.
+    - **world_renderer.c**: Rebuilds dirty chunk meshes and draws visible texture batches.
     - **camera.c**: Manages camera movement and orientation.
     - **hud.c**: Provides a basic hud and debug management system.
     - **shader.c**: Handles shader loading and compilation.
@@ -43,7 +43,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
-    - **raycast.c**: Simple raycasting utility.
+    - **raycast.c**: Bounded DDA selection with hit faces and placement cells.
 
 ## Features
 
@@ -60,6 +60,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **User Interaction**:
   - Camera controls for navigation.
   - Mouse input for looking around.
+  - Block placement and destruction, a target outline, crosshair, and three-slot material selector.
 
 ## Getting Started
 
@@ -109,25 +110,33 @@ Concurrent builds should use different configurations or separate checkouts.
 ### Checks and current status
 
 ```sh
-make test              # CPU world, math, and mesh regressions; no window
+make test              # CPU world, mesh, edit, and DDA regressions; no graphics dependencies
 make test-sanitize     # CPU checks with AddressSanitizer and UBSan
 sudo apt-get install clang xvfb xauth
 make test-build        # Real incremental/configuration builds in a temporary copy
 make test-gl           # Hidden application, shader, texture, and rendering checks
 ```
 
-CPU tests currently require graphics development headers through shared interfaces,
-but link only the C runtime and math library. The graphical tests use Mesa/Xvfb
+CPU tests need only a C compiler, Make, and the math library; they include no
+OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [checkpoint status](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [block editing status](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 W/A/S/D moves the free-flight camera; Space moves up and Left Shift moves down.
 Mouse motion turns the camera while captured. Escape toggles capture; released or
 unfocused windows ignore movement. Focus loss releases the cursor; press Escape
 after returning to resume. The first mouse sample after capture is discarded to
-avoid a jump. Block editing,
-normal player collision/gravity, selectable seeds, and saves are planned.
+avoid a jump. Left click destroys the targeted block; right click places the selected
+material on its face. Keys 1, 2, and 3 select grass, dirt, and stone. Each press
+edits once, within six world units. A gold outline marks the selected block.
+Placement rejects occupied/out-of-world cells and a body-sized space around the
+camera (0.6 wide, 1.8 high; eye 1.62 above its feet).
+
+Movement is still debug flight and can pass through terrain. Hold Space to rise
+above it, then look down to edit. Normal movement, safe player spawning,
+collision/gravity, selectable seeds, and saves remain planned. **Edits are kept
+in memory and disappear when the game closes.**
 
 ## Roadmap
 
@@ -144,8 +153,8 @@ normal player collision/gravity, selectable seeds, and saves are planned.
   - [ ] Implement shadows
   - [ ] Implement basic post-processing effects
   - [ ] Add a wireframe toggle (solid rendering is implemented)
-  - [ ] Create debug visualization tools
-    - [ ] FPS, ticks, visible faces, visble cubes, how many are rendered out of total
+  - [x] Show FPS, submitted surface blocks, chunks, terrain draws, faces/triangles, and mesh update time
+  - [ ] Show simulation ticks when player physics is implemented
   - [x] Optimize render batching and draw calls
 
 - **World Generation**:
@@ -168,10 +177,10 @@ normal player collision/gravity, selectable seeds, and saves are planned.
 - **User Interaction**:
   - [x] Implement free-flight camera controls
   - [x] Add mouse controls for looking around
-  - [ ] Add block placement and destruction
+  - [x] Add block placement and destruction with dirty chunk updates
   - [ ] Implement collision detection
   - [ ] Add player physics (gravity, jumping)
-  - [ ] Add reliable grid traversal and placement-face results (fixed-step HUD raycasting exists)
+  - [x] Add DDA selection, placement-face results, target outline, crosshair, and material selection
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
@@ -275,7 +284,8 @@ normal player collision/gravity, selectable seeds, and saves are planned.
 - **Testing**:
   - [ ] Conduct thorough playtesting to identify and fix bugs
   - [x] Add CPU world/math/mesh and graphical startup/render regressions
-  - [ ] Add editing, player collision, and persistence regressions
+  - [x] Add CPU editing/DDA and running-application edit/pixel regressions
+  - [ ] Add player collision and persistence regressions
   - [ ] Optimize performance across different hardware configurations
   - [ ] Gather user feedback to guide further development
 

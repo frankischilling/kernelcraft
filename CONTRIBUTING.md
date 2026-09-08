@@ -16,11 +16,11 @@ for rendering/startup changes, and `make test-build` for Makefile changes.
 `make CC=clang CFLAGS='-O2 -g -Werror' all test` provides another compiler check.
 On native Windows, use `.\build.cmd -Test` and repeat with
 `-Configuration Debug` when changing startup or build behavior. See the README
-for dependencies and `docs/status.md` for the current continuation point.
+for dependencies and `docs/block-editing.md` for the current continuation point.
 
 Add tests for observable defects and boundary cases. CPU tests must not create
 an OpenGL context. The application smoke harness substitutes GLFW event/input
-delivery and framebuffer sizes while running the actual game loop and OpenGL
+delivery and zero framebuffer size; it performs real landscape/portrait resizes while running the actual game loop and OpenGL
 renderer. It cannot establish physical monitor scaling, window-manager behavior,
 or whether controls feel right during interactive play.
 
@@ -28,5 +28,8 @@ For manual input checks: launch the game, navigate with W/A/S/D, release the
 cursor with Escape, and confirm mouse/keyboard movement stops. Capture again and
 check for a jump, then switch applications and return. Focus loss releases the
 cursor; Escape resumes capture. Resize, minimize, and restore the window.
-Report the platform, driver, and what you observed. Editing, collision, and
-saves remain separate work in issue #9.
+Select each material with 1/2/3, break and place blocks at chunk seams, and check
+that the outline follows the next target. Try placement near the camera and
+while the mouse is released. Edits currently disappear on exit. Report the
+platform, driver, and what you observed. Collision and saves remain work in
+issue #9.
