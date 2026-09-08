@@ -20,7 +20,7 @@ static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, viewPositionLocation, gridLocation;
-enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4 };
+enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
 
 static void initGrid(void) {
   float vertices[GRID_VERTICES * 3];
@@ -101,9 +101,13 @@ static bool updateDirtyChunks(RenderResult* result) {
 bool initWorld(GLuint shaderProgram) {
   cleanupWorld();
   program = shaderProgram;
-  const char* paths[MATERIAL_COUNT] = {"assets/textures/stone.png", "assets/textures/dirt.png", "assets/textures/grass-top.png", "assets/textures/grass-side.png"};
+  // Base material layers 0..3 match MeshVertex.material; GLSL selects variants
+  // 4..6 per voxel, preserving greedy rectangles and one draw per chunk.
+  const char* paths[] = {"assets/textures/stone.png",      "assets/textures/dirt.png",       "assets/textures/grass-top.png",
+                         "assets/textures/grass-side.png", "assets/textures/dirt-rocks.png", "assets/textures/grass-top-leaves.png",
+                         "assets/textures/grass-bug.png"};
   glActiveTexture(GL_TEXTURE0);
-  textureArray = loadTextureArray(paths, MATERIAL_COUNT);
+  textureArray = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!textureArray)
     goto failure;
   glUseProgram(program);
@@ -111,6 +115,8 @@ bool initWorld(GLuint shaderProgram) {
   viewPositionLocation = glGetUniformLocation(program, "viewPos");
   gridLocation = glGetUniformLocation(program, "drawGrid");
   glUniform1i(glGetUniformLocation(program, "texture1"), 0);
+  glUniform1ui(glGetUniformLocation(program, "worldSeed"), worldSeed());
+  glUniform1f(glGetUniformLocation(program, "blockSize"), CUBE_SIZE);
   glUniform3f(glGetUniformLocation(program, "lightPos"), 5.0f, 50.0f, 5.0f);
   glUniform3f(glGetUniformLocation(program, "lightColor"), 1.0f, 1.0f, 1.0f);
 
@@ -160,7 +166,7 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   // Free flight can place the camera inside terrain, so retain both sides.
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
-  const float radius = CHUNK_SIZE * CUBE_SIZE * 4.0f / 2.0f;
+  const float radius = CHUNK_SIZE * CUBE_SIZE * RENDER_RADIUS_CHUNKS;
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       RenderChunk* chunk = &renderChunks[x][z];
