@@ -212,7 +212,27 @@ int perm(int i) {
   return permutation[i & 255];
 }
 
-float perlin(float x, float y, float z) {
+void initNoise(Noise* noise, uint32_t seed) {
+  for (int i = 0; i < 256; i++)
+    noise->permutation[i] = (uint8_t)permutation[i];
+  if (seed == 0)
+    return;
+  // Defined 32-bit LCG and Fisher-Yates order; never uses process-global rand().
+  uint32_t state = seed;
+  for (uint32_t i = 255; i > 0; i--) {
+    state = state * UINT32_C(1664525) + UINT32_C(1013904223);
+    uint32_t j = state % (i + 1);
+    uint8_t value = noise->permutation[i];
+    noise->permutation[i] = noise->permutation[j];
+    noise->permutation[j] = value;
+  }
+}
+
+static int noisePerm(const Noise* noise, int i) {
+  return noise ? noise->permutation[i & 255] : perm(i);
+}
+
+float perlinWithNoise(const Noise* noise, float x, float y, float z) {
   int X = (int)floor(x) & 255;
   int Y = (int)floor(y) & 255;
   int Z = (int)floor(z) & 255;
@@ -225,18 +245,23 @@ float perlin(float x, float y, float z) {
   float v = fade(y);
   float w = fade(z);
 
-  int A = perm(X) + Y;
-  int AA = perm(A) + Z;
-  int AB = perm(A + 1) + Z;
-  int B = perm(X + 1) + Y;
-  int BA = perm(B) + Z;
-  int BB = perm(B + 1) + Z;
+  int A = noisePerm(noise, X) + Y;
+  int AA = noisePerm(noise, A) + Z;
+  int AB = noisePerm(noise, A + 1) + Z;
+  int B = noisePerm(noise, X + 1) + Y;
+  int BA = noisePerm(noise, B) + Z;
+  int BB = noisePerm(noise, B + 1) + Z;
 
-  float res = lerp(
-      lerp(lerp(grad(perm(AA), x, y, z), grad(perm(BA), x - 1, y, z), u), lerp(grad(perm(AB), x, y - 1, z), grad(perm(BB), x - 1, y - 1, z), u), v),
-      lerp(lerp(grad(perm(AA + 1), x, y, z - 1), grad(perm(BA + 1), x - 1, y, z - 1), u), lerp(grad(perm(AB + 1), x, y - 1, z - 1), grad(perm(BB + 1), x - 1, y - 1, z - 1), u), v),
-      w);
+  float res = lerp(lerp(lerp(grad(noisePerm(noise, AA), x, y, z), grad(noisePerm(noise, BA), x - 1, y, z), u),
+                        lerp(grad(noisePerm(noise, AB), x, y - 1, z), grad(noisePerm(noise, BB), x - 1, y - 1, z), u), v),
+                   lerp(lerp(grad(noisePerm(noise, AA + 1), x, y, z - 1), grad(noisePerm(noise, BA + 1), x - 1, y, z - 1), u),
+                        lerp(grad(noisePerm(noise, AB + 1), x, y - 1, z - 1), grad(noisePerm(noise, BB + 1), x - 1, y - 1, z - 1), u), v),
+                   w);
   return (res + 1.0f) / 2.0f;
+}
+
+float perlin(float x, float y, float z) {
+  return perlinWithNoise(NULL, x, y, z);
 }
 
 float perlin2d(float x, float z) {

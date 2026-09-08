@@ -10,6 +10,7 @@
 #define MATH_H
 
 #include <math.h>
+#include <stdint.h>
 
 typedef struct {
   float x;
@@ -86,6 +87,14 @@ void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* u
 float noise2d(float x, float z);
 float smoothstep(float edge0, float edge1, float x);
 float lerp(float a, float b, float t);
+
+typedef struct {
+  uint8_t permutation[256];
+} Noise;
+
+// Seed zero retains the original permutation. Contexts are independent.
+void initNoise(Noise* noise, uint32_t seed);
+float perlinWithNoise(const Noise* noise, float x, float y, float z);
 
 // Perlin noise functions
 float fade(float t);

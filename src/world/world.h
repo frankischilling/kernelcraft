@@ -13,6 +13,8 @@
 #include "chunk.h"
 #include "cube.h"
 
+#define WORLD_GENERATOR_VERSION 1
+
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
 
 typedef struct {
@@ -26,6 +28,10 @@ float getTerrainHeight(float x, float z);
 const char* getCurrentBiomeText(float x, float z);
 // World owns all chunks until cleanupChunks or the next initChunks call.
 bool initChunks(void);
+bool initChunksSeeded(uint32_t seed);
+uint32_t worldSeed(void);
+// Fills a chunk at its signed chunk position, independently of the live world.
+void generateTerrainChunk(Chunk* chunk, uint32_t seed);
 void cleanupChunks(void);
 
 // Chunk indices are array coordinates [0, CHUNKS_PER_AXIS), not signed world coordinates.
