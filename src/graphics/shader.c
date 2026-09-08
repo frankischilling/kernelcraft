@@ -53,13 +53,17 @@ static char* readShaderFile(const char* filePath) {
 // Function to compile a shader
 static GLuint compileShader(const char* code, GLenum type) {
   GLuint shader = glCreateShader(type);
+  if (!shader) {
+    fprintf(stderr, "Failed to create %s shader\n", type == GL_VERTEX_SHADER ? "vertex" : "fragment");
+    return 0;
+  }
   glShaderSource(shader, 1, &code, NULL);
   glCompileShader(shader);
 
-  GLint success;
+  GLint success = GL_FALSE;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
   if (!success) {
-    char log[512];
+    char log[512] = {0};
     glGetShaderInfoLog(shader, sizeof(log), NULL, log);
     log[sizeof(log) - 1] = '\0';
     fprintf(stderr, "Shader compilation failed: %s\n", log);
@@ -103,15 +107,21 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath) {
 
   // Create shader program
   GLuint shaderProgram = glCreateProgram();
+  if (!shaderProgram) {
+    fprintf(stderr, "Failed to create shader program\n");
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    return 0;
+  }
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
   glLinkProgram(shaderProgram);
 
   // Check for linking errors
-  GLint success;
+  GLint success = GL_FALSE;
   glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
   if (!success) {
-    char log[512];
+    char log[512] = {0};
     glGetProgramInfoLog(shaderProgram, sizeof(log), NULL, log);
     log[sizeof(log) - 1] = '\0';
     fprintf(stderr, "Shader program linking failed: %s\n", log);
