@@ -1,5 +1,9 @@
 # Block editing checkpoint
 
+Historical record for merged PR #11. PR #10 is also merged; the current
+continuation is [player movement](player-movement.md) in draft PR #12.
+Controls and limitations below describe the editing checkpoint.
+
 This branch starts at `74953fd229483614a44a34925d8f97ea88f4ea48` and depends on
 PR #10 (`fix/build-and-input-foundation`). Remote `main` was still `7b078e0`
 when work began. Issue #9 tracks the larger sandbox foundation.
@@ -124,17 +128,18 @@ is not comparable to the historical table in `performance.md`.
 
 ## Delivery and continuation
 
-Branch: `feat/block-editing`. Draft [PR #11](https://github.com/frankischilling/kernelcraft/pull/11)
-depends on unmerged [PR #10](https://github.com/frankischilling/kernelcraft/pull/10).
+Branch: `feat/block-editing`. [PR #11](https://github.com/frankischilling/kernelcraft/pull/11)
+followed [PR #10](https://github.com/frankischilling/kernelcraft/pull/10).
 Core edits/rebuilds are commit `4acb400`; selection/controls are `5791145`.
-Neither PR has been merged, and [issue #9](https://github.com/frankischilling/kernelcraft/issues/9)
+Both PRs are merged, and [issue #9](https://github.com/frankischilling/kernelcraft/issues/9)
 remains open because its full acceptance criteria are not yet met. Existing
 GCC/Clang Actions jobs run the expanded CPU and graphical targets.
 
-Next implement normal player movement: a CPU body/velocity state, bounded fixed
-simulation steps, gravity, grounded jumping, axis collision at walls/floors/
-ceilings/corners and chunk seams, and safe spawn placement. Keep debug flight
-explicit and separate. Reuse the documented body dimensions for placement.
+The next increment, now implemented in draft PR #12, adds normal player movement:
+a CPU body/velocity state, bounded fixed simulation steps, gravity, grounded
+jumping, collision at walls/floors/ceilings/corners and chunk seams, and safe
+spawn placement. It retains explicit debug flight and shares the documented body
+dimensions with placement.
 Then add selectable deterministic seeds and a versioned, validated save format
 with safe replacement and restart round-trip tests. Greedy meshing follows those
 working world operations. The playable-foundation milestone remains incomplete.
