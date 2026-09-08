@@ -27,7 +27,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **main.c**: The entry point of the application. It initializes the OpenGL context and handles the main rendering loop.
   - **assets/**: Contains assets like shaders and textures.
   - **graphics/**: Contains rendering-related code.
-    - **cube.c**: Handles the creation and rendering of cube objects.
+    - **world_renderer.c**: Uploads chunk meshes and draws visible texture batches.
     - **camera.c**: Manages camera movement and orientation.
     - **hud.c**: Provides a basic hud and debug management system.
     - **shader.c**: Handles shader loading and compilation.
@@ -37,6 +37,9 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **math.c**: Implements vector and matrix operations, as well as Perlin noise generation.
   - **world/**: Contains world generation and management code.
     - **world.c**: Manages world generation and updates, including biome interpolation and terrain height calculation.
+    - **chunk.c**: Converts between world, block, and chunk coordinates.
+    - **cube.c**: Defines cube face positions, normals, and texture coordinates.
+    - **mesh.c**: Builds indexed chunk meshes from exposed block faces.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
@@ -60,7 +63,17 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 ## Getting Started
 
-### Install Dependencies
+### Windows
+
+Install the native compiler and libraries using the [Windows setup guide](docs/windows.md), then run this from PowerShell in the repository:
+
+```powershell
+.\build.cmd -Run
+```
+
+The build copies assets and required DLLs beside `bin\windows\Release\minecraft_clone.exe`. Use `.\build.cmd -Test` for native Windows tests or `.\build.cmd -Benchmark` for the rendering benchmark. WSL is not required.
+
+### Linux dependencies
 
 Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Here are the installation instructions for Arch Linux:
 
@@ -79,9 +92,11 @@ Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Her
   echo 'export XDG_RUNTIME_DIR=/run/user/$(id -u)' >> ~/.bashrc
   ```
 
-### Build the Project
+### Linux build
 
 Use the provided `Makefile` to compile the source files. Run `make` in the project root directory.
+
+The default build uses `-O2 -Wall` and tracks header dependencies. Run `make test` for world and mesh regression tests. See [Rendering performance](docs/performance.md) for benchmark results, sanitizer checks, and OpenGL tests.
 
 ### Run the Application
 
@@ -106,7 +121,7 @@ Use the ESC key to be able to use the cursor again.
   - [x] Add support for different render modes (wireframe, solid)
   - [ ] Create debug visualization tools
     - [ ] FPS, ticks, visible faces, visble cubes, how many are rendered out of total
-  - [ ] Optimize render batching and draw calls
+  - [x] Optimize render batching and draw calls
 
 - **World Generation**:
   - [x] Create a flat terrain using cubes
@@ -151,10 +166,10 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 
 - **Optimization**:
-  - [ ] Implement voxel-like meshes using OpenGL meshes
+  - [x] Implement voxel-like meshes using OpenGL meshes
   - [ ] Implement greedy meshing for chunk rendering to reduce draw calls
   - [ ] Add level of detail (LOD) system for distant chunks
-  - [ ] Optimize memory usage for chunk storage
+  - [x] Optimize memory usage for chunk storage
   - [ ] Implement multithreaded chunk generation for smoother performance
   - [ ] Add chunk compression to reduce memory footprint
   - [ ] Create efficient chunk serialization and deserialization system

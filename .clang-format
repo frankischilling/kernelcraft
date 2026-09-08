@@ -19,3 +19,5 @@ SpacesBeforeTrailingComments: 1
 UseTab: Never
 TabWidth: 2
 LineEnding: DeriveLF
+# GLEW must stay before GLFW/freeglut and headers that include them.
+SortIncludes: Never

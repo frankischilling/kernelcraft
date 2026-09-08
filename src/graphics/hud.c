@@ -5,11 +5,11 @@
  * @date 2024-11-30
  */
 
-#include <stdio.h>
 #include "hud.h"
+#include "../utils/raycast.h"
 #include "../utils/text.h"
 #include "../world/world.h"
-#include "../utils/raycast.h"
+#include <stdio.h>
 
 static DebugEntry entryBiome;
 static DebugEntry entryFPS;
@@ -19,36 +19,31 @@ static DebugEntry entryWorldCoords;
 static DebugEntry entryChunkCoords;
 static DebugEntry entryLookingAtBlockCoords;
 
+static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex);
+static void UpdateEntries(DebugData* data);
+
 void HUDDraw(GLuint shaderProgram, DebugData* data) {
+  (void)shaderProgram;
   UpdateEntries(data);
   Ray cast = rayCast(data->camera);
   snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y, cast.blockCoords.z);
 
   int i = 0;
-  EntryDraw(shaderProgram, &entryBiome, &i);
-  EntryDraw(shaderProgram, &entryChunkCoords, &i);
-  EntryDraw(shaderProgram, &entryWorldCoords, &i);
-  EntryDraw(shaderProgram, &entryCubeCount, &i);
-  EntryDraw(shaderProgram, &entryFPS, &i);
-  EntryDraw(shaderProgram, &entryBuildInfo, &i);
+  TextState state;
+  beginText(&state);
+  EntryDraw(&state, &entryBiome, &i);
+  EntryDraw(&state, &entryChunkCoords, &i);
+  EntryDraw(&state, &entryWorldCoords, &i);
+  EntryDraw(&state, &entryCubeCount, &i);
+  EntryDraw(&state, &entryFPS, &i);
+  EntryDraw(&state, &entryBuildInfo, &i);
   if (cast.hit) {
-    EntryDraw(shaderProgram, &entryLookingAtBlockCoords, &i);
+    EntryDraw(&state, &entryLookingAtBlockCoords, &i);
   }
-
-  DrawCrosshair(shaderProgram);
+  endText(&state);
 }
-static void DrawCrosshair(GLuint shaderProgram) {
-  float screenWidth = 1920.0f;
-  float screenHeight = 1080.0f;
-  float centerX = screenWidth / 2.0f;
-  float centerY = screenHeight / 2.0f;
-
-  float crosshairLength = 10.0f;
-
-  // MISSING DRAWING THE ACTUAL CROSSHAIR
-}
-static void EntryDraw(GLuint shaderProgram, DebugEntry* entry, int* entryIndex) {
-  renderText(shaderProgram, entry->text, 10.0f, 100.0f + *entryIndex);
+static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex) {
+  renderText(state, entry->text, 10.0f, 100.0f + *entryIndex);
   *entryIndex += 20;
 }
 static void UpdateEntries(DebugData* data) {

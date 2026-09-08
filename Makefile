@@ -1,32 +1,44 @@
-CC = gcc
+.DEFAULT_GOAL := all
 
 ifeq ($(OS),Windows_NT)
-	LIBRARY_DIR = C:/Progs/vcpkg/installed/x64-windows
-	WIN_KITS_DIR = C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0
-
-	CFLAGS = -Wall -I./src -I"$(LIBRARY_DIR)/include" -I"$(WIN_KITS_DIR)/shared" -I"$(WIN_KITS_DIR)/um"
-	LDFLAGS = -L"$(LIBRARY_DIR)/lib" -lopengl32 -lglfw3dll -lglew32 -lm -lfreeglut
-
-	EXECUTABLE = $(BIN_DIR)/minecraft_clone.exe
-
-	CREATE_BIN_DIR = @if not exist "$(BIN_DIR)" mkdir "$(BIN_DIR)"
-	CREATE_SUBDIR = @if not exist "$(dir $@)" mkdir "$(dir $@)"
-
-	COPY_ASSET_DIR = @xcopy "$(SRC_DIR)\assets" "$(BIN_DIR)\assets\" /E /I /Q
-
-	DLLS_TO_COPY = freeglut.dll glew32.dll glfw3.dll
+WINDOWS_CMD := $(subst \,/,$(or $(ComSpec),$(COMSPEC),C:/Windows/System32/cmd.exe))
+ifeq ($(filter /%,$(CURDIR)),)
+SHELL := $(or $(ComSpec),$(COMSPEC),cmd.exe)
+.SHELLFLAGS := /c
 else
-	CFLAGS = -Wall -I./src
-	LDFLAGS = -lGL -lglfw -lGLEW -lm -lglut
-
-	EXECUTABLE = $(BIN_DIR)/minecraft_clone
-
-	CREATE_BIN_DIR = @mkdir -p $(BIN_DIR)
-	CREATE_SUBDIR = @mkdir -p $(dir $@)
-
-	COPY_ASSET_DIR = @cp -r $(ASSET_DIR)/ $(BIN_DIR)/
-
+# MSYS Make runs recipes through sh; sending /c through its argument conversion
+# starts an interactive cmd session instead of executing the build.
+SHELL := /bin/sh
+.SHELLFLAGS := -c
 endif
+CONFIGURATION ?= Release
+WINDOWS_POWERSHELL = "$(dir $(WINDOWS_CMD))WindowsPowerShell/v1.0/powershell.exe"
+WINDOWS_BUILD = $(WINDOWS_POWERSHELL) -NoProfile -ExecutionPolicy Bypass -File build.ps1 -Configuration $(CONFIGURATION)
+
+all copy_assets:
+	$(WINDOWS_BUILD)
+run:
+	$(WINDOWS_BUILD) -Run
+test test-gl:
+	$(WINDOWS_BUILD) -Test
+benchmark:
+	$(WINDOWS_BUILD) -Benchmark
+clean:
+	$(WINDOWS_BUILD) -Clean
+test-sanitize:
+	@echo "MinGW GCC does not provide the sanitizer runtime. Use build.cmd -Configuration Debug -Test for native Windows checks."
+	@$(WINDOWS_POWERSHELL) -NoProfile -Command "exit 1"
+
+.PHONY: all clean run copy_assets test test-gl benchmark test-sanitize
+else
+CC = gcc
+CFLAGS ?= -O2 -Wall
+CPPFLAGS += -I./src
+LDLIBS += -lGL -lglfw -lGLEW -lm -lglut
+EXECUTABLE = $(BIN_DIR)/minecraft_clone
+CREATE_BIN_DIR = @mkdir -p $(BIN_DIR)
+CREATE_SUBDIR = @mkdir -p $(dir $@)
+COPY_ASSET_DIR = @cp -r $(ASSET_DIR)/ $(BIN_DIR)/
 
 SRC_DIR = src
 OBJ_DIR = obj
@@ -37,42 +49,64 @@ LOG_FILE = build.log
 
 SOURCES = $(wildcard $(SRC_DIR)/**/*.c $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
+HEADERS = $(wildcard $(SRC_DIR)/*/*.h)
+WORLD_TEST_SOURCES = tests/test_world.c $(wildcard $(SRC_DIR)/world/*.c) $(SRC_DIR)/math/math.c $(SRC_DIR)/graphics/frustum.c
+SHADER_TEST_SOURCES = tests/test_shader.c $(SRC_DIR)/graphics/shader.c $(SRC_DIR)/graphics/texture.c
+BENCHMARK_SOURCES = tests/render_benchmark.c $(filter-out $(SRC_DIR)/main.c,$(SOURCES))
 
 all: $(EXECUTABLE) copy_assets
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CREATE_BIN_DIR)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) > $(LOG_FILE) 2>&1
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) $(LDLIBS)
 	@echo "Build completed. Executable: $@"
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CREATE_SUBDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ >> $(LOG_FILE) 2>&1
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+-include $(OBJECTS:.o=.d)
 
 copy_assets:
+	$(CREATE_BIN_DIR)
 	$(COPY_ASSET_DIR)
-ifeq ($(OS),Windows_NT)
-	@for %%i in ($(DLLS_TO_COPY)) do copy /Y "$(LIBRARY_DIR)\bin\%%i" "$(BIN_DIR)\"
-endif
 	@echo "Assets copied to: $(BIN_ASSET_DIR)"
 
 run: $(EXECUTABLE) copy_assets
 	@echo "Running $(EXECUTABLE)..."
-ifeq ($(OS),Windows_NT)
-	@cd $(BIN_DIR) && $(notdir $(EXECUTABLE))
-else
 	@cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
-endif
 
 clean:
-ifeq ($(OS),Windows_NT)
-	@if exist $(OBJ_DIR) rmdir /s /q $(OBJ_DIR)
-	@if exist $(BIN_DIR) rmdir /s /q $(BIN_DIR)
-	@if exist $(LOG_FILE) del /q $(LOG_FILE)
-else
 	@rm -rf $(OBJ_DIR)
 	@rm -rf $(BIN_DIR)
 	@rm -f $(LOG_FILE)
-endif
 	@echo "Clean completed."
 
-.PHONY: all clean run copy_assets
+$(BIN_DIR)/test-world: $(WORLD_TEST_SOURCES) $(HEADERS)
+	$(CREATE_BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WORLD_TEST_SOURCES) -o $@ -lm
+
+test: $(BIN_DIR)/test-world
+	./$(BIN_DIR)/test-world
+
+$(BIN_DIR)/test-shader: $(SHADER_TEST_SOURCES) $(HEADERS)
+	$(CREATE_BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(SHADER_TEST_SOURCES) -o $@ $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)/benchmark: $(BENCHMARK_SOURCES) $(HEADERS)
+	$(CREATE_BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHMARK_SOURCES) -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -o $@ $(LDFLAGS) $(LDLIBS)
+
+test-gl: $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark copy_assets
+	xvfb-run -a ./$(BIN_DIR)/test-shader
+	cd $(BIN_DIR) && xvfb-run -a ./benchmark
+
+benchmark: $(BIN_DIR)/benchmark copy_assets
+	cd $(BIN_DIR) && xvfb-run -a ./benchmark
+
+test-sanitize:
+	$(CREATE_BIN_DIR)
+	$(CC) $(CPPFLAGS) -O1 -g -Wall -fsanitize=address,undefined $(WORLD_TEST_SOURCES) -o $(BIN_DIR)/test-world-sanitize -lm
+	./$(BIN_DIR)/test-world-sanitize
+
+.PHONY: all clean run copy_assets test test-gl benchmark test-sanitize
+endif
