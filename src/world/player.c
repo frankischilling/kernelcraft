@@ -24,8 +24,8 @@ bool playerOverlapsBlock(Vec3 feet, Vec3i cell) {
   return finitePosition(feet);
 }
 
-bool playerCanOccupy(Vec3 feet) {
-  if (!finitePosition(feet))
+bool playerCellRange(Vec3 feet, Vec3i* firstCell, Vec3i* lastCell) {
+  if (!firstCell || !lastCell || !finitePosition(feet))
     return false;
   double min[3], max[3];
   bodyBounds(feet, min, max);
@@ -38,6 +38,17 @@ bool playerCanOccupy(Vec3 feet) {
     first[axis] = (int)floor(min[axis] / CUBE_SIZE);
     last[axis] = (int)ceil(max[axis] / CUBE_SIZE) - 1;
   }
+  *firstCell = (Vec3i){first[0], first[1], first[2]};
+  *lastCell = (Vec3i){last[0], last[1], last[2]};
+  return true;
+}
+
+bool playerCanOccupy(Vec3 feet) {
+  Vec3i firstCell, lastCell;
+  if (!playerCellRange(feet, &firstCell, &lastCell))
+    return false;
+  int first[3] = {firstCell.x, firstCell.y, firstCell.z};
+  int last[3] = {lastCell.x, lastCell.y, lastCell.z};
   for (int x = first[0]; x <= last[0]; x++)
     for (int y = first[1]; y <= last[1]; y++)
       for (int z = first[2]; z <= last[2]; z++) {

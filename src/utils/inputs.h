@@ -11,6 +11,7 @@
 
 #include "../graphics/camera.h"
 #include "../world/player.h"
+#include "../world/save.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
@@ -19,11 +20,15 @@ typedef struct {
   Player player;
   bool flying;
   bool jumpRequested;
+  bool saveRequested;
   bool modeBlocked;
   int simulationSteps;
 } InputState;
 
 bool initInputs(InputState* input, Camera* camera);
+// The caller supplies state already validated by loadWorld.
+bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved);
+bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
 void resetInputTiming(InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);

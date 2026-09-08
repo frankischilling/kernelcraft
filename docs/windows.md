@@ -36,6 +36,8 @@ To build without launching:
 
 The executable is `bin\windows\Release\minecraft_clone.exe`. You can launch it from Explorer, a shortcut, or another working directory. Keep the adjacent `assets` folder and DLLs with it. The output also includes the project license and available dependency licenses.
 
+For a new saved world, run `.\bin\windows\Release\minecraft_clone.exe --world my-world.kcw --seed 42`. Reopen with the same `--world` and omit `--seed`. F5 and clean exit save; `--no-save` creates a temporary session. Paths are relative to the launch directory, and `.\build.cmd -Run` preserves that directory. Keep saves outside generated output before using `-Clean`. See [world persistence](world-persistence.md).
+
 The script finds the compiler, uses C11 with `-O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror`, and copies the executable's DLL dependencies, including their dependencies. It restores PATH after it finishes and does not change your system environment or persistent PowerShell execution policy. `build.cmd` starts a separate PowerShell process to run `build.ps1`.
 
 For a debug build:
@@ -57,7 +59,7 @@ Debug builds use `-O0 -g3` and go into `bin\windows\Debug`. To remove one config
 .\build.cmd -Benchmark
 ```
 
-`-Test` builds and runs the world regressions, shader and texture tests, application input/framebuffer/startup/shutdown test, and rendering benchmark. All graphics windows stay hidden, and the startup test keeps the mouse free. The tests use the copied DLLs with the compiler removed from PATH. Startup is tested from the Windows temporary directory to check executable-relative asset loading.
+`-Test` builds and runs the world/player/seed/save/CLI regressions, shader and texture tests, application input/framebuffer/startup/shutdown test, two-process save/restart test, and rendering benchmark. All graphics windows stay hidden, and the startup test keeps the mouse free. The tests use the copied DLLs with the compiler removed from PATH. Startup is tested from the Windows temporary directory to check executable-relative asset loading. Persistence uses a unique temporary directory and checks paths with spaces, restored edits/player state, rendered blocks, and rejection of corrupt saves and conflicting seeds.
 
 `-Benchmark` runs the same render checks against the installed Windows OpenGL driver. It reports that driver, frame times, draw calls, uploads, and uniform lookups. Run benchmarks separately from other builds or tests when comparing frame times. See [Rendering performance](performance.md) for the scenarios and interpretation.
 

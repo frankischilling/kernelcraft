@@ -23,6 +23,7 @@ typedef struct {
   bool captured;
   bool flying, grounded, modeBlocked;
   int simulationSteps;
+  const char* saveStatus;
   const RenderResult* stats;
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);

@@ -20,6 +20,7 @@ static DebugEntry entryChunkCoords;
 static DebugEntry entryLookingAtBlockCoords;
 static DebugEntry entryChunks, entryFaces, entryRebuilds;
 static DebugEntry entryMovement;
+static DebugEntry entrySave;
 
 static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex);
 static void UpdateEntries(DebugData* data);
@@ -85,6 +86,8 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   EntryDraw(&state, &entryCubeCount, &i);
   EntryDraw(&state, &entryFPS, &i);
   EntryDraw(&state, &entryMovement, &i);
+  if (data->saveStatus)
+    EntryDraw(&state, &entrySave, &i);
   EntryDraw(&state, &entryBuildInfo, &i);
   if (data->stats) {
     EntryDraw(&state, &entryChunks, &i);
@@ -103,6 +106,7 @@ static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex
   *entryIndex += 20;
 }
 static void UpdateEntries(DebugData* data) {
+  snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
   snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d",
            data->flying     ? "Debug flight"
            : data->grounded ? "Walking: grounded"

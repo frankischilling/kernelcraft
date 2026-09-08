@@ -41,6 +41,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **cube.c**: Defines cube face positions, normals, and texture coordinates.
     - **mesh.c**: Builds indexed chunk meshes from exposed block faces.
     - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
+    - **save.c**: Validated, versioned chunk and player snapshots with safe file replacement.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
@@ -54,7 +55,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Dynamic text rendering for displaying FPS and biome information.
 
 - **World Generation**:
-  - Procedural terrain generation using Perlin noise.
+  - Procedural terrain generation using Perlin noise and selectable 32-bit seeds.
   - Biome interpolation for varied terrain features.
   - Basic block types: air, grass, dirt, and stone.
 
@@ -63,6 +64,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
   - Block placement and destruction, a target outline, crosshair, and three-slot material selector.
+  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected material.
 
 ## Getting Started
 
@@ -112,20 +114,20 @@ Concurrent builds should use different configurations or separate checkouts.
 ### Checks and current status
 
 ```sh
-make test              # CPU world, mesh, edit, DDA, and player regressions; no graphics dependencies
+make test              # CPU world, mesh, edit, DDA, player, seed, save, and CLI checks; no graphics dependencies
 make test-sanitize     # CPU checks with AddressSanitizer and UBSan
 sudo apt-get install clang xvfb xauth
 make test-build        # Real incremental/configuration builds in a temporary copy
-make test-gl           # Hidden application, shader, texture, and rendering checks
+make test-gl           # Hidden application, restart, shader, texture, and rendering checks
 ```
 
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
-The game starts in walking mode at a clear position above terrain. W/A/S/D walks
+New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
 at 4.5 world units/second; mouse motion looks around. Space jumps once per press
 while grounded. Diagonal movement has the same speed, and looking up/down does
 not change walking speed. Solid blocks and the finite world's boundaries stop
@@ -148,8 +150,44 @@ its feet; one block is one unit.
 Physics advances at 120 Hz with at most eight steps per rendered frame; excess
 elapsed time after a stall is discarded. Debug flight uses a 0.1-second frame
 limit. See the movement checkpoint for collision boundaries and test coverage.
-Selectable seeds and saves remain planned. **Edits are kept in memory and
-disappear when the game closes.**
+
+### Worlds and saves
+
+Run the built executable with a save path and a seed for a new world:
+
+```sh
+./bin/linux/Release/minecraft_clone --world my-world.kcw --seed 42
+./bin/linux/Release/minecraft_clone --world my-world.kcw
+```
+
+```powershell
+.\bin\windows\Release\minecraft_clone.exe --world my-world.kcw --seed 42
+.\bin\windows\Release\minecraft_clone.exe --world my-world.kcw
+```
+
+Paths are resolved from the launch directory, independently of asset lookup.
+The default is `kernelcraft.kcw` in that directory. `make run` and
+`.\build.cmd -Run` keep the caller's working directory for saves. Store worlds
+outside generated build directories if you use clean commands.
+
+F5 saves while the mouse is captured. Closing normally also saves, and the next
+launch loads that file. The HUD shows the seed and last save result; detailed
+errors include the path in the console. Restarts use walking mode with zero
+velocity. Saving in debug flight records a clear position near the camera, or a
+safe surface nearby, for the next walking session.
+
+Seed 0 preserves the original terrain. Seeds accept decimal integers from 0 to
+4294967295 and apply only to a new file; omit `--seed` when reopening a world.
+An existing save with `--seed`, or a corrupt/unsupported save, stops startup
+without replacing the file. `--no-save` makes a temporary session (optionally
+with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
+
+Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
+Writes use an exclusive sibling temporary file and checked replacement. There
+is no automatic backup/recovery, periodic autosave, or protection against two
+sessions writing the same world. Saving is synchronous and may pause a frame;
+power-loss durability is not guaranteed. See the [format and validation record](docs/world-persistence.md).
+
 
 ## Roadmap
 
@@ -181,7 +219,7 @@ disappear when the game closes.**
   - [x] Add stone, dirt, and grass layers
   - [ ] Add bedrock
   - [x] Implement basic biome system **(To be enhanced with a more detailed biome system)**
-  - [ ] Randomly generated worlds with different seeds
+  - [x] Deterministic terrain with selectable seeds
   - [ ] Add cave generation using 3D noise
   - [ ] Add trees
   - [ ] Create water system with basic fluid physics
@@ -220,7 +258,7 @@ disappear when the game closes.**
   - [x] Optimize memory usage for chunk storage
   - [ ] Implement multithreaded chunk generation for smoother performance
   - [ ] Add chunk compression to reduce memory footprint
-  - [ ] Create efficient chunk serialization and deserialization system
+  - [x] Serialize and validate complete finite worlds (uncompressed)
 
 ### Phase 3: Gameplay Features
 - **World Interaction**:
@@ -249,8 +287,8 @@ disappear when the game closes.**
   - [ ] Create player authentication and session management
 
 - **World Management**:
-  - [ ] Add world saving and loading functionality
-  - [ ] Implement seed-based world generation for reproducible worlds
+  - [x] Add world saving and loading functionality
+  - [x] Implement seed-based world generation for reproducible worlds
   - [ ] Create a world backup and recovery system
   - [ ] Add world settings and configuration options for customization
   - [ ] Implement a world border system to limit exploration
@@ -299,7 +337,7 @@ disappear when the game closes.**
   - [x] Add CPU world/math/mesh and graphical startup/render regressions
   - [x] Add CPU editing/DDA and running-application edit/pixel regressions
   - [x] Add CPU collision and application walking/jumping/pause regressions
-  - [ ] Add persistence and restart regressions
+  - [x] Add persistence and restart regressions
   - [ ] Optimize performance across different hardware configurations
   - [ ] Gather user feedback to guide further development
 
