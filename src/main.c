@@ -1,3 +1,6 @@
+#if defined(__linux__)
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include <GL/glew.h>
 #include "graphics/camera.h"
 #include "graphics/hud.h"
@@ -11,6 +14,11 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#ifdef __linux__
+#include <errno.h>
+#include <unistd.h>
+#endif
 #ifdef _WIN32
 #include <windows.h>
 #include <wchar.h>
@@ -57,6 +65,25 @@ int main(int argc, char** argv) {
   *separator = L'\0';
   if (!SetCurrentDirectoryW(executablePath)) {
     fprintf(stderr, "Failed to open the executable directory\n");
+    return -1;
+  }
+#elif defined(__linux__)
+  // Match the packaged Windows layout without depending on the launch directory.
+  char executablePath[4096];
+  ssize_t length = readlink("/proc/self/exe", executablePath, sizeof(executablePath) - 1);
+  if (length < 0 || (size_t)length >= sizeof(executablePath) - 1) {
+    fprintf(stderr, "Failed to locate the executable directory: %s\n", length < 0 ? strerror(errno) : "path too long");
+    return -1;
+  }
+  executablePath[length] = '\0';
+  char* separator = strrchr(executablePath, '/');
+  if (!separator) {
+    fprintf(stderr, "Invalid executable path\n");
+    return -1;
+  }
+  separator[separator == executablePath ? 1 : 0] = '\0';
+  if (chdir(executablePath) != 0) {
+    fprintf(stderr, "Failed to open the executable directory: %s\n", strerror(errno));
     return -1;
   }
 #endif

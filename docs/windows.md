@@ -36,7 +36,7 @@ To build without launching:
 
 The executable is `bin\windows\Release\minecraft_clone.exe`. You can launch it from Explorer, a shortcut, or another working directory. Keep the adjacent `assets` folder and DLLs with it. The output also includes the project license and available dependency licenses.
 
-The script finds the compiler, uses `-O2 -Wall -Werror`, and copies the executable's DLL dependencies, including their dependencies. It restores PATH after it finishes and does not change your system environment or persistent PowerShell execution policy. `build.cmd` starts a separate PowerShell process to run `build.ps1`.
+The script finds the compiler, uses C11 with `-O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror`, and copies the executable's DLL dependencies, including their dependencies. It restores PATH after it finishes and does not change your system environment or persistent PowerShell execution policy. `build.cmd` starts a separate PowerShell process to run `build.ps1`.
 
 For a debug build:
 

@@ -52,7 +52,7 @@ make benchmark
 To capture the four benchmark views as PPM images:
 
 ```sh
-cd bin
+cd bin/linux/Release
 xvfb-run -a ./benchmark capture
 ```
 
@@ -67,4 +67,4 @@ cd src
 xvfb-run -a ../benchmark
 ```
 
-The comparison harness supports the original rendering interface through `KERNELCRAFT_BASELINE`. Keep the resolution, compiler flags, driver, and camera views identical when comparing results. `make` defaults to `-O2 -Wall`; use `CFLAGS='-O0 -g -Wall'` for debugging and rebuild objects when changing flags.
+The comparison harness supports the original rendering interface through `KERNELCRAFT_BASELINE`. Keep the resolution, compiler flags, driver, and camera views identical when comparing results. `make` defaults to a C11 Release build with `-O2 -g` and warnings. Use `CONFIGURATION=Debug` for `-O0 -g3`; build-option changes also invalidate objects automatically.

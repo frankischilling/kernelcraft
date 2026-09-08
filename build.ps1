@@ -108,7 +108,7 @@ try {
         throw 'Use the 64-bit MinGW GCC from MSYS2 UCRT64 or MINGW64, not the MSYS compiler.'
     }
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
-    $flags = @('-Wall', '-Werror', "-I$(Join-Path $projectDirectory 'src')")
+    $flags = @('-std=c11', '-Wall', '-Wformat=2', '-Wstrict-prototypes', '-Werror', "-I$(Join-Path $projectDirectory 'src')")
     if ($Configuration -eq 'Release') { $flags += '-O2' } else { $flags += @('-O0', '-g3') }
     $libraries = @('-lopengl32', '-lglfw3', '-lglew32', '-lfreeglut', '-lm')
     $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectDirectory 'src') -Filter '*.c' -Recurse -File | Sort-Object FullName | ForEach-Object FullName)
@@ -156,7 +156,7 @@ try {
     # Exercise the copied DLLs without finding development libraries through PATH.
     $env:PATH = [Environment]::SystemDirectory + ';' + $env:SystemRoot
     if ($Test) {
-        Push-Location $projectDirectory
+        Push-Location $outputDirectory
         try {
             Invoke-Native $worldTest
             Invoke-Native $shaderTest

@@ -31,82 +31,112 @@ test-sanitize:
 
 .PHONY: all clean run copy_assets test test-gl benchmark test-sanitize
 else
-CC = gcc
-CFLAGS ?= -O2 -Wall
-CPPFLAGS += -I./src
-LDLIBS += -lGL -lglfw -lGLEW -lm -lglut
-EXECUTABLE = $(BIN_DIR)/minecraft_clone
-CREATE_BIN_DIR = @mkdir -p $(BIN_DIR)
-CREATE_SUBDIR = @mkdir -p $(dir $@)
-COPY_ASSET_DIR = @cp -r $(ASSET_DIR)/ $(BIN_DIR)/
+# Respect CC from the environment as well as command-line overrides.
+ifeq ($(origin CC),default)
+CC := gcc
+endif
+CONFIGURATION ?= Release
+ifeq ($(filter $(CONFIGURATION),Release Debug),)
+$(error CONFIGURATION must be Release or Debug)
+endif
+ifeq ($(CONFIGURATION),Debug)
+CFLAGS ?= -O0 -g3
+else
+CFLAGS ?= -O2 -g
+endif
+COMPILE_FLAGS = -std=c11 -Wall -Wformat=2 -Wstrict-prototypes $(CFLAGS)
+PKG_CONFIG ?= pkg-config
+GRAPHICS_PACKAGES ?= gl glfw3 glew glut
+GRAPHICS_CPPFLAGS ?= $(shell $(PKG_CONFIG) --cflags $(GRAPHICS_PACKAGES) 2>/dev/null)
+GRAPHICS_LDLIBS ?= $(shell $(PKG_CONFIG) --libs $(GRAPHICS_PACKAGES) 2>/dev/null)
+PROJECT_CPPFLAGS = -Isrc $(GRAPHICS_CPPFLAGS) $(CPPFLAGS)
+PROJECT_LDLIBS = $(GRAPHICS_LDLIBS) -lm $(LDLIBS)
+OBJ_DIR := obj/linux/$(CONFIGURATION)
+BIN_DIR := bin/linux/$(CONFIGURATION)
+EXECUTABLE := $(BIN_DIR)/minecraft_clone
+BUILD_SETTINGS := $(OBJ_DIR)/build-settings
+SOURCES := $(wildcard src/*/*.c src/*.c)
+OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SOURCES))
+WORLD_SOURCES := $(wildcard src/world/*.c) src/math/math.c src/graphics/frustum.c
+WORLD_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(WORLD_SOURCES))
+SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/texture.o
+TEST_SOURCES := tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/windows_smoke.c
+TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
+WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow
+WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements
 
-SRC_DIR = src
-OBJ_DIR = obj
-BIN_DIR = bin
-ASSET_DIR = $(SRC_DIR)/assets
-BIN_ASSET_DIR = $(BIN_DIR)/assets
-LOG_FILE = build.log
-
-SOURCES = $(wildcard $(SRC_DIR)/**/*.c $(SRC_DIR)/*.c)
-OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
-HEADERS = $(wildcard $(SRC_DIR)/*/*.h)
-WORLD_TEST_SOURCES = tests/test_world.c $(wildcard $(SRC_DIR)/world/*.c) $(SRC_DIR)/math/math.c $(SRC_DIR)/graphics/frustum.c
-SHADER_TEST_SOURCES = tests/test_shader.c $(SRC_DIR)/graphics/shader.c $(SRC_DIR)/graphics/texture.c
-BENCHMARK_SOURCES = tests/render_benchmark.c $(filter-out $(SRC_DIR)/main.c,$(SOURCES))
+# Make writes this file directly, so flags are not interpolated as shell code.
+define settings
+CC=$(CC)
+CPPFLAGS=$(PROJECT_CPPFLAGS)
+CFLAGS=$(COMPILE_FLAGS)
+LDFLAGS=$(LDFLAGS)
+LDLIBS=$(PROJECT_LDLIBS)
+endef
 
 all: $(EXECUTABLE) copy_assets
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CREATE_BIN_DIR)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) $(LDLIBS)
-	@echo "Build completed. Executable: $@"
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CREATE_SUBDIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+check-deps:
+	@if ! command -v $(firstword $(CC)) >/dev/null 2>&1; then \
+	  echo "C compiler not found: $(firstword $(CC))" >&2; exit 1; fi
+	@if [ -z "$(strip $(GRAPHICS_LDLIBS))" ]; then \
+	  echo "Graphics dependencies not found. Install pkg-config and OpenGL/GLFW/GLEW/freeglut development packages (see README.md), or set GRAPHICS_CPPFLAGS and GRAPHICS_LDLIBS." >&2; exit 1; fi
 
--include $(OBJECTS:.o=.d)
+$(OBJ_DIR) $(BIN_DIR):
+	@mkdir -p $@
 
-copy_assets:
-	$(CREATE_BIN_DIR)
-	$(COPY_ASSET_DIR)
-	@echo "Assets copied to: $(BIN_ASSET_DIR)"
+$(BUILD_SETTINGS): FORCE | $(OBJ_DIR)
+	$(file >$@.tmp,$(settings))
+	@if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
-run: $(EXECUTABLE) copy_assets
-	@echo "Running $(EXECUTABLE)..."
-	@cd $(BIN_DIR) && ./$(notdir $(EXECUTABLE))
+$(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS) | check-deps
+	@mkdir -p $(dir $@)
+	$(CC) $(PROJECT_CPPFLAGS) $(COMPILE_FLAGS) -MMD -MP -c $< -o $@
 
+-include $(OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d)
+
+$(EXECUTABLE): $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
+
+copy_assets: | $(BIN_DIR)
+	@cp -R src/assets $(BIN_DIR)/
+
+run: all
+	./$(EXECUTABLE)
+
+# Linux clean leaves native Windows artifacts and the other configuration intact.
 clean:
-	@rm -rf $(OBJ_DIR)
-	@rm -rf $(BIN_DIR)
-	@rm -f $(LOG_FILE)
-	@echo "Clean completed."
+	rm -rf -- $(OBJ_DIR) $(BIN_DIR)
 
-$(BIN_DIR)/test-world: $(WORLD_TEST_SOURCES) $(HEADERS)
-	$(CREATE_BIN_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WORLD_TEST_SOURCES) -o $@ -lm
+$(BIN_DIR)/test-world: $(OBJ_DIR)/tests/test_world.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
 
 test: $(BIN_DIR)/test-world
 	./$(BIN_DIR)/test-world
 
-$(BIN_DIR)/test-shader: $(SHADER_TEST_SOURCES) $(HEADERS)
-	$(CREATE_BIN_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(SHADER_TEST_SOURCES) -o $@ $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)/test-shader: $(OBJ_DIR)/tests/test_shader.o $(SHADER_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
-$(BIN_DIR)/benchmark: $(BENCHMARK_SOURCES) $(HEADERS)
-	$(CREATE_BIN_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHMARK_SOURCES) -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -o $@ $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)/benchmark: $(OBJ_DIR)/tests/render_benchmark.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) $(WRAP_BENCHMARK) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
-test-gl: $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark copy_assets
-	xvfb-run -a ./$(BIN_DIR)/test-shader
+$(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/windows_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) $(WRAP_STARTUP) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
+
+test-gl: $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark $(BIN_DIR)/test-startup copy_assets
+	cd $(BIN_DIR) && xvfb-run -a ./test-shader
 	cd $(BIN_DIR) && xvfb-run -a ./benchmark
+	xvfb-run -a sh tests/test_startup.sh $(BIN_DIR)/test-startup
 
 benchmark: $(BIN_DIR)/benchmark copy_assets
 	cd $(BIN_DIR) && xvfb-run -a ./benchmark
 
 test-sanitize:
-	$(CREATE_BIN_DIR)
-	$(CC) $(CPPFLAGS) -O1 -g -Wall -fsanitize=address,undefined $(WORLD_TEST_SOURCES) -o $(BIN_DIR)/test-world-sanitize -lm
-	./$(BIN_DIR)/test-world-sanitize
+	$(MAKE) CONFIGURATION=Debug CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='$(LDFLAGS) -fsanitize=address,undefined' test
 
-.PHONY: all clean run copy_assets test test-gl benchmark test-sanitize
+test-build:
+	sh tests/test_build.sh
+
+FORCE:
+.PHONY: all check-deps clean run copy_assets test test-gl benchmark test-sanitize test-build FORCE
 endif

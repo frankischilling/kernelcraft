@@ -119,7 +119,7 @@ float vec2i_distance(const Vec2i* a, const Vec2i* b) {
 }
 
 float toRadians(float degrees) {
-  return degrees * (M_PI / 180.0f);
+  return degrees * (3.14159265358979323846f / 180.0f);
 }
 
 void mat4_identity(Mat4 result) {
