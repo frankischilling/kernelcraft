@@ -153,13 +153,16 @@ try {
         $shaderSources = @('tests/test_shader.c', 'src/graphics/shader.c', 'src/graphics/texture.c') | ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
 
+        $hudTest = Join-Path $outputDirectory 'test-hud.exe'
+        Invoke-Native $compiler ($flags + @((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources + @('-Wl,--wrap=renderText', '-o', $hudTest) + $libraries)
+
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
-        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
+        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw')
         Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
         $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
-        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents') }) + @('-Wl,--wrap=HUDDraw')
+        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents') })
         Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_persistence.c')) + $persistenceFlags + @('-o', $persistenceTest) + $libraries)
-        $executables += @($persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $optionsTest, $shaderTest, $smokeTest)
+        $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $optionsTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -193,6 +196,7 @@ try {
             Invoke-Native $saveTest
             Invoke-Native $optionsTest
             Invoke-Native $shaderTest
+            Invoke-Native $hudTest
         } finally { Pop-Location }
         & (Join-Path $projectDirectory 'tests/test_persistence.ps1') -Binary $persistenceTest -SmokeBinary $smokeTest
     }

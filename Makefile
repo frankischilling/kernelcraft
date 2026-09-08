@@ -63,9 +63,10 @@ WORLD_SOURCES := $(wildcard src/world/*.c) src/math/math.c src/graphics/frustum.
 WORLD_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(WORLD_SOURCES))
 SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/texture.o
 TEST_SOURCES := tests/test_options.c tests/test_save.c tests/test_seed.c tests/test_player.c tests/test_selection.c tests/test_edits.c tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c tests/app_persistence.c
+TEST_SOURCES += tests/test_hud.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
-WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime
-WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents,$(WRAP_STARTUP)) -Wl,--wrap=HUDDraw
+WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw
+WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents,$(WRAP_STARTUP))
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements
 
 # Quote option text as data, including embedded single quotes. Keep this in a
@@ -147,13 +148,17 @@ $(BIN_DIR)/test-shader: $(OBJ_DIR)/tests/test_shader.o $(SHADER_OBJECTS) $(BUILD
 $(BIN_DIR)/benchmark: $(OBJ_DIR)/tests/render_benchmark.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_BENCHMARK) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
+$(BIN_DIR)/test-hud: $(OBJ_DIR)/tests/test_hud.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) -Wl,--wrap=renderText -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
+
 $(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/app_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_STARTUP) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 $(BIN_DIR)/test-persistence: $(OBJ_DIR)/tests/app_persistence.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_PERSISTENCE) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
-test-gl: $(BIN_DIR)/test-persistence $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark $(BIN_DIR)/test-startup copy_assets
+test-gl: $(BIN_DIR)/test-hud $(BIN_DIR)/test-persistence $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark $(BIN_DIR)/test-startup copy_assets
+	cd $(BIN_DIR) && xvfb-run -a ./test-hud
 	cd $(BIN_DIR) && xvfb-run -a ./test-shader
 	cd $(BIN_DIR) && xvfb-run -a ./benchmark
 	xvfb-run -a sh tests/test_startup.sh $(BIN_DIR)/test-startup

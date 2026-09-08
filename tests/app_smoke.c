@@ -2,6 +2,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "graphics/camera.h"
+#include "graphics/hud.h"
 #include "utils/inputs.h"
 #include "world/world.h"
 #include <math.h>
@@ -13,6 +14,7 @@ static int focused = GLFW_TRUE;
 static int pressedKey = -1;
 static int frame = -1;
 static int swaps, waits;
+static bool sawCompactHUD, sawDebugHUD;
 static Vec3 beforeMinimize;
 static const Vec3i editFixture = {-1, 40, 6};
 static const int sizes[][2] = {{640, 360}, {360, 640}, {0, 0}, {1280, 720}};
@@ -36,6 +38,15 @@ static void testInput(GLFWwindow* window) {
   glfwSetWindowFocusCallback(window, focus);
   CHECK(mouse && key);
   CHECK(!input->flying && input->player.grounded && playerCanOccupy(input->player.position));
+  CHECK(!input->showDebug);
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(input->showDebug);
+  key(window, GLFW_KEY_F3, 0, GLFW_REPEAT, 0);
+  CHECK(input->showDebug);
+  key(window, GLFW_KEY_F3, 0, GLFW_RELEASE, 0);
+  CHECK(input->showDebug);
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(!input->showDebug && input->player.grounded);
   key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
   CHECK(input->flying);
   key(window, GLFW_KEY_F, 0, GLFW_REPEAT, 0);
@@ -46,6 +57,10 @@ static void testInput(GLFWwindow* window) {
   CHECK(fabsf(camera->yaw - 91.0f) < 0.001f);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   CHECK(cursorMode == GLFW_CURSOR_NORMAL);
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(input->showDebug && cursorMode == GLFW_CURSOR_NORMAL);
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(!input->showDebug);
   float yaw = camera->yaw;
   mouse(window, 500, 500);
   mouse(window, 900, 900);
@@ -68,6 +83,8 @@ static void testInput(GLFWwindow* window) {
   CHECK(focus != NULL);
   focused = GLFW_FALSE;
   focus(window, focused);
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(!input->showDebug);
   CHECK(cursorMode == GLFW_CURSOR_NORMAL);
   position = camera->position;
   yaw = camera->yaw;
@@ -330,6 +347,9 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     glfwPollEvents();
   }
   if (frame == 3) {
+    GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+    glfwSetKeyCallback(window, key);
+    key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
     GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
     glfwSetMouseButtonCallback(window, click);
     click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
@@ -377,8 +397,21 @@ void __wrap_glfwWaitEvents(void) {
   GLFWkeyfun key = glfwSetKeyCallback(glfwGetCurrentContext(), NULL);
   glfwSetKeyCallback(glfwGetCurrentContext(), key);
   key(glfwGetCurrentContext(), GLFW_KEY_3, 0, GLFW_PRESS, 0);
+  InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
+  bool debug = input->showDebug;
+  key(glfwGetCurrentContext(), GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(input->showDebug == debug);
   CHECK(selectedBlock() == BLOCK_GRASS);
   waits++;
+}
+
+void __real_HUDDraw(GLuint program, DebugData* data);
+void __wrap_HUDDraw(GLuint program, DebugData* data) {
+  InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
+  CHECK(data->showDebug == input->showDebug);
+  sawCompactHUD |= !data->showDebug;
+  sawDebugHUD |= data->showDebug;
+  __real_HUDDraw(program, data);
 }
 
 static void captureFrame(int width, int height, const unsigned char* pixels) {
@@ -468,6 +501,7 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
   if (frame >= 0) {
     CHECK(swaps == 48 && waits == 2);
+    CHECK(sawCompactHUD && sawDebugHUD);
     puts("Application walking, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
   }
   __real_glfwDestroyWindow(window);

@@ -108,11 +108,20 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
     return;
   }
+  InputState* input = glfwGetWindowUserPointer(window);
+  // Diagnostics remain accessible while the cursor is released. They never
+  // resume movement or alter the world, and repeats are rejected above.
+  if (input && key == GLFW_KEY_F3 && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    if (width > 0 && height > 0)
+      input->showDebug = !input->showDebug;
+    return;
+  }
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_3) {
     const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
     selected = materials[key - GLFW_KEY_1];
   }
-  InputState* input = glfwGetWindowUserPointer(window);
   if (!input || !acceptsEditing(window))
     return;
   if (key == GLFW_KEY_F5)

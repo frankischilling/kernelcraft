@@ -25,6 +25,7 @@ typedef struct {
   int simulationSteps;
   const char* saveStatus;
   const RenderResult* stats;
+  bool showDebug;
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);
 void HUDInit(char* buildName, char* buildVersion);

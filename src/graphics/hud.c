@@ -10,6 +10,7 @@
 #include "../utils/text.h"
 #include "../world/world.h"
 #include <stdio.h>
+#include <string.h>
 
 static DebugEntry entryBiome;
 static DebugEntry entryFPS;
@@ -22,32 +23,85 @@ static DebugEntry entryChunks, entryFaces, entryRebuilds;
 static DebugEntry entryMovement;
 static DebugEntry entrySave;
 
-static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex);
 static void UpdateEntries(DebugData* data);
 
+/* HUD positions use framebuffer pixels and top-origin text baselines. Reserve
+ * a band around the crosshair; diagnostic rows may use only the upper half. */
+static void drawLabel(const TextState* state, const char* text, float x, float baseline, int availableWidth) {
+  char fitted[128];
+  if (availableWidth <= 0)
+    return;
+  size_t length = strlen(text);
+  snprintf(fitted, sizeof(fitted), "%s", text);
+  bool shortened = length >= sizeof(fitted);
+  length = strlen(fitted);
+  while (length && textWidth(state, fitted) > availableWidth) {
+    fitted[--length] = '\0';
+    shortened = true;
+  }
+  if (shortened) {
+    int dots = textWidth(state, "...");
+    while (length && (length + 3 >= sizeof(fitted) || textWidth(state, fitted) + dots > availableWidth))
+      fitted[--length] = '\0';
+    if (dots <= availableWidth)
+      memcpy(fitted + length, "...", 4);
+  }
+  if (!fitted[0])
+    return;
+  int width = textWidth(state, fitted);
+  float y = state->viewport[3] - baseline;
+  glColor3f(0.08f, 0.08f, 0.08f);
+  glBegin(GL_QUADS);
+  glVertex2f(x - 2, y - 5);
+  glVertex2f(x + width + 2, y - 5);
+  glVertex2f(x + width + 2, y + state->fontHeight);
+  glVertex2f(x - 2, y + state->fontHeight);
+  glEnd();
+  glColor3f(1, 1, 1);
+  renderText(state, fitted, x, baseline);
+}
+
+static void drawTopLabel(const TextState* state, const char* text, float* baseline) {
+  if (*baseline + 5 > state->viewport[3] * 0.5f - 14)
+    return;
+  drawLabel(state, text, 8, *baseline, state->viewport[2] - 16);
+  *baseline += state->fontHeight + 6;
+}
+
 static void DrawControls(const TextState* state, const DebugData* data) {
-  float cx = state->viewport[2] / 2 + 0.5f, cy = state->viewport[3] / 2 + 0.5f;
-  for (int pass = 0; pass < 2; pass++) {
-    glLineWidth(pass ? 1 : 3);
-    float color = pass ? (data->captured ? 1.0f : 0.6f) : 0.0f;
-    glColor3f(color, color, color);
-    glBegin(GL_LINES);
-    glVertex2f(cx - 7, cy);
-    glVertex2f(cx + 7, cy);
-    glVertex2f(cx, cy - 7);
-    glVertex2f(cx, cy + 7);
-    glEnd();
+  int width = state->viewport[2], height = state->viewport[3];
+  float cx = width / 2 + 0.5f, cy = height / 2 + 0.5f;
+  if (width >= 20 && height >= 20) {
+    for (int pass = 0; pass < 2; pass++) {
+      glLineWidth(pass ? 1 : 3);
+      float color = pass ? (data->captured ? 1.0f : 0.6f) : 0.0f;
+      glColor3f(color, color, color);
+      glBegin(GL_LINES);
+      glVertex2f(cx - 7, cy);
+      glVertex2f(cx + 7, cy);
+      glVertex2f(cx, cy - 7);
+      glVertex2f(cx, cy + 7);
+      glEnd();
+    }
   }
   glLineWidth(1);
-  const char* labels[] = {"[1] Grass", "[2] Dirt", "[3] Stone"};
+  // Tiny windows keep only status and the crosshair until controls fit again.
+  if (width < 96 || height < 120)
+    return;
+  int slotWidth = (width - 28) / 3;
+  if (slotWidth > 100)
+    slotWidth = 100;
+  int barHeight = state->fontHeight + 14;
+  const char* labels[] = {"1 Grass", "2 Dirt", "3 Stone"};
+  const char* numbers[] = {"1", "2", "3"};
   for (int i = 0; i < 3; i++) {
-    float x = (state->viewport[2] - 312) * 0.5f + i * 106;
+    float x = (width - (3 * slotWidth + 12)) * 0.5f + i * (slotWidth + 6);
     glColor3f(0.12f, 0.12f, 0.12f);
     glBegin(GL_QUADS);
     glVertex2f(x, 8);
-    glVertex2f(x + 100, 8);
-    glVertex2f(x + 100, 42);
-    glVertex2f(x, 42);
+    glVertex2f(x + slotWidth, 8);
+    glVertex2f(x + slotWidth, 8 + barHeight);
+    glVertex2f(x, 8 + barHeight);
     glEnd();
     if (data->selectedBlock == i + BLOCK_GRASS)
       glColor3f(1.0f, 0.85f, 0.2f);
@@ -55,55 +109,58 @@ static void DrawControls(const TextState* state, const DebugData* data) {
       glColor3f(0.6f, 0.6f, 0.6f);
     glBegin(GL_LINE_LOOP);
     glVertex2f(x, 8);
-    glVertex2f(x + 100, 8);
-    glVertex2f(x + 100, 42);
-    glVertex2f(x, 42);
+    glVertex2f(x + slotWidth, 8);
+    glVertex2f(x + slotWidth, 8 + barHeight);
+    glVertex2f(x, 8 + barHeight);
     glEnd();
-    renderText(state, labels[i], x + 8, state->viewport[3] - 20);
+    const char* label = textWidth(state, labels[i]) <= slotWidth - 12 ? labels[i] : numbers[i];
+    drawLabel(state, label, x + 6, height - 8 - (barHeight - state->fontHeight) / 2, slotWidth - 12);
   }
-  glColor3f(1, 1, 1);
-  renderText(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 10, state->viewport[3] - 80);
-  if (data->modeBlocked)
-    renderText(state, "No clear standing space; still flying", 10, state->viewport[3] - 104);
-  renderText(state, data->captured ? "Left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 10, state->viewport[3] - 56);
+  float baseline = height - barHeight - 22;
+  if (baseline - state->fontHeight >= height * 0.5f + 14)
+    drawLabel(state, data->captured ? "Left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 8, baseline, width - 16);
+  baseline -= state->fontHeight + 6;
+  if (baseline - state->fontHeight >= height * 0.5f + 14)
+    drawLabel(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 8, baseline, width - 16);
 }
 
 void HUDDraw(GLuint shaderProgram, DebugData* data) {
   (void)shaderProgram;
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  if (viewport[2] <= 0 || viewport[3] <= 0)
+    return;
   UpdateEntries(data);
   Ray cast = data->selection;
   snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y, cast.blockCoords.z);
 
-  int i = 0;
   TextState state;
   glPushAttrib(GL_CURRENT_BIT | GL_LINE_BIT | GL_ENABLE_BIT);
   beginText(&state);
   glDisable(GL_TEXTURE_2D);
-  glColor3f(1, 1, 1);
-  EntryDraw(&state, &entryBiome, &i);
-  EntryDraw(&state, &entryChunkCoords, &i);
-  EntryDraw(&state, &entryWorldCoords, &i);
-  EntryDraw(&state, &entryCubeCount, &i);
-  EntryDraw(&state, &entryFPS, &i);
-  EntryDraw(&state, &entryMovement, &i);
+  float baseline = 8 + state.fontHeight;
   if (data->saveStatus)
-    EntryDraw(&state, &entrySave, &i);
-  EntryDraw(&state, &entryBuildInfo, &i);
-  if (data->stats) {
-    EntryDraw(&state, &entryChunks, &i);
-    EntryDraw(&state, &entryFaces, &i);
-    EntryDraw(&state, &entryRebuilds, &i);
-  }
-  if (cast.hit) {
-    EntryDraw(&state, &entryLookingAtBlockCoords, &i);
+    drawTopLabel(&state, entrySave.text, &baseline);
+  char mode[80];
+  const char* status = data->modeBlocked ? "No safe walk position" : data->flying ? "Debug flight" : data->grounded ? "Walking: grounded" : "Walking: airborne";
+  snprintf(mode, sizeof(mode), "%s | F3: %s", status, data->showDebug ? "hide debug" : "debug");
+  drawTopLabel(&state, mode, &baseline);
+  if (data->showDebug) {
+    drawTopLabel(&state, entryFPS.text, &baseline);
+    if (data->stats) {
+      drawTopLabel(&state, entryChunks.text, &baseline);
+      drawTopLabel(&state, entryFaces.text, &baseline);
+      drawTopLabel(&state, entryRebuilds.text, &baseline);
+    }
+    const DebugEntry* entries[] = {&entryWorldCoords, &entryChunkCoords, &entryBiome, &entryCubeCount, &entryMovement, &entryBuildInfo};
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+      drawTopLabel(&state, entries[i]->text, &baseline);
+    if (cast.hit)
+      drawTopLabel(&state, entryLookingAtBlockCoords.text, &baseline);
   }
   DrawControls(&state, data);
   endText(&state);
   glPopAttrib();
-}
-static void EntryDraw(const TextState* state, DebugEntry* entry, int* entryIndex) {
-  renderText(state, entry->text, 10.0f, 24.0f + *entryIndex);
-  *entryIndex += 20;
 }
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");

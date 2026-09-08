@@ -22,6 +22,7 @@ typedef struct {
   bool jumpRequested;
   bool saveRequested;
   bool modeBlocked;
+  bool showDebug;
   int simulationSteps;
 } InputState;
 

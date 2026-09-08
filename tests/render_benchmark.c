@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
       data.selectedBlock = BLOCK_GRASS;
       data.captured = true;
       data.stats = &result;
+      data.showDebug = true;
       drawSelection(&data.selection, view, projection);
 #endif
       HUDDraw(shader, &data);
