@@ -76,7 +76,7 @@ Install the native compiler and libraries using the [Windows setup guide](docs/w
 .\build.cmd -Run
 ```
 
-The build copies assets and required DLLs beside `bin\windows\Release\minecraft_clone.exe`. Use `.\build.cmd -Test` for native Windows tests or `.\build.cmd -Benchmark` for the rendering benchmark. WSL is not required.
+The build copies assets and required DLLs beside `bin\windows\Release\minecraft_clone.exe` and reuses compiled objects from `obj\windows\Release`. Use `.\build.cmd -Test` for native Windows tests or `.\build.cmd -Benchmark` for the rendering benchmark. WSL is not required.
 
 ### Linux
 
@@ -124,7 +124,7 @@ make test-gl           # Hidden application, HUD layout, restart, shader, textur
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [texture-array integration](docs/texture-array.md), [shader startup validation](docs/shader-startup.md), [minimized input status](docs/minimized-input.md), [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [Windows incremental builds](docs/windows-incremental-build.md), [texture-array integration](docs/texture-array.md), [shader startup validation](docs/shader-startup.md), [minimized input status](docs/minimized-input.md), [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
