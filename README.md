@@ -85,7 +85,8 @@ make run
 
 On Arch, install a C compiler, GNU Make, pkgconf, GLFW, GLEW, and freeglut for
 your display environment. Run from a desktop session with a working OpenGL
-driver. Do not change shell startup files to manufacture display-session variables.
+3.3 compatibility driver. The existing FreeGLUT text renderer needs the legacy
+OpenGL API; macOS core-only 3.3 contexts are not supported. Do not change shell startup files to manufacture display-session variables.
 
 Both platforms compile C11 with `-Wall -Wformat=2 -Wstrict-prototypes`.
 Linux Release uses `-O2 -g`; `make CONFIGURATION=Debug` uses `-O0 -g3`.
@@ -122,7 +123,10 @@ playtesting. See [checkpoint status](docs/status.md), [Windows setup](docs/windo
 and [rendering checks](docs/performance.md).
 
 W/A/S/D moves the free-flight camera; Space moves up and Left Shift moves down.
-Mouse motion turns the camera. Escape toggles cursor capture. Block editing,
+Mouse motion turns the camera while captured. Escape toggles capture; released or
+unfocused windows ignore movement. Focus loss releases the cursor; press Escape
+after returning to resume. The first mouse sample after capture is discarded to
+avoid a jump. Block editing,
 normal player collision/gravity, selectable seeds, and saves are planned.
 
 ## Roadmap

@@ -36,8 +36,10 @@ ifeq ($(origin CC),default)
 CC := gcc
 endif
 CONFIGURATION ?= Release
-ifeq ($(filter $(CONFIGURATION),Release Debug),)
+ifneq ($(CONFIGURATION),Release)
+ifneq ($(CONFIGURATION),Debug)
 $(error CONFIGURATION must be Release or Debug)
+endif
 endif
 ifeq ($(CONFIGURATION),Debug)
 CFLAGS ?= -O0 -g3
@@ -60,19 +62,14 @@ OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SOURCES))
 WORLD_SOURCES := $(wildcard src/world/*.c) src/math/math.c src/graphics/frustum.c
 WORLD_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(WORLD_SOURCES))
 SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/texture.o
-TEST_SOURCES := tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/windows_smoke.c
+TEST_SOURCES := tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
-WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow
+WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements
 
-# Make writes this file directly, so flags are not interpolated as shell code.
-define settings
-CC=$(CC)
-CPPFLAGS=$(PROJECT_CPPFLAGS)
-CFLAGS=$(COMPILE_FLAGS)
-LDFLAGS=$(LDFLAGS)
-LDLIBS=$(PROJECT_LDLIBS)
-endef
+# Quote option text as data, including embedded single quotes. Keep this in a
+# recipe so make -n never writes files while expanding the build settings.
+shell_quote = '$(subst ','"'"',$(1))'
 
 all: $(EXECUTABLE) copy_assets
 
@@ -86,7 +83,7 @@ $(OBJ_DIR) $(BIN_DIR):
 	@mkdir -p $@
 
 $(BUILD_SETTINGS): FORCE | $(OBJ_DIR)
-	$(file >$@.tmp,$(settings))
+	@printf '%s\n' $(call shell_quote,CC=$(CC)) $(call shell_quote,CPPFLAGS=$(PROJECT_CPPFLAGS)) $(call shell_quote,CFLAGS=$(COMPILE_FLAGS)) $(call shell_quote,LDFLAGS=$(LDFLAGS)) $(call shell_quote,LDLIBS=$(PROJECT_LDLIBS)) >$@.tmp
 	@if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
 $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS) | check-deps
@@ -120,7 +117,7 @@ $(BIN_DIR)/test-shader: $(OBJ_DIR)/tests/test_shader.o $(SHADER_OBJECTS) $(BUILD
 $(BIN_DIR)/benchmark: $(OBJ_DIR)/tests/render_benchmark.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_BENCHMARK) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
-$(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/windows_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+$(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/app_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_STARTUP) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 test-gl: $(BIN_DIR)/test-shader $(BIN_DIR)/benchmark $(BIN_DIR)/test-startup copy_assets

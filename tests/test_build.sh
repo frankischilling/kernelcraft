@@ -1,12 +1,21 @@
 #!/bin/sh
 # Run real builds in a temporary source copy; never touch the working sources.
 set -eu
+# Test both compilers independently of options inherited from the parent make.
+unset MAKEFLAGS MFLAGS MAKEOVERRIDES
+export CC=gcc CONFIGURATION=Release
 project=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 trap 'rm -rf -- "$fixture"' EXIT HUP INT TERM
 cp "$project/Makefile" "$fixture/"
 cp -R "$project/src" "$project/libs" "$project/tests" "$fixture/"
 cd "$fixture"
+if make CONFIGURATION='Release unexpected' -n all >invalid.log 2>&1; then
+  echo 'Unknown configurations must be rejected' >&2
+  exit 1
+fi
+make -n all >dry-run.log
+test ! -e obj && test ! -e bin || { echo 'Dry runs must not write build output' >&2; exit 1; }
 make test
 object=obj/linux/Release/src/world/world.o
 test -f "$object" || { echo 'Release must have separate object output' >&2; exit 1; }
@@ -27,6 +36,6 @@ test -f obj/linux/Debug/src/world/world.o
 test -x bin/linux/Debug/test-world
 test ! "$object" -nt original.o || { echo 'Debug must preserve Release objects' >&2; exit 1; }
 sleep 1
-CC=clang make test
+CC=clang make CFLAGS='-O0 -g3' test
 test "$object" -nt original.o || { echo 'Environment compiler override must rebuild objects' >&2; exit 1; }
 echo 'Build regression tests passed'

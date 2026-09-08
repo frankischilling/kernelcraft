@@ -130,8 +130,8 @@ try {
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
-        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow')
-        Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/windows_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
+        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
+        Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
         $executables += @($worldTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {

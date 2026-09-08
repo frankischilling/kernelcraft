@@ -53,7 +53,7 @@ Tracked prerequisite: [issue #8](https://github.com/frankischilling/kernelcraft/
 - [x] Repair Linux configuration, dependency discovery, build-option/header
   tracking, and executable-relative assets. Retain the Windows toolchain and
   verify both builds. Extend the real application smoke test to Linux.
-- [ ] Repair cursor/focus transitions and test them through the application
+- [x] Repair cursor/focus transitions and test them through the application
   callbacks. Exercise framebuffer changes, zero dimensions, and context lifetime.
 - [ ] Add GCC/Clang CI, reconcile build/controls/roadmap documentation, and
   publish the tested checkpoint as a draft PR.
@@ -85,3 +85,31 @@ sharing temporary fixtures across platforms.
 The existing benchmark's pixel and submission checks passed on Intel UHD Graphics
 and Mesa llvmpipe. Timings collected during build validation are not a controlled
 performance comparison; no performance improvement is claimed here.
+
+## Input and framebuffer increment
+
+The shared `tests/app_smoke.c` runs the real application entry point and renderer.
+It supplies cursor/key/focus events to the registered callbacks and substitutes
+framebuffer dimensions: landscape, portrait, zero size, and twice the original
+pixel dimensions. Assertions check camera changes, one-unit free-flight movement,
+paused movement while released/unfocused/minimized, Escape repeat handling,
+recapture without jumps, viewport, the uploaded projection aspect ratio, and
+normal shutdown with a current context and no GL errors.
+
+The new input assertion failed against the prior code because released-cursor
+motion changed yaw. With the fix, the first mouse sample after capture/focus
+changes resets the delta. Focus loss releases the cursor, and returning requires
+Escape to capture again. Minimized frames now skip movement as well as rendering.
+Debug-flight displacement is bounded to 0.1 seconds per frame; this is not normal
+player physics or a fixed simulation timestep.
+
+The application explicitly requests OpenGL 3.3 compatibility for GLSL 330 and
+FreeGLUT bitmap text. See the [GLFW context hints](https://www.glfw.org/docs/3.3/window_guide.html#window_hints_ctx)
+and [cursor modes](https://www.glfw.org/docs/3.3/input_guide.html#cursor_mode).
+Physical high-DPI behavior and interactive window-manager focus transitions
+remain unverified; the automated tests inject those inputs and dimensions.
+
+Review found that the build-settings recipe executed during `make -n` on a fresh
+checkout. A new regression reproduced it; moving the write into the shell recipe
+made dry runs leave the output tree absent. The compiler override test now keeps
+CFLAGS constant so the compiler change alone must trigger rebuilding.

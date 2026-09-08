@@ -57,10 +57,10 @@ Debug builds use `-O0 -g3` and go into `bin\windows\Debug`. To remove one config
 .\build.cmd -Benchmark
 ```
 
-`-Test` builds and runs the world regressions, shader and texture tests, application startup/shutdown test, and rendering benchmark. All graphics windows stay hidden, and the startup test keeps the mouse free. The tests use the copied DLLs with the compiler removed from PATH. Startup is tested from the Windows temporary directory to check executable-relative asset loading.
+`-Test` builds and runs the world regressions, shader and texture tests, application input/framebuffer/startup/shutdown test, and rendering benchmark. All graphics windows stay hidden, and the startup test keeps the mouse free. The tests use the copied DLLs with the compiler removed from PATH. Startup is tested from the Windows temporary directory to check executable-relative asset loading.
 
 `-Benchmark` runs the same render checks against the installed Windows OpenGL driver. It reports that driver, frame times, draw calls, uploads, and uniform lookups. Run benchmarks separately from other builds or tests when comparing frame times. See [Rendering performance](performance.md) for the scenarios and interpretation.
 
-Graphics tests need a working OpenGL 3.3 driver and a desktop session. Update the GPU driver if the game cannot create a window or compile its shaders. The MinGW GCC distributions used here do not supply the address/undefined-behavior sanitizer runtime; those optional checks remain in the Linux Makefile. The normal Windows tests do not depend on them.
+Graphics tests need a working OpenGL 3.3 compatibility driver and a desktop session. Update the GPU driver if the game cannot create a window or compile its shaders. The MinGW GCC distributions used here do not supply the address/undefined-behavior sanitizer runtime; those optional checks remain in the Linux Makefile. The normal Windows tests do not depend on them.
 
 If you already have GNU Make on Windows, `make`, `make run`, `make test`, `make test-gl`, and `make benchmark` call the same PowerShell workflow. Use `CONFIGURATION=Debug` for a debug build. GNU Make is optional.
