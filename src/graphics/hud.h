@@ -21,6 +21,8 @@ typedef struct {
   Ray selection;
   int selectedBlock;
   bool captured;
+  bool flying, grounded, modeBlocked;
+  int simulationSteps;
   const RenderResult* stats;
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);

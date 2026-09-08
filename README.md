@@ -40,6 +40,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **chunk.c**: Converts between world, block, and chunk coordinates.
     - **cube.c**: Defines cube face positions, normals, and texture coordinates.
     - **mesh.c**: Builds indexed chunk meshes from exposed block faces.
+    - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
@@ -58,7 +59,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Basic block types: air, grass, dirt, and stone.
 
 - **User Interaction**:
-  - Camera controls for navigation.
+  - Walking with gravity, grounded jumps, solid-block collision, and safe spawning.
+  - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
   - Block placement and destruction, a target outline, crosshair, and three-slot material selector.
 
@@ -110,7 +112,7 @@ Concurrent builds should use different configurations or separate checkouts.
 ### Checks and current status
 
 ```sh
-make test              # CPU world, mesh, edit, and DDA regressions; no graphics dependencies
+make test              # CPU world, mesh, edit, DDA, and player regressions; no graphics dependencies
 make test-sanitize     # CPU checks with AddressSanitizer and UBSan
 sudo apt-get install clang xvfb xauth
 make test-build        # Real incremental/configuration builds in a temporary copy
@@ -120,23 +122,34 @@ make test-gl           # Hidden application, shader, texture, and rendering chec
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [block editing status](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
-W/A/S/D moves the free-flight camera; Space moves up and Left Shift moves down.
-Mouse motion turns the camera while captured. Escape toggles capture; released or
-unfocused windows ignore movement. Focus loss releases the cursor; press Escape
-after returning to resume. The first mouse sample after capture is discarded to
-avoid a jump. Left click destroys the targeted block; right click places the selected
-material on its face. Keys 1, 2, and 3 select grass, dirt, and stone. Each press
-edits once, within six world units. A gold outline marks the selected block.
-Placement rejects occupied/out-of-world cells and a body-sized space around the
-camera (0.6 wide, 1.8 high; eye 1.62 above its feet).
+The game starts in walking mode at a clear position above terrain. W/A/S/D walks
+at 4.5 world units/second; mouse motion looks around. Space jumps once per press
+while grounded. Diagonal movement has the same speed, and looking up/down does
+not change walking speed. Solid blocks and the finite world's boundaries stop
+the player. Jump to climb a one-block step; automatic stepping is not implemented.
 
-Movement is still debug flight and can pass through terrain. Hold Space to rise
-above it, then look down to edit. Normal movement, safe player spawning,
-collision/gravity, selectable seeds, and saves remain planned. **Edits are kept
-in memory and disappear when the game closes.**
+F toggles debug flight, where W/A/S/D follows the camera and Space/Left Shift
+moves up/down through terrain. Returning to walking keeps the current body
+position if clear, or finds a standing surface near that column. The HUD shows
+movement mode, grounded/airborne state, and completed simulation steps per frame.
+
+Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
+press Escape after returning to resume. Minimized windows also pause. The first
+mouse sample after capture is discarded to avoid a turn jump. Left click destroys
+the target; right click places on its face. Keys 1/2/3 select grass, dirt, and
+stone. Each press edits once within six world units; a gold outline marks the
+selected block. Placement rejects occupied/out-of-world cells and body overlap
+in both modes. The body is 0.6 units wide and 1.8 high, with the eye 1.62 above
+its feet; one block is one unit.
+
+Physics advances at 120 Hz with at most eight steps per rendered frame; excess
+elapsed time after a stall is discarded. Debug flight uses a 0.1-second frame
+limit. See the movement checkpoint for collision boundaries and test coverage.
+Selectable seeds and saves remain planned. **Edits are kept in memory and
+disappear when the game closes.**
 
 ## Roadmap
 
@@ -154,7 +167,7 @@ in memory and disappear when the game closes.**
   - [ ] Implement basic post-processing effects
   - [ ] Add a wireframe toggle (solid rendering is implemented)
   - [x] Show FPS, submitted surface blocks, chunks, terrain draws, faces/triangles, and mesh update time
-  - [ ] Show simulation ticks when player physics is implemented
+  - [x] Show completed simulation steps per frame and movement state
   - [x] Optimize render batching and draw calls
 
 - **World Generation**:
@@ -178,8 +191,8 @@ in memory and disappear when the game closes.**
   - [x] Implement free-flight camera controls
   - [x] Add mouse controls for looking around
   - [x] Add block placement and destruction with dirty chunk updates
-  - [ ] Implement collision detection
-  - [ ] Add player physics (gravity, jumping)
+  - [x] Implement solid-voxel player collision and finite movement bounds
+  - [x] Add player physics (gravity, grounded jumping, safe spawn)
   - [x] Add DDA selection, placement-face results, target outline, crosshair, and material selection
 
 ### Phase 2: Graphics and Performance
@@ -285,7 +298,8 @@ in memory and disappear when the game closes.**
   - [ ] Conduct thorough playtesting to identify and fix bugs
   - [x] Add CPU world/math/mesh and graphical startup/render regressions
   - [x] Add CPU editing/DDA and running-application edit/pixel regressions
-  - [ ] Add player collision and persistence regressions
+  - [x] Add CPU collision and application walking/jumping/pause regressions
+  - [ ] Add persistence and restart regressions
   - [ ] Optimize performance across different hardware configurations
   - [ ] Gather user feedback to guide further development
 

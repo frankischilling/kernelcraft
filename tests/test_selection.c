@@ -1,6 +1,7 @@
 #include "utils/raycast.h"
 #include "world/world.h"
 #include "world/edit.h"
+#include "world/player.h"
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,28 +99,34 @@ static void testTiesAndInvalidInput(void) {
   CHECK(rayCast(origin, (Vec3){FLT_MIN, 0, 0}, 6).hit);
 }
 
+static bool editFromEye(Vec3 eye, Vec3 direction, int material, bool place) {
+  Vec3 feet = eye;
+  feet.y -= PLAYER_EYE_HEIGHT;
+  return editTarget(eye, direction, feet, material, place);
+}
+
 static void testPlacement(void) {
   clearWorld();
   Vec3i target = {0, 20, 0}, adjacent = {0, 20, -1};
   Vec3 eye = {0.5f, 20.5f, -2.5f}, direction = {0, 0, 1};
   CHECK(setBlock(&target, BLOCK_STONE));
-  CHECK(editTarget(eye, direction, BLOCK_GRASS, true));
+  CHECK(editFromEye(eye, direction, BLOCK_GRASS, true));
   CHECK(getBlock(&adjacent)->id == BLOCK_GRASS);
-  CHECK(editTarget(eye, direction, BLOCK_GRASS, false));
+  CHECK(editFromEye(eye, direction, BLOCK_GRASS, false));
   CHECK(getBlock(&adjacent)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
-  CHECK(!editTarget(eye, direction, BLOCK_AIR, true));
-  CHECK(!editTarget(eye, direction, 256, true));
-  CHECK(!editTarget((Vec3){0.5f, 20.5f, -6.1f}, direction, BLOCK_DIRT, false));
+  CHECK(!editFromEye(eye, direction, BLOCK_AIR, true));
+  CHECK(!editFromEye(eye, direction, 256, true));
+  CHECK(!editFromEye((Vec3){0.5f, 20.5f, -6.1f}, direction, BLOCK_DIRT, false));
   // Body width overlaps the placement cell even when the eye's own cell does not.
-  CHECK(!editTarget((Vec3){0.5f, 20.5f, -1.1f}, direction, BLOCK_DIRT, true));
-  CHECK(!editTarget((Vec3){0.5f, 20.5f, 0.5f}, direction, BLOCK_DIRT, true));
+  CHECK(!editFromEye((Vec3){0.5f, 20.5f, -1.1f}, direction, BLOCK_DIRT, true));
+  CHECK(!editFromEye((Vec3){0.5f, 20.5f, 0.5f}, direction, BLOCK_DIRT, true));
   // The body extends below the eye, blocking a placement through the feet.
-  CHECK(!editTarget((Vec3){0.5f, 22.4f, 0.5f}, (Vec3){0, -1, 0}, BLOCK_DIRT, true));
-  CHECK(editTarget((Vec3){0.5f, 23.7f, 0.5f}, (Vec3){0, -1, 0}, BLOCK_DIRT, true));
+  CHECK(!editFromEye((Vec3){0.5f, 22.4f, 0.5f}, (Vec3){0, -1, 0}, BLOCK_DIRT, true));
+  CHECK(editFromEye((Vec3){0.5f, 23.7f, 0.5f}, (Vec3){0, -1, 0}, BLOCK_DIRT, true));
   CHECK(getBlock(&(Vec3i){0, 21, 0})->id == BLOCK_DIRT);
   clearWorld();
   CHECK(setBlock(&(Vec3i){-128, 20, 0}, BLOCK_STONE));
-  CHECK(!editTarget((Vec3){-130, 20.5f, 0.5f}, (Vec3){1, 0, 0}, BLOCK_STONE, true));
+  CHECK(!editFromEye((Vec3){-130, 20.5f, 0.5f}, (Vec3){1, 0, 0}, BLOCK_STONE, true));
 }
 
 int main(void) {
