@@ -171,4 +171,3 @@ walls/ceilings/corners, and save/restart; record any reproducible defects before
 adding trees, caves, streaming, or gameplay progression. Startup mesh CPU cost
 is a measured optimization candidate. Fire Bugs, Goblins, and the Cupid Sponge
 remain planned, with the existing C/OpenGL and Cube World direction preserved.
-
