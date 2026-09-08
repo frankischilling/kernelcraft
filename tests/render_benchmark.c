@@ -58,6 +58,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 }
 
 #ifndef KERNELCRAFT_BASELINE
+#include "terrain_render_checks.h"
 // Independent sampler2D reference for the original Phong shader by
 // frankischilling (2024-11-20). Keep this separate from the array shader so
 // incorrect layer selection cannot change both sides of the pixel comparison.
@@ -98,14 +99,17 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
         setBlock(&(Vec3i){x, y, z}, materials[pattern < 3 ? pattern : (x + y + z) % 3]);
   if (!initWorld(shader))
     return false;
-  GLuint textures[] = {loadTexture("assets/textures/stone.png"), loadTexture("assets/textures/dirt.png"), loadTexture("assets/textures/grass-top.png"),
-                       loadTexture("assets/textures/grass-side.png")};
+  GLuint textures[] = {loadTexture("assets/textures/stone.png"),      loadTexture("assets/textures/dirt.png"),       loadTexture("assets/textures/grass-top.png"),
+                       loadTexture("assets/textures/grass-side.png"), loadTexture("assets/textures/dirt-rocks.png"), loadTexture("assets/textures/grass-top-leaves.png"),
+                       loadTexture("assets/textures/grass-bug.png")};
   GLuint referenceShader = referenceProgram();
   GLuint vao = 0, vbo = 0;
   size_t bytes = 960 * 540 * 3;
   unsigned char* merged = malloc(bytes);
   unsigned char* reference = malloc(bytes);
-  bool success = merged && reference && referenceShader && textures[0] && textures[1] && textures[2] && textures[3];
+  bool success = merged && reference && referenceShader;
+  for (int layer = 0; layer < 7; layer++)
+    success &= textures[layer] != 0;
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
   glBindVertexArray(vao);
@@ -156,6 +160,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
             }
             int id = materials[pattern < 3 ? pattern : (x + y + z) % 3];
             int material = id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
+            material = referenceTerrainLayer(material, (Vec3i){x, y, z}, worldSeed());
             glBindTexture(GL_TEXTURE_2D, textures[material]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
             glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -182,7 +187,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   glBindVertexArray(0);
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
-  glDeleteTextures(4, textures);
+  glDeleteTextures(7, textures);
   glUseProgram(0);
   glDeleteProgram(referenceShader);
   return success;
@@ -721,6 +726,10 @@ int main(int argc, char** argv) {
       return 13;
   }
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
+  if (!testFarTerrain(shader))
+    return 20;
+  if (!testTerrainVariants(shader))
+    return 21;
   for (int pattern = 0; pattern < 4; pattern++)
     if (!testRepeatedTextures(shader, pattern)) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");

@@ -19,6 +19,28 @@ uniform vec3 viewPos;     // Camera position for specular calculation
 uniform vec3 lightColor;  // Color of the light source
 uniform sampler2DArray texture1; // One independent repeating tile per layer
 uniform bool drawGrid;
+uniform uint worldSeed;
+uniform float blockSize;
+
+float terrainLayer(vec3 normal) {
+    if (Material == 0.0)
+        return Material; // Stone has no alternate tile.
+    // Move just inside the face to identify its owning voxel on either sign
+    // of each axis. World coordinates keep variants stable across merged quads,
+    // chunk seams, edits, and saved-world reloads.
+    uvec3 block = uvec3(ivec3(floor(FragPos / blockSize - normal * 0.001)));
+    uint h = worldSeed ^ (block.x * 0x8da6b343u) ^ (block.y * 0xd8163841u) ^
+             (block.z * 0xcb1ab31fu) ^ (uint(Material) * 0x9e3779b9u);
+    h = (h ^ (h >> 16u)) * 0x7feb352du;
+    h = (h ^ (h >> 15u)) * 0x846ca68bu;
+    h ^= h >> 16u;
+    uint roll = h % 100u;
+    // Layers match world_renderer.c: rocky dirt 25%, leafy tops 10%, bugs 2%.
+    if (Material == 1.0 && roll < 25u) return 4.0;
+    if (Material == 2.0 && roll < 10u) return 5.0;
+    if (Material == 3.0 && roll < 2u) return 6.0;
+    return Material;
+}
 
 void main() {
     if (drawGrid) {
@@ -43,6 +65,6 @@ void main() {
     vec3 specular = specularStrength * spec * lightColor;
 
     // Combine all lighting components and apply texture color
-    vec3 result = (ambient + diffuse + specular) * texture(texture1, vec3(TexCoord, Material)).rgb;
+    vec3 result = (ambient + diffuse + specular) * texture(texture1, vec3(TexCoord, terrainLayer(norm))).rgb;
     FragColor = vec4(result, 1.0);
 }

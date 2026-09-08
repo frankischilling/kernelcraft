@@ -22,8 +22,9 @@ or native `make test-build`. This checks the object cache in a temporary project
 Run Debug and sanitizer builds sequentially in one checkout: `test-sanitize`
 also writes the Debug output directories.
 
-Terrain material IDs map directly to texture-array layers. Keep that ordering
-consistent across the mesher and renderer. New layers must match the existing
+Terrain material IDs map to base texture-array layers 0..3. The fragment shader
+selects per-block variants from layers 4..6 using world position and seed.
+Keep that ordering consistent across the mesher, renderer, and shader. New layers must match the existing
 tile dimensions; preserve repeated UVs and extend the independent material
 pixel comparisons when changing face mapping or sampling.
 

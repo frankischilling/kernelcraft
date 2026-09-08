@@ -166,6 +166,17 @@ limit. See the movement checkpoint for collision boundaries and test coverage.
 
 ### Worlds and saves
 
+Terrain uses occasional alternate tiles: about 2% of grass blocks have bug
+sides, 10% have leafy tops, and 25% of dirt surfaces have extra rocks. Ordinary
+tiles cover the rest. These choices depend on the block position and world
+seed, so mesh rebuilds and world reloads keep the same appearance. Rocky dirt
+also appears on grass undersides. The variants change appearance only.
+
+The horizontal render radius is six chunks (96 blocks), up from 32 blocks.
+Chunks outside the camera view are still culled. The world remains 256 by 256
+blocks; the larger view draws more terrain and can increase frame time. See
+[terrain variants and distance checks](docs/terrain-variants.md).
+
 Run the built executable with a save path and a seed for a new world:
 
 ```sh
