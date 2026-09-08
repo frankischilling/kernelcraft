@@ -24,6 +24,18 @@ bool initInputs(InputState* input, Camera* camera) {
   return true;
 }
 
+bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved) {
+  *input = (InputState){.camera = camera};
+  if (!saved || !playerSetPosition(&input->player, saved->feet))
+    return false;
+  camera->position = playerEyePosition(&input->player);
+  camera->yaw = saved->yaw;
+  camera->pitch = saved->pitch;
+  updateCameraVectors(camera);
+  selected = saved->selectedBlock;
+  return true;
+}
+
 void resetInputTiming(InputState* input) {
   if (!input)
     return;
@@ -70,6 +82,23 @@ static Vec3 inputBodyFeet(const InputState* input) {
   return feet;
 }
 
+bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
+  if (!input || !input->camera || !saved)
+    return false;
+  Player standing = {0};
+  Vec3 feet = inputBodyFeet(input);
+  if (!playerSetPosition(&standing, feet) && (!input->flying || !playerFindSpawn(&standing, feet)))
+    return false;
+  float yaw = fmodf(input->camera->yaw, 360.0f);
+  if (yaw < 0)
+    yaw += 360.0f;
+  // Adding 360 can round a tiny negative remainder to exactly 360.
+  if (yaw >= 360)
+    yaw = 0;
+  *saved = (SavedPlayer){.feet = standing.position, .yaw = yaw, .pitch = input->camera->pitch, .selectedBlock = selected};
+  return true;
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   (void)scancode;
   (void)mods;
@@ -86,6 +115,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   InputState* input = glfwGetWindowUserPointer(window);
   if (!input || !acceptsEditing(window))
     return;
+  if (key == GLFW_KEY_F5)
+    input->saveRequested = true;
   if (key == GLFW_KEY_SPACE && !input->flying)
     input->jumpRequested = true;
   if (key == GLFW_KEY_F) {

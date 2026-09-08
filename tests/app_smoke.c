@@ -89,6 +89,38 @@ static void testInput(GLFWwindow* window) {
   initCamera(camera);
 }
 
+static void testSavedInput(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  Camera originalCamera = *camera;
+  InputState originalInput = *input;
+  SavedPlayer saved;
+  CHECK(playerSetPosition(&input->player, (Vec3){-40.5f, 40, -40.5f}));
+  input->flying = false;
+  camera->position = playerEyePosition(&input->player);
+  camera->yaw = -810;
+  CHECK(snapshotPlayer(input, &saved) && saved.yaw == 270 && saved.feet.y == 40);
+  Camera restoredCamera = *camera;
+  InputState restored;
+  CHECK(initSavedInputs(&restored, &restoredCamera, &saved));
+  CHECK(!restored.flying && restored.player.velocity.y == 0 && restored.player.position.y == 40);
+  input->flying = true;
+  camera->position.x = 500;
+  Vec3 before = camera->position;
+  CHECK(snapshotPlayer(input, &saved) && playerCanOccupy(saved.feet));
+  CHECK(camera->position.x == before.x && input->flying); // Taking a snapshot must not move the current session.
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  key(window, GLFW_KEY_F5, 0, GLFW_REPEAT, 0);
+  CHECK(!input->saveRequested);
+  key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
+  CHECK(!input->saveRequested);
+  key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  *camera = originalCamera;
+  *input = originalInput;
+}
+
 static void testEditing(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   Camera* camera = input->camera;
@@ -257,6 +289,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testInput(window);
+    testSavedInput(window);
     testWalkingControls(window);
     testEditing(window);
     InputState* input = glfwGetWindowUserPointer(window);

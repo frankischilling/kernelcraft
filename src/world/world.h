@@ -12,6 +12,7 @@
 #include "../math/math.h"
 #include "chunk.h"
 #include "cube.h"
+#include <stddef.h>
 
 #define WORLD_GENERATOR_VERSION 1
 
@@ -26,13 +27,18 @@ typedef struct {
 BiomeParameters getInterpolatedBiomeParameters(float x, float z);
 float getTerrainHeight(float x, float z);
 const char* getCurrentBiomeText(float x, float z);
-// World owns all chunks until cleanupChunks or the next initChunks call.
+// World owns chunks until cleanup, reinitialization, or successful replacement.
 bool initChunks(void);
 bool initChunksSeeded(uint32_t seed);
 uint32_t worldSeed(void);
 // Fills a chunk at its signed chunk position, independently of the live world.
 void generateTerrainChunk(Chunk* chunk, uint32_t seed);
 void cleanupChunks(void);
+#define WORLD_BLOCK_COUNT ((size_t)WORLD_SIZE * WORLD_SIZE * CHUNK_HEIGHT)
+// Packed IDs: chunk X/Z then local X/Y/Z, one byte each. Exact fixed size only.
+bool copyWorldBlocks(uint8_t* blocks, size_t count);
+// Allocate and validate before publishing. Failure preserves the live world.
+bool replaceWorldBlocks(uint32_t seed, const uint8_t* blocks, size_t count);
 
 // Chunk indices are array coordinates [0, CHUNKS_PER_AXIS), not signed world coordinates.
 // Direct chunk access is for generation, meshing, and fixtures; gameplay edits use setBlock.

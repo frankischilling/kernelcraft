@@ -9,6 +9,7 @@
 #include "graphics/selection.h"
 #include "math/math.h"
 #include "utils/inputs.h"
+#include "utils/options.h"
 #include "utils/text.h"
 #include "world/cube.h"
 #include "world/world.h"
@@ -37,6 +38,21 @@ static float fps = 0.0f;
 static Camera camera;
 static InputState input;
 
+static bool saveSession(const AppOptions* options) {
+  SavedPlayer saved;
+  char error[256];
+  if (!snapshotPlayer(&input, &saved)) {
+    fprintf(stderr, "Cannot save world: no clear player position\n");
+    return false;
+  }
+  if (saveWorld(options->worldPath, &saved, error, sizeof(error)) != SAVE_OK) {
+    fprintf(stderr, "Cannot save world '%s': %s\n", options->worldPath, error);
+    return false;
+  }
+  printf("Saved world: %s\n", options->worldPath);
+  return true;
+}
+
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   (void)window;
   glViewport(0, 0, width, height);
@@ -47,6 +63,20 @@ static void error_callback(int error, const char* description) {
 }
 
 int main(int argc, char** argv) {
+  AppOptions options;
+  char error[256];
+  if (!parseOptions(argc, argv, &options, error, sizeof(error))) {
+    fprintf(stderr, "%s\n", error);
+    return EXIT_FAILURE;
+  }
+  if (options.help) {
+    puts("Usage: minecraft_clone [--world PATH] [--seed N] [--no-save]\n"
+         "--world PATH  Load or create this file (default: kernelcraft.kcw in the launch directory)\n"
+         "--seed N      New-world seed, decimal 0..4294967295 (default: 0)\n"
+         "--no-save     Temporary session; cannot be combined with --world\n"
+         "F5 saves while the mouse is captured; clean exit also saves. Restart reloads the file.");
+    return EXIT_SUCCESS;
+  }
 #ifdef _WIN32
   // Explorer, shortcuts, and terminals can start the game in any directory.
   wchar_t executablePath[32768];
@@ -91,7 +121,9 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  glutInit(&argc, argv);
+  int glutArgc = 1;
+  char* glutArgv[] = {argv[0], NULL};
+  glutInit(&glutArgc, glutArgv);
   // GLSL 330 and chunk buffers need 3.3; FreeGLUT bitmap text uses legacy GL.
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -126,7 +158,23 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (!initChunks() || !initWorld(shaderProgram)) {
+  SavedPlayer saved;
+  SaveResult loaded = options.noSave ? SAVE_NOT_FOUND : loadWorld(options.worldPath, &saved, error, sizeof(error));
+  bool worldReady = false;
+  const char* saveStatus = options.noSave ? "Temporary session" : "New world";
+  if (loaded == SAVE_OK && options.seedGiven) {
+    fprintf(stderr, "--seed cannot be used with an existing save; omit --seed or choose a new --world path\n");
+  } else if (loaded == SAVE_OK) {
+    worldReady = true;
+    saveStatus = "Loaded";
+  } else if (loaded == SAVE_NOT_FOUND) {
+    worldReady = initChunksSeeded(options.seed);
+    if (!worldReady)
+      fprintf(stderr, "Cannot allocate new world\n");
+  } else {
+    fprintf(stderr, "Cannot load world '%s': %s\n", options.worldPath, error);
+  }
+  if (!worldReady || !initWorld(shaderProgram)) {
     cleanupChunks();
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
@@ -136,7 +184,7 @@ int main(int argc, char** argv) {
   HUDInit(BUILD_NAME, BUILD_VERSION);
 
   initCamera(&camera);
-  if (!initInputs(&input, &camera)) {
+  if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
     cleanupWorld();
     cleanupChunks();
@@ -152,6 +200,9 @@ int main(int argc, char** argv) {
   glfwSetKeyCallback(window, keyCallback);
   glfwSetMouseButtonCallback(window, mouseButtonCallback);
   setCursorCaptured(window, true);
+  printf("World seed: %u\n", (unsigned)worldSeed());
+  if (!options.noSave)
+    printf("World file: %s\n", options.worldPath);
 
   double lastFrame = glfwGetTime();
   lastTime = lastFrame;
@@ -178,6 +229,11 @@ int main(int argc, char** argv) {
       continue;
     }
     processInput(window, &input, deltaTime);
+    if (input.saveRequested) {
+      input.saveRequested = false;
+      if (!options.noSave)
+        saveStatus = saveSession(&options) ? "Saved (F5)" : "Save failed; see console";
+    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, width, height);
     Mat4 view, projection;
@@ -203,6 +259,7 @@ int main(int argc, char** argv) {
                       .grounded = input.player.grounded,
                       .modeBlocked = input.modeBlocked,
                       .simulationSteps = input.simulationSteps,
+                      .saveStatus = saveStatus,
                       .stats = &result};
     HUDDraw(shaderProgram, &data);
 
@@ -210,6 +267,8 @@ int main(int argc, char** argv) {
     glfwPollEvents();
   }
 
+  if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
+    exitStatus = EXIT_FAILURE;
   cleanupWorld();
   cleanupChunks();
   glDeleteProgram(shaderProgram);

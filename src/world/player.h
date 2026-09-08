@@ -22,6 +22,8 @@ typedef struct {
   bool jumpPending;
 } Player;
 
+// Inclusive cell range overlapped by a body inside finite world bounds.
+bool playerCellRange(Vec3 feet, Vec3i* first, Vec3i* last);
 bool playerCanOccupy(Vec3 feet);
 bool playerOverlapsBlock(Vec3 feet, Vec3i cell);
 // Failure leaves the previous player state unchanged.

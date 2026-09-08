@@ -173,3 +173,56 @@ bool setBlock(const Vec3i* pos, int id) {
   }
   return true;
 }
+
+bool copyWorldBlocks(uint8_t* blocks, size_t count) {
+  if (!blocks || count != WORLD_BLOCK_COUNT)
+    return false;
+  size_t offset = 0;
+  for (int cx = 0; cx < CHUNKS_PER_AXIS; cx++)
+    for (int cz = 0; cz < CHUNKS_PER_AXIS; cz++) {
+      const Chunk* chunk = chunks[cx][cz];
+      if (!chunk)
+        return false;
+      for (int x = 0; x < CHUNK_SIZE; x++)
+        for (int y = 0; y < CHUNK_HEIGHT; y++)
+          for (int z = 0; z < CHUNK_SIZE; z++) {
+            uint8_t id = chunk->blocks[x][y][z].id;
+            if (!blockIDValid(id))
+              return false;
+            blocks[offset++] = id;
+          }
+    }
+  return true;
+}
+
+bool replaceWorldBlocks(uint32_t seed, const uint8_t* blocks, size_t count) {
+  if (!blocks || count != WORLD_BLOCK_COUNT)
+    return false;
+  for (size_t i = 0; i < count; i++)
+    if (!blockIDValid(blocks[i]))
+      return false;
+  Chunk* next[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS] = {{0}};
+  size_t offset = 0;
+  for (int cx = 0; cx < CHUNKS_PER_AXIS; cx++)
+    for (int cz = 0; cz < CHUNKS_PER_AXIS; cz++) {
+      Chunk* chunk = calloc(1, sizeof(*chunk));
+      if (!chunk) {
+        for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+          for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+            free(next[x][z]);
+        return false;
+      }
+      next[cx][cz] = chunk;
+      chunk->position = (Vec2i){cx - CHUNKS_PER_AXIS / 2, cz - CHUNKS_PER_AXIS / 2};
+      chunk->dirty = true;
+      for (int x = 0; x < CHUNK_SIZE; x++)
+        for (int y = 0; y < CHUNK_HEIGHT; y++)
+          for (int z = 0; z < CHUNK_SIZE; z++)
+            chunk->blocks[x][y][z].id = blocks[offset++];
+    }
+  cleanupChunks();
+  memcpy(chunks, next, sizeof(chunks));
+  currentSeed = seed;
+  initNoise(&activeNoise, seed);
+  return true;
+}

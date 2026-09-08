@@ -121,7 +121,7 @@ try {
 
     if ($Test) {
         $worldTest = Join-Path $outputDirectory 'test-world.exe'
-        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
+        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/save.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
             ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $worldSources + @('-o', $worldTest, '-lm'))
 
@@ -141,6 +141,14 @@ try {
         $seedSources = @((Join-Path $projectDirectory 'tests/test_seed.c')) + @($worldSources | Select-Object -Skip 1)
         Invoke-Native $compiler ($flags + $seedSources + @('-o', $seedTest, '-lm'))
 
+        $saveTest = Join-Path $outputDirectory 'test-save.exe'
+        $saveSources = @((Join-Path $projectDirectory 'tests/test_save.c')) + @($worldSources | Select-Object -Skip 1)
+        Invoke-Native $compiler ($flags + $saveSources + @('-Wl,--wrap=fwrite', '-Wl,--wrap=fflush', '-Wl,--wrap=fclose', '-Wl,--wrap=__imp__commit', '-Wl,--wrap=__imp_MoveFileExA', '-Wl,--wrap=calloc', '-o', $saveTest, '-lm'))
+
+        $optionsTest = Join-Path $outputDirectory 'test-options.exe'
+        $optionsSources = @('tests/test_options.c', 'src/utils/options.c') | ForEach-Object { Join-Path $projectDirectory $_ }
+        Invoke-Native $compiler ($flags + $optionsSources + @('-o', $optionsTest))
+
         $shaderTest = Join-Path $outputDirectory 'test-shader.exe'
         $shaderSources = @('tests/test_shader.c', 'src/graphics/shader.c', 'src/graphics/texture.c') | ForEach-Object { Join-Path $projectDirectory $_ }
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
@@ -148,7 +156,10 @@ try {
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
         Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
-        $executables += @($worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $shaderTest, $smokeTest)
+        $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
+        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents') }) + @('-Wl,--wrap=HUDDraw')
+        Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_persistence.c')) + $persistenceFlags + @('-o', $persistenceTest) + $libraries)
+        $executables += @($persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $optionsTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -179,11 +190,11 @@ try {
             Invoke-Native $selectionTest
             Invoke-Native $playerTest
             Invoke-Native $seedTest
+            Invoke-Native $saveTest
+            Invoke-Native $optionsTest
             Invoke-Native $shaderTest
         } finally { Pop-Location }
-        Push-Location ([IO.Path]::GetTempPath())
-        try { Invoke-Native $smokeTest } finally { Pop-Location }
-        Write-Host 'Windows startup and shutdown test passed'
+        & (Join-Path $projectDirectory 'tests/test_persistence.ps1') -Binary $persistenceTest -SmokeBinary $smokeTest
     }
     if ($Test -or $Benchmark) {
         Push-Location $outputDirectory
@@ -191,8 +202,8 @@ try {
     }
     Write-Host "Windows build ready: $game"
     if ($Run) {
-        Push-Location $outputDirectory
-        try { Invoke-Native $game } finally { Pop-Location }
+        # Assets are executable-relative; preserve the caller's save directory.
+        Invoke-Native $game
     }
 } finally {
     $env:PATH = $savedPath

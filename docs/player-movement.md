@@ -9,7 +9,8 @@ GLFW 3.3.10, GLEW 2.2.0, freeglut 3.4.0, and Mesa llvmpipe (LLVM 20.1.2).
 Editing, DDA, chunk seams, startup, and hidden-window input/pixel checks work.
 At that base, movement was camera-only flight and the initial position could be
 in terrain.
-Seeds and persistence are not implemented.
+Seeds and persistence were not implemented at that checkpoint. The subsequent
+[world persistence increment](world-persistence.md) records their implementation.
 
 ## Design and implementation sequence
 
