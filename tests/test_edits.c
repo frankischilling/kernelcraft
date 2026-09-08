@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CHECK(condition) do { \
-  if (!(condition)) { \
-    fprintf(stderr, "Edit test: %s (line %d)\n", #condition, __LINE__); \
-    exit(EXIT_FAILURE); \
-  } \
-} while (0)
+#define CHECK(condition)                                                                                                                                                           \
+  do {                                                                                                                                                                             \
+    if (!(condition)) {                                                                                                                                                            \
+      fprintf(stderr, "Edit test: %s (line %d)\n", #condition, __LINE__);                                                                                                          \
+      exit(EXIT_FAILURE);                                                                                                                                                          \
+    }                                                                                                                                                                              \
+  } while (0)
 
 static void resetWorld(void) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
@@ -32,8 +33,7 @@ static int dirtyCount(void) {
 static void testEdits(void) {
   CHECK(dirtyCount() == CHUNKS_PER_AXIS * CHUNKS_PER_AXIS);
   resetWorld();
-  Vec3i invalid[] = {{INT_MIN, 0, 0}, {INT_MAX, 0, 0}, {-129, 0, 0}, {128, 0, 0},
-                    {0, -1, 0}, {0, 64, 0}, {0, 0, -129}, {0, 0, 128}};
+  Vec3i invalid[] = {{INT_MIN, 0, 0}, {INT_MAX, 0, 0}, {-129, 0, 0}, {128, 0, 0}, {0, -1, 0}, {0, 64, 0}, {0, 0, -129}, {0, 0, 128}};
   CHECK(getChunk(NULL) == NULL && getBlock(NULL) == NULL);
   CHECK(!setBlock(NULL, BLOCK_STONE));
   for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {

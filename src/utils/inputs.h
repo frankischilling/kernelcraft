@@ -17,5 +17,8 @@ void processInput(GLFWwindow* window, Camera* camera, float deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void setCursorCaptured(GLFWwindow* window, bool captured);
 void windowFocusCallback(GLFWwindow* window, int focused);
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+int selectedBlock(void);
 
 #endif

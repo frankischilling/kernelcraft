@@ -6,11 +6,13 @@
 #include "graphics/hud.h"
 #include "graphics/shader.h"
 #include "graphics/world_renderer.h"
+#include "graphics/selection.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/text.h"
 #include "world/cube.h"
 #include "world/world.h"
+#include "world/edit.h"
 #include <GL/freeglut.h>
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
@@ -33,14 +35,6 @@ static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
 static Camera camera;
-
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  (void)scancode;
-  (void)mods;
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
-    setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
-  }
-}
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   (void)window;
@@ -145,7 +139,8 @@ int main(int argc, char** argv) {
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glfwSetCursorPosCallback(window, mouseCallback);
   glfwSetWindowFocusCallback(window, windowFocusCallback);
-  glfwSetKeyCallback(window, key_callback);
+  glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window, mouseButtonCallback);
   setCursorCaptured(window, true);
 
   double lastFrame = glfwGetTime();
@@ -187,7 +182,15 @@ int main(int argc, char** argv) {
       exitStatus = EXIT_FAILURE;
       break;
     }
-    DebugData data = (DebugData){&camera, fps, result.surfaceBlocks};
+    Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
+    drawSelection(&selection, view, projection);
+    DebugData data = {.camera = &camera,
+                      .fps = fps,
+                      .visibleBlocks = result.surfaceBlocks,
+                      .selection = selection,
+                      .selectedBlock = selectedBlock(),
+                      .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
+                      .stats = &result};
     HUDDraw(shaderProgram, &data);
 
     glfwSwapBuffers(window);

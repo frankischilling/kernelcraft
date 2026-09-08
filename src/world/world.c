@@ -140,10 +140,14 @@ bool setBlock(const Vec3i* pos, int id) {
   chunk->dirty = true;
   // A material-only change cannot expose a neighbor's face.
   if (exposureChanged) {
-    if (lx == 0) dirtyNeighbor(cx - 1, cz);
-    if (lx == CHUNK_SIZE - 1) dirtyNeighbor(cx + 1, cz);
-    if (lz == 0) dirtyNeighbor(cx, cz - 1);
-    if (lz == CHUNK_SIZE - 1) dirtyNeighbor(cx, cz + 1);
+    if (lx == 0)
+      dirtyNeighbor(cx - 1, cz);
+    if (lx == CHUNK_SIZE - 1)
+      dirtyNeighbor(cx + 1, cz);
+    if (lz == 0)
+      dirtyNeighbor(cx, cz - 1);
+    if (lz == CHUNK_SIZE - 1)
+      dirtyNeighbor(cx, cz + 1);
   }
   return true;
 }

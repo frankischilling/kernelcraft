@@ -59,10 +59,10 @@ EXECUTABLE := $(BIN_DIR)/minecraft_clone
 BUILD_SETTINGS := $(OBJ_DIR)/build-settings
 SOURCES := $(wildcard src/*/*.c src/*.c)
 OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SOURCES))
-WORLD_SOURCES := $(wildcard src/world/*.c) src/math/math.c src/graphics/frustum.c
+WORLD_SOURCES := $(wildcard src/world/*.c) src/math/math.c src/graphics/frustum.c src/utils/raycast.c
 WORLD_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(WORLD_SOURCES))
 SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/texture.o
-TEST_SOURCES := tests/test_edits.c tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c
+TEST_SOURCES := tests/test_selection.c tests/test_edits.c tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
 WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements
@@ -91,7 +91,7 @@ $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS) | check-deps
 	$(CC) $(PROJECT_CPPFLAGS) $(COMPILE_FLAGS) -MMD -MP -c $< -o $@
 
 # CPU tests and their shared objects need neither GL headers nor graphics packages.
-$(WORLD_OBJECTS) $(OBJ_DIR)/tests/test_world.o $(OBJ_DIR)/tests/test_edits.o: $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS)
+$(WORLD_OBJECTS) $(OBJ_DIR)/tests/test_world.o $(OBJ_DIR)/tests/test_edits.o $(OBJ_DIR)/tests/test_selection.o: $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS)
 	@mkdir -p $(dir $@)
 	$(CC) -Isrc $(CPPFLAGS) $(COMPILE_FLAGS) -MMD -MP -c $< -o $@
 
@@ -116,9 +116,13 @@ $(BIN_DIR)/test-world: $(OBJ_DIR)/tests/test_world.o $(WORLD_OBJECTS) $(BUILD_SE
 $(BIN_DIR)/test-edits: $(OBJ_DIR)/tests/test_edits.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
 
-test: $(BIN_DIR)/test-world $(BIN_DIR)/test-edits
+$(BIN_DIR)/test-selection: $(OBJ_DIR)/tests/test_selection.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
+
+test: $(BIN_DIR)/test-world $(BIN_DIR)/test-edits $(BIN_DIR)/test-selection
 	./$(BIN_DIR)/test-world
 	./$(BIN_DIR)/test-edits
+	./$(BIN_DIR)/test-selection
 
 $(BIN_DIR)/test-shader: $(OBJ_DIR)/tests/test_shader.o $(SHADER_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)

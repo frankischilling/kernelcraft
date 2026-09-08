@@ -5,6 +5,8 @@
 #include "world/world.h"
 #ifndef KERNELCRAFT_BASELINE
 #include "graphics/world_renderer.h"
+#include "graphics/selection.h"
+#include "world/edit.h"
 #else
 #define surfaceBlocks visisbleCubes
 #endif
@@ -40,8 +42,10 @@ static void GLAPIENTRY countData(GLenum target, GLsizeiptr size, const void* dat
   uploads++;
 #ifndef KERNELCRAFT_BASELINE
   if (failUpload && --failUpload == 0) {
-    // Generate a real driver error on either the vertex or index upload.
-    realBufferData(target, -1, data, usage);
+    printf("Injecting buffer upload failure (target %u)\n", target);
+    // Invalid usage generates a GL error without requesting an allocation.
+    // A negative index-buffer size crashed Intel driver 32.0.101.7077.
+    realBufferData(target, size, data, GL_NONE);
     return;
   }
 #endif
@@ -53,6 +57,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 }
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, NULL, _IONBF, 0);
   glutInit(&argc, argv);
   if (!glfwInit())
     return 1;
@@ -121,12 +126,19 @@ int main(int argc, char** argv) {
         return 7;
 #endif
       DebugData data = {&camera, 60.0f, result.surfaceBlocks};
+#ifndef KERNELCRAFT_BASELINE
+      data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
+      data.selectedBlock = BLOCK_GRASS;
+      data.captured = true;
+      data.stats = &result;
+      drawSelection(&data.selection, view, projection);
+#endif
       HUDDraw(shader, &data);
       glFinish();
     }
     elapsed = glfwGetTime() - start;
-    printf("pitch=%5.1f frame_ms=%.3f draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu visible_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60, draws / 60,
-           uploads / 60, lookups / 60, result.surfaceBlocks);
+    printf("pitch=%5.1f frame_ms=%.3f terrain_grid_draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu surface_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60,
+           draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
 #ifndef KERNELCRAFT_BASELINE
     if (uploads || lookups || draws > 60 * (4 * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + 1))
       return 2;
@@ -217,8 +229,7 @@ int main(int argc, char** argv) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   edited = renderWorld(&editCamera, view, projection);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
-  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces != 6 || uploads != 2 ||
-      (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces != 6 || uploads != 2 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
     return 8;
   uploads = 0;
   edited = renderWorld(&editCamera, view, projection);
@@ -228,8 +239,7 @@ int main(int argc, char** argv) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   edited = renderWorld(&editCamera, view, projection);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
-  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces || edited.terrainDrawCalls ||
-      centerPixel[0] || centerPixel[1] || centerPixel[2])
+  if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedFaces || edited.terrainDrawCalls || centerPixel[0] || centerPixel[1] || centerPixel[2])
     return 10;
   // An upload can fail after an earlier buffer was already replaced. Do not
   // draw mismatched CPU/GPU state, clear the dirty flag, or lose cleanup handles.
