@@ -11,11 +11,13 @@
 
 static int cursorMode = GLFW_CURSOR_NORMAL;
 static int focused = GLFW_TRUE;
+static bool iconified;
 static int pressedKey = -1;
 static int frame = -1;
 static int swaps, waits;
 static bool sawCompactHUD, sawDebugHUD;
 static Vec3 beforeMinimize;
+static float yawBeforeMinimize, pitchBeforeMinimize;
 static const Vec3i editFixture = {-1, 40, 6};
 static const int sizes[][2] = {{640, 360}, {360, 640}, {0, 0}, {1280, 720}};
 
@@ -104,6 +106,63 @@ static void testInput(GLFWwindow* window) {
   CHECK(fabsf(camera->yaw - yaw - 1.0f) < 0.001f);
   pressedKey = -1;
   initCamera(camera);
+}
+
+static void testIconifiedInput(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  Camera originalCamera = *camera;
+  InputState originalInput = *input;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  GLFWcursorposfun mouse = glfwSetCursorPosCallback(window, NULL);
+  GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  glfwSetCursorPosCallback(window, mouse);
+  glfwSetMouseButtonCallback(window, click);
+  const Vec3i target = {0, 41, 0}, placement = {0, 41, -1};
+  CHECK(setBlock(&target, BLOCK_STONE) && setBlock(&placement, BLOCK_AIR));
+  CHECK(playerSetPosition(&input->player, (Vec3){0.5f, 40, -2.5f}));
+  camera->position = playerEyePosition(&input->player);
+  camera->yaw = 90;
+  camera->pitch = 0;
+  updateCameraVectors(camera);
+  Vec3 position = camera->position;
+  int material = selectedBlock();
+  bool debug = input->showDebug;
+  // Retain focus and framebuffer dimensions to isolate iconification from
+  // platform-dependent resize/focus callback ordering.
+  iconified = true;
+  key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
+  CHECK(input->showDebug == debug);
+  key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  CHECK(cursorMode == GLFW_CURSOR_DISABLED);
+  key(window, GLFW_KEY_3, 0, GLFW_PRESS, 0);
+  CHECK(selectedBlock() == material);
+  key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
+  CHECK(!input->saveRequested);
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  CHECK(getBlock(&target)->id == BLOCK_STONE);
+  click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+  CHECK(getBlock(&placement)->id == BLOCK_AIR);
+  for (int flying = 0; flying <= 1; flying++) {
+    input->flying = flying != 0;
+    key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+    CHECK(input->flying == (flying != 0));
+    key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+    CHECK(!input->jumpRequested);
+    mouse(window, 100, 100);
+    mouse(window, 300, 300);
+    CHECK(camera->yaw == 90 && camera->pitch == 0);
+    pressedKey = GLFW_KEY_W;
+    processInput(window, input, 10);
+    CHECK(input->simulationSteps == 0);
+    CHECK(camera->position.x == position.x && camera->position.y == position.y && camera->position.z == position.z);
+  }
+  iconified = false;
+  pressedKey = -1;
+  CHECK(setBlock(&target, BLOCK_AIR));
+  *camera = originalCamera;
+  *input = originalInput;
 }
 
 static void testSavedInput(GLFWwindow* window) {
@@ -241,6 +300,27 @@ static void testWalkingControls(GLFWwindow* window) {
   initCamera(camera);
 }
 
+static void prepareMousePause(GLFWwindow* window) {
+  Camera* camera = ((InputState*)glfwGetWindowUserPointer(window))->camera;
+  yawBeforeMinimize = camera->yaw;
+  pitchBeforeMinimize = camera->pitch;
+  setCursorCaptured(window, true);
+  mouseCallback(window, 100, 100);
+}
+
+static void checkRestoredMouse(GLFWwindow* window) {
+  Camera* camera = ((InputState*)glfwGetWindowUserPointer(window))->camera;
+  // No cursor or focus event was delivered during the pause.
+  mouseCallback(window, 5000, -5000);
+  CHECK(camera->yaw == yawBeforeMinimize && camera->pitch == pitchBeforeMinimize);
+  mouseCallback(window, 5020, -5020);
+  CHECK(fabsf(camera->yaw - yawBeforeMinimize - 1) < 0.001f);
+  CHECK(fabsf(camera->pitch - pitchBeforeMinimize - 1) < 0.001f);
+  camera->yaw = yawBeforeMinimize;
+  camera->pitch = pitchBeforeMinimize;
+  updateCameraVectors(camera);
+}
+
 static void walkingFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   Camera* camera = input->camera;
@@ -274,8 +354,10 @@ static void walkingFrame(GLFWwindow* window) {
     CHECK(getBlock(&(Vec3i){0, 39, 1})->id == BLOCK_AIR);
     key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
   }
-  if (frame == 46)
+  if (frame == 46) {
     CHECK(input->player.position.y < 40 && input->player.velocity.y < 0);
+    prepareMousePause(window);
+  }
   if (frame == 47) {
     beforeMinimize = camera->position;
     pressedKey = GLFW_KEY_W;
@@ -285,6 +367,7 @@ static void walkingFrame(GLFWwindow* window) {
   if (frame == 48) {
     CHECK(camera->position.x == beforeMinimize.x && camera->position.y == beforeMinimize.y && camera->position.z == beforeMinimize.z);
     CHECK(input->player.accumulator == 0 && !input->player.jumpPending);
+    checkRestoredMouse(window);
     key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   }
   if (frame == 49) {
@@ -306,6 +389,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testInput(window);
+    testIconifiedInput(window);
     testSavedInput(window);
     testWalkingControls(window);
     testEditing(window);
@@ -346,7 +430,10 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     glfwSetWindowSize(window, sizes[frame][0], sizes[frame][1]);
     glfwPollEvents();
   }
+  if (frame == 1)
+    prepareMousePause(window);
   if (frame == 3) {
+    checkRestoredMouse(window);
     GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
     glfwSetKeyCallback(window, key);
     key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);
@@ -377,6 +464,8 @@ int __wrap_glfwGetInputMode(GLFWwindow* window, int mode) {
 
 int __real_glfwGetWindowAttrib(GLFWwindow* window, int attrib);
 int __wrap_glfwGetWindowAttrib(GLFWwindow* window, int attrib) {
+  if (attrib == GLFW_ICONIFIED)
+    return iconified || frame == 47;
   return attrib == GLFW_FOCUSED ? focused : __real_glfwGetWindowAttrib(window, attrib);
 }
 
@@ -387,7 +476,7 @@ int __wrap_glfwGetKey(GLFWwindow* window, int key) {
 
 void __wrap_glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height) {
   (void)window;
-  int index = frame < 0 ? 0 : frame == 47 ? 2 : frame > 3 ? 3 : frame;
+  int index = frame < 0 ? 0 : frame > 3 ? 3 : frame;
   *width = sizes[index][0];
   *height = sizes[index][1];
 }

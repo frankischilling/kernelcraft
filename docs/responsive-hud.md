@@ -1,5 +1,8 @@
 # Responsive game HUD
 
+PR #17 is merged. The current continuation is [minimized window input](minimized-input.md).
+The validation below describes the HUD increment.
+
 Base: `fe49135c8669a1cc13a2411eec24127e75a59219`, after merging PR #15.
 It was the only open PR. Its GCC/Clang hosted checks and fresh local
 `make -j4 all test test-gl` passed before merging. The working tree was clean,

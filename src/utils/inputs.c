@@ -39,6 +39,8 @@ bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved
 void resetInputTiming(InputState* input) {
   if (!input)
     return;
+  // A pause may deliver no cursor events. The next position starts a new delta.
+  firstMouse = true;
   playerResetTiming(&input->player);
   input->jumpRequested = false;
   input->simulationSteps = 0;
@@ -57,14 +59,14 @@ void windowFocusCallback(GLFWwindow* window, int focused) {
     setCursorCaptured(window, false);
 }
 
-static bool acceptsMovement(GLFWwindow* window) {
-  return glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+static bool acceptsWindowInput(GLFWwindow* window) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  return width > 0 && height > 0 && glfwGetWindowAttrib(window, GLFW_FOCUSED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED);
 }
 
 static bool acceptsEditing(GLFWwindow* window) {
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
-  return width > 0 && height > 0 && acceptsMovement(window);
+  return acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
 }
 
 int selectedBlock(void) {
@@ -104,18 +106,15 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   (void)mods;
   if (action != GLFW_PRESS)
     return;
-  if (key == GLFW_KEY_ESCAPE && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+  if (key == GLFW_KEY_ESCAPE && acceptsWindowInput(window)) {
     setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
     return;
   }
   InputState* input = glfwGetWindowUserPointer(window);
   // Diagnostics remain accessible while the cursor is released. They never
   // resume movement or alter the world, and repeats are rejected above.
-  if (input && key == GLFW_KEY_F3 && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    if (width > 0 && height > 0)
-      input->showDebug = !input->showDebug;
+  if (input && key == GLFW_KEY_F3 && acceptsWindowInput(window)) {
+    input->showDebug = !input->showDebug;
     return;
   }
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_3) {
