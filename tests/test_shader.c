@@ -14,8 +14,8 @@ int main(void) {
   glfwMakeContextCurrent(window);
   if (glewInit() != GLEW_OK)
     return 1;
-  const char* vertex = "bin/test-no-newline.vert";
-  const char* fragment = "bin/test-no-newline.frag";
+  const char* vertex = "test-no-newline.vert";
+  const char* fragment = "test-no-newline.frag";
   FILE* file = fopen(vertex, "wb");
   if (!file)
     return 1;
@@ -40,7 +40,7 @@ int main(void) {
     failed = 1;
     glDeleteProgram(shader);
   }
-  const char* texturePath = "bin/test-gray-alpha.tga";
+  const char* texturePath = "test-gray-alpha.tga";
   const unsigned char tga[] = {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 16, 8, 128, 255};
   file = fopen(texturePath, "wb");
   if (!file)
@@ -58,7 +58,7 @@ int main(void) {
   }
   glDeleteTextures(1, &texture);
   remove(texturePath);
-  texture = loadTexture("bin/nonexistent-texture.png");
+  texture = loadTexture("nonexistent-texture.png");
   if (texture) {
     fprintf(stderr, "Missing texture must report failure\n");
     failed = 1;

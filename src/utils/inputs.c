@@ -11,12 +11,28 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
-// Declare the variables
-static float lastX = 400.0f; // Initial value, adjust as needed
-static float lastY = 300.0f; // Initial value, adjust as needed
+static double lastX, lastY;
 static bool firstMouse = true;
 
+void setCursorCaptured(GLFWwindow* window, bool captured) {
+  // GLFW may move the cursor while changing mode. Discard the next delta.
+  firstMouse = true;
+  glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+}
+
+void windowFocusCallback(GLFWwindow* window, int focused) {
+  firstMouse = true;
+  if (!focused)
+    setCursorCaptured(window, false);
+}
+
+static bool acceptsMovement(GLFWwindow* window) {
+  return glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+}
+
 void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
+  if (!camera || !acceptsMovement(window) || !isfinite(deltaTime) || deltaTime <= 0)
+    return;
   float velocity = camera->speed * deltaTime;
   Vec3 temp;
 
@@ -56,6 +72,10 @@ void processInput(GLFWwindow* window, Camera* camera, float deltaTime) {
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos) {
   Camera* camera = (Camera*)glfwGetWindowUserPointer(window);
+  if (!camera || !acceptsMovement(window)) {
+    firstMouse = true;
+    return;
+  }
 
   if (firstMouse) {
     lastX = xpos;

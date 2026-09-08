@@ -108,7 +108,7 @@ try {
         throw 'Use the 64-bit MinGW GCC from MSYS2 UCRT64 or MINGW64, not the MSYS compiler.'
     }
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
-    $flags = @('-Wall', '-Werror', "-I$(Join-Path $projectDirectory 'src')")
+    $flags = @('-std=c11', '-Wall', '-Wformat=2', '-Wstrict-prototypes', '-Werror', "-I$(Join-Path $projectDirectory 'src')")
     if ($Configuration -eq 'Release') { $flags += '-O2' } else { $flags += @('-O0', '-g3') }
     $libraries = @('-lopengl32', '-lglfw3', '-lglew32', '-lfreeglut', '-lm')
     $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectDirectory 'src') -Filter '*.c' -Recurse -File | Sort-Object FullName | ForEach-Object FullName)
@@ -130,8 +130,8 @@ try {
         Invoke-Native $compiler ($flags + $shaderSources + @('-o', $shaderTest) + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
-        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow')
-        Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/windows_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
+        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime')
+        Invoke-Native $compiler ($flags + $sources + @((Join-Path $projectDirectory 'tests/app_smoke.c')) + $smokeFlags + @('-o', $smokeTest) + $libraries)
         $executables += @($worldTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
@@ -156,7 +156,7 @@ try {
     # Exercise the copied DLLs without finding development libraries through PATH.
     $env:PATH = [Environment]::SystemDirectory + ';' + $env:SystemRoot
     if ($Test) {
-        Push-Location $projectDirectory
+        Push-Location $outputDirectory
         try {
             Invoke-Native $worldTest
             Invoke-Native $shaderTest

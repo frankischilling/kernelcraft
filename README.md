@@ -73,38 +73,61 @@ Install the native compiler and libraries using the [Windows setup guide](docs/w
 
 The build copies assets and required DLLs beside `bin\windows\Release\minecraft_clone.exe`. Use `.\build.cmd -Test` for native Windows tests or `.\build.cmd -Benchmark` for the rendering benchmark. WSL is not required.
 
-### Linux dependencies
+### Linux
 
-Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Here are the installation instructions for Arch Linux:
+On Ubuntu (including Ubuntu under WSL), install the development packages:
 
-- **Arch Linux**:
-  ```bash
-  sudo pacman -S glfw-wayland glew freeglut
-  ```
-  or if you are using X11:
-  ```bash
-  sudo pacman -S glfw-x11 glew freeglut
-  ```
+```sh
+sudo apt-get install build-essential pkg-config libglfw3-dev libglew-dev freeglut3-dev
+make -j4
+make run
+```
 
-  ## Set the XDG_RUNTIME_DIR environment variable
+On Arch, install a C compiler, GNU Make, pkgconf, GLFW, GLEW, and freeglut for
+your display environment. Run from a desktop session with a working OpenGL
+3.3 compatibility driver. The existing FreeGLUT text renderer needs the legacy
+OpenGL API; macOS core-only 3.3 contexts are not supported. Do not change shell startup files to manufacture display-session variables.
 
-  ```bash
-  echo 'export XDG_RUNTIME_DIR=/run/user/$(id -u)' >> ~/.bashrc
-  ```
+Both platforms compile C11 with `-Wall -Wformat=2 -Wstrict-prototypes`.
+Linux Release uses `-O2 -g`; `make CONFIGURATION=Debug` uses `-O0 -g3`.
+Executables, assets, and objects are separated by platform and configuration:
+`bin/linux/Release/minecraft_clone` and `obj/linux/Release/`, or the corresponding
+`Debug` directories. `make clean` removes only the selected Linux configuration.
+Old artifacts directly under `bin/` and `obj/` are no longer used.
 
-### Linux build
+The Linux executable locates its directory through `/proc/self/exe` and changes
+to it before loading assets. It can be launched from another working directory;
+keep the adjacent `assets` directory with it. Windows uses the same layout.
 
-Use the provided `Makefile` to compile the source files. Run `make` in the project root directory.
+Linux dependency discovery uses `pkg-config`. Set `PKG_CONFIG_PATH` for a custom
+installation, or supply both `GRAPHICS_CPPFLAGS` and `GRAPHICS_LDLIBS` explicitly.
+The Makefile honors `CC`, `CPPFLAGS`, `CFLAGS`, `LDFLAGS`, and `LDLIBS`.
+Changes to compiler/flags or included headers invalidate existing objects.
+For example, `make CC=clang CFLAGS='-O1 -g -Werror'` rebuilds with Clang.
+Concurrent builds should use different configurations or separate checkouts.
 
-The default build uses `-O2 -Wall` and tracks header dependencies. Run `make test` for world and mesh regression tests. See [Rendering performance](docs/performance.md) for benchmark results, sanitizer checks, and OpenGL tests.
+### Checks and current status
 
-### Run the Application
+```sh
+make test              # CPU world, math, and mesh regressions; no window
+make test-sanitize     # CPU checks with AddressSanitizer and UBSan
+sudo apt-get install clang xvfb xauth
+make test-build        # Real incremental/configuration builds in a temporary copy
+make test-gl           # Hidden application, shader, texture, and rendering checks
+```
 
-Execute the compiled binary to start the game.
+CPU tests currently require graphics development headers through shared interfaces,
+but link only the C runtime and math library. The graphical tests use Mesa/Xvfb
+on Linux and the installed driver on Windows. These are distinct from interactive
+playtesting. See [checkpoint status](docs/status.md), [Windows setup](docs/windows.md),
+and [rendering checks](docs/performance.md).
 
-### Stuck??
-
-Use the ESC key to be able to use the cursor again.
+W/A/S/D moves the free-flight camera; Space moves up and Left Shift moves down.
+Mouse motion turns the camera while captured. Escape toggles capture; released or
+unfocused windows ignore movement. Focus loss releases the cursor; press Escape
+after returning to resume. The first mouse sample after capture is discarded to
+avoid a jump. Block editing,
+normal player collision/gravity, selectable seeds, and saves are planned.
 
 ## Roadmap
 
@@ -114,11 +137,13 @@ Use the ESC key to be able to use the cursor again.
   - [x] Implement a basic camera system for navigation
   - [x] Basic render distance
   - [x] Implement frustum culling for basic optimization
-  - [x] Implement occlusion culling for better optimization **MAIN FOCUS**
+  - [x] Remove faces between solid blocks, including chunk seams
+  - [ ] Implement true occlusion culling
   - [x] Implement chunk-based rendering system
-  - [x] Add basic shaders for lighting and shadows
+  - [x] Add basic shaders for lighting
+  - [ ] Implement shadows
   - [ ] Implement basic post-processing effects
-  - [x] Add support for different render modes (wireframe, solid)
+  - [ ] Add a wireframe toggle (solid rendering is implemented)
   - [ ] Create debug visualization tools
     - [ ] FPS, ticks, visible faces, visble cubes, how many are rendered out of total
   - [x] Optimize render batching and draw calls
@@ -131,7 +156,8 @@ Use the ESC key to be able to use the cursor again.
   - [x] Basic sine wave for height variation
   - [x] Add support for different cube types (dirt, stone, grass, etc.)
     - [x] Before textures, use different colors to represent different blocks
-  - [x] Add multiple layers (dirt, stone, bedrock)
+  - [x] Add stone, dirt, and grass layers
+  - [ ] Add bedrock
   - [x] Implement basic biome system **(To be enhanced with a more detailed biome system)**
   - [ ] Randomly generated worlds with different seeds
   - [ ] Add cave generation using 3D noise
@@ -140,18 +166,18 @@ Use the ESC key to be able to use the cursor again.
   - [ ] Expand world size **(Planned for later phases)**
 
 - **User Interaction**:
-  - [x] Implement basic controls for player movement
+  - [x] Implement free-flight camera controls
   - [x] Add mouse controls for looking around
   - [ ] Add block placement and destruction
   - [ ] Implement collision detection
   - [ ] Add player physics (gravity, jumping)
-  - [ ] Create raycast system for block selection
+  - [ ] Add reliable grid traversal and placement-face results (fixed-step HUD raycasting exists)
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
   - [x] Implement texture mapping and UV coordinates
     - [x] Fix grass texture mapping using the grass top for the top, and sides.
-  - [wip] Implement texture atlas system
+  - [ ] Integrate a texture atlas (the renderer currently batches four separate textures)
     - [x] Create atlas image from textures using a Python script.
     - [ ] Integrate texture atlas into rendering pipeline
   - [ ] Add support for transparency and alpha blending
@@ -248,7 +274,8 @@ Use the ESC key to be able to use the cursor again.
 ### Phase 6: Testing and Deployment
 - **Testing**:
   - [ ] Conduct thorough playtesting to identify and fix bugs
-  - [ ] Implement automated testing for critical game systems
+  - [x] Add CPU world/math/mesh and graphical startup/render regressions
+  - [ ] Add editing, player collision, and persistence regressions
   - [ ] Optimize performance across different hardware configurations
   - [ ] Gather user feedback to guide further development
 

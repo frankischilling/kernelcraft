@@ -1,3 +1,6 @@
+#if defined(__linux__)
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include <GL/glew.h>
 #include "graphics/camera.h"
 #include "graphics/hud.h"
@@ -11,6 +14,12 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifdef __linux__
+#include <errno.h>
+#include <unistd.h>
+#endif
 #ifdef _WIN32
 #include <windows.h>
 #include <wchar.h>
@@ -23,21 +32,22 @@ static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
 static Camera camera;
-static bool cursorEnabled = false;
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    cursorEnabled = !cursorEnabled;
-    if (cursorEnabled) {
-      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    } else {
-      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+  (void)scancode;
+  (void)mods;
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+    setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
   }
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+  (void)window;
   glViewport(0, 0, width, height);
+}
+
+static void error_callback(int error, const char* description) {
+  fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
 int main(int argc, char** argv) {
@@ -47,30 +57,54 @@ int main(int argc, char** argv) {
   DWORD length = GetModuleFileNameW(NULL, executablePath, sizeof(executablePath) / sizeof(executablePath[0]));
   if (!length || length >= sizeof(executablePath) / sizeof(executablePath[0])) {
     fprintf(stderr, "Failed to locate the executable directory\n");
-    return -1;
+    return EXIT_FAILURE;
   }
   wchar_t* separator = wcsrchr(executablePath, L'\\');
   if (!separator) {
     fprintf(stderr, "Invalid executable path\n");
-    return -1;
+    return EXIT_FAILURE;
   }
   *separator = L'\0';
   if (!SetCurrentDirectoryW(executablePath)) {
     fprintf(stderr, "Failed to open the executable directory\n");
-    return -1;
+    return EXIT_FAILURE;
+  }
+#elif defined(__linux__)
+  // Match the packaged Windows layout without depending on the launch directory.
+  char executablePath[4096];
+  ssize_t length = readlink("/proc/self/exe", executablePath, sizeof(executablePath) - 1);
+  if (length < 0 || (size_t)length >= sizeof(executablePath) - 1) {
+    fprintf(stderr, "Failed to locate the executable directory: %s\n", length < 0 ? strerror(errno) : "path too long");
+    return EXIT_FAILURE;
+  }
+  executablePath[length] = '\0';
+  char* separator = strrchr(executablePath, '/');
+  if (!separator) {
+    fprintf(stderr, "Invalid executable path\n");
+    return EXIT_FAILURE;
+  }
+  separator[separator == executablePath ? 1 : 0] = '\0';
+  if (chdir(executablePath) != 0) {
+    fprintf(stderr, "Failed to open the executable directory: %s\n", strerror(errno));
+    return EXIT_FAILURE;
   }
 #endif
+  glfwSetErrorCallback(error_callback);
   if (!glfwInit()) {
     fprintf(stderr, "Failed to initialize GLFW\n");
-    return -1;
+    return EXIT_FAILURE;
   }
 
   glutInit(&argc, argv);
+  // GLSL 330 and chunk buffers need 3.3; FreeGLUT bitmap text uses legacy GL.
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
   GLFWwindow* window = glfwCreateWindow(1920, 1080, "kernelcraft", NULL, NULL);
   if (!window) {
-    fprintf(stderr, "Failed to open GLFW window\n");
+    fprintf(stderr, "Failed to open an OpenGL 3.3 compatibility window\n");
     glfwTerminate();
-    return -1;
+    return EXIT_FAILURE;
   }
 
   glfwMakeContextCurrent(window);
@@ -80,7 +114,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Failed to initialize GLEW\n");
     glfwDestroyWindow(window);
     glfwTerminate();
-    return -1;
+    return EXIT_FAILURE;
   }
   // Some compatibility drivers leave an error while GLEW probes extensions.
   while (glGetError() != GL_NO_ERROR) {
@@ -93,7 +127,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Failed to load shaders\n");
     glfwDestroyWindow(window);
     glfwTerminate();
-    return -1;
+    return EXIT_FAILURE;
   }
 
   if (!initChunks() || !initWorld(shaderProgram)) {
@@ -101,17 +135,17 @@ int main(int argc, char** argv) {
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
-    return -1;
+    return EXIT_FAILURE;
   }
   HUDInit(BUILD_NAME, BUILD_VERSION);
 
+  initCamera(&camera);
+  glfwSetWindowUserPointer(window, &camera);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glfwSetCursorPosCallback(window, mouseCallback);
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  glfwSetWindowUserPointer(window, &camera);
+  glfwSetWindowFocusCallback(window, windowFocusCallback);
   glfwSetKeyCallback(window, key_callback);
-
-  initCamera(&camera);
+  setCursorCaptured(window, true);
 
   double lastFrame = glfwGetTime();
   lastTime = lastFrame;
@@ -128,10 +162,6 @@ int main(int argc, char** argv) {
       lastTime = currentFrame;
     }
 
-    processInput(window, &camera, deltaTime);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     if (width == 0 || height == 0) {
@@ -139,6 +169,10 @@ int main(int argc, char** argv) {
       lastFrame = glfwGetTime();
       continue;
     }
+    // Bound debug-flight displacement after a stalled frame. Player physics
+    // will use its own fixed simulation step when normal movement is added.
+    processInput(window, &camera, fminf(deltaTime, 0.1f));
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, width, height);
     Mat4 view, projection;
     Vec3 target;

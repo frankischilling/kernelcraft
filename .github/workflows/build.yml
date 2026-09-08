@@ -1,0 +1,41 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    env:
+      CC: ${{ matrix.compiler }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install build and graphical test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc clang make pkg-config libgl1-mesa-dev libglfw3-dev libglew-dev freeglut3-dev xvfb xauth
+      - name: Release build and CPU tests
+        run: make -j2 CFLAGS='-O2 -g -Werror' all test
+      - name: Debug build and CPU tests
+        run: make -j2 CONFIGURATION=Debug CFLAGS='-O0 -g3 -Werror' all test
+      - name: Address and undefined behavior sanitizers
+        run: make test-sanitize
+      - name: Hidden Mesa application and rendering tests
+        run: make -j2 CFLAGS='-O2 -g -Werror' test-gl
+      - name: Incremental build regressions
+        if: matrix.compiler == 'gcc'
+        run: make test-build
