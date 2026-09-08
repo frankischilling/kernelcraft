@@ -12,11 +12,12 @@ out vec4 FragColor;
 in vec3 FragPos;  // Fragment position in world space
 in vec3 Normal;   // Surface normal at fragment
 in vec2 TexCoord; // Texture coordinates
+flat in float Material;
 
 uniform vec3 lightPos;    // Position of the light source
 uniform vec3 viewPos;     // Camera position for specular calculation
 uniform vec3 lightColor;  // Color of the light source
-uniform sampler2D texture1; // Texture sampler
+uniform sampler2DArray texture1; // One independent repeating tile per layer
 uniform bool drawGrid;
 
 void main() {
@@ -42,6 +43,6 @@ void main() {
     vec3 specular = specularStrength * spec * lightColor;
 
     // Combine all lighting components and apply texture color
-    vec3 result = (ambient + diffuse + specular) * texture(texture1, TexCoord).rgb;
+    vec3 result = (ambient + diffuse + specular) * texture(texture1, vec3(TexCoord, Material)).rgb;
     FragColor = vec4(result, 1.0);
 }

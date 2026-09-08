@@ -11,13 +11,13 @@
 
 typedef struct {
   GLuint vao, vbo, ebo;
-  MeshBatch batches[MATERIAL_COUNT];
+  size_t indexCount;
   Vec3 center, dimensions;
   int surfaceBlocks;
 } RenderChunk;
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
-static GLuint textures[MATERIAL_COUNT];
+static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, viewPositionLocation, gridLocation;
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4 };
@@ -56,9 +56,11 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, position));
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, uv));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, material));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
   }
   if (glGetError() != GL_NO_ERROR) {
     freeChunkMesh(mesh);
@@ -68,7 +70,7 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
   vec3_add(&render->center, &mesh->min, &mesh->max);
   vec3_scale(&render->center, &render->center, 0.5f);
   vec3_subtract(&render->dimensions, &mesh->max, &mesh->min);
-  memcpy(render->batches, mesh->batches, sizeof(render->batches));
+  render->indexCount = mesh->indexCount;
   freeChunkMesh(mesh);
   chunk->dirty = false;
   return true;
@@ -101,11 +103,9 @@ bool initWorld(GLuint shaderProgram) {
   program = shaderProgram;
   const char* paths[MATERIAL_COUNT] = {"assets/textures/stone.png", "assets/textures/dirt.png", "assets/textures/grass-top.png", "assets/textures/grass-side.png"};
   glActiveTexture(GL_TEXTURE0);
-  for (int i = 0; i < MATERIAL_COUNT; i++) {
-    textures[i] = loadTexture(paths[i]);
-    if (!textures[i])
-      goto failure;
-  }
+  textureArray = loadTextureArray(paths, MATERIAL_COUNT);
+  if (!textureArray)
+    goto failure;
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
   viewPositionLocation = glGetUniformLocation(program, "viewPos");
@@ -159,9 +159,8 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
 
   // Free flight can place the camera inside terrain, so retain both sides.
   glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
   const float radius = CHUNK_SIZE * CUBE_SIZE * 4.0f / 2.0f;
-  RenderChunk* visible[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
-  int visibleCount = 0;
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       RenderChunk* chunk = &renderChunks[x][z];
@@ -175,23 +174,13 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
         continue;
       if (!frustum_block_visible(&frustum, &chunk->center, &chunk->dimensions, camera))
         continue;
-      visible[visibleCount++] = chunk;
       result.surfaceBlocks += chunk->surfaceBlocks;
       result.chunksRendered++;
-    }
-  }
-  for (int material = 0; material < MATERIAL_COUNT; material++) {
-    glBindTexture(GL_TEXTURE_2D, textures[material]);
-    for (int i = 0; i < visibleCount; i++) {
-      RenderChunk* chunk = visible[i];
-      MeshBatch batch = chunk->batches[material];
-      if (!batch.indexCount)
-        continue;
       glBindVertexArray(chunk->vao);
       result.terrainDrawCalls++;
-      result.submittedQuads += batch.indexCount / 6;
-      result.submittedTriangles += batch.indexCount / 3;
-      glDrawElements(GL_TRIANGLES, (GLsizei)batch.indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)(batch.firstIndex * sizeof(uint32_t)));
+      result.submittedQuads += chunk->indexCount / 6;
+      result.submittedTriangles += chunk->indexCount / 3;
+      glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
     }
   }
   glBindVertexArray(0);
@@ -211,7 +200,7 @@ void cleanupWorld(void) {
   glDeleteVertexArrays(1, &gridVAO);
   glDeleteBuffers(1, &gridVBO);
   gridVAO = gridVBO = 0;
-  glDeleteTextures(MATERIAL_COUNT, textures);
-  memset(textures, 0, sizeof(textures));
+  glDeleteTextures(1, &textureArray);
+  textureArray = 0;
   program = 0;
 }

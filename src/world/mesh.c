@@ -70,7 +70,8 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
                   (MeshVertex){{(origin[0] + p[0] + (vertex[0] + 0.5f) * extent[0]) * CUBE_SIZE, (p[1] + (vertex[1] + 0.5f) * extent[1]) * CUBE_SIZE,
                                 (origin[2] + p[2] + (vertex[2] + 0.5f) * extent[2]) * CUBE_SIZE},
                                {vertex[3], vertex[4], vertex[5]},
-                               {vertex[6] * width, vertex[7] * height}};
+                               {vertex[6] * width, vertex[7] * height},
+                               (float)(key - 1)};
             }
             const uint32_t* winding = face == RIGHT || face == TOP || face == REAR ? reversed : outward;
             for (int i = 0; i < 6; i++)

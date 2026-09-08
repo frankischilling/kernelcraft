@@ -58,9 +58,35 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 }
 
 #ifndef KERNELCRAFT_BASELINE
+// Independent sampler2D reference for the original Phong shader by
+// frankischilling (2024-11-20). Keep this separate from the array shader so
+// incorrect layer selection cannot change both sides of the pixel comparison.
+static GLuint referenceProgram(void) {
+  const char* path = "test-material-reference.frag";
+  const char* source = "#version 330 core\n"
+                       "in vec3 FragPos; in vec3 Normal; in vec2 TexCoord; out vec4 FragColor;\n"
+                       "uniform vec3 lightPos, viewPos, lightColor; uniform sampler2D texture1;\n"
+                       "void main(){\n"
+                       "vec3 norm=normalize(Normal); vec3 lightDir=normalize(lightPos-FragPos);\n"
+                       "vec3 ambient=0.2*lightColor; vec3 diffuse=max(dot(norm,lightDir),0.0)*lightColor;\n"
+                       "vec3 viewDir=normalize(viewPos-FragPos); vec3 reflectDir=reflect(-lightDir,norm);\n"
+                       "float spec=pow(max(dot(viewDir,reflectDir),0.0),32); vec3 specular=0.5*spec*lightColor;\n"
+                       "FragColor=vec4((ambient+diffuse+specular)*texture(texture1,TexCoord).rgb,1.0);}\n";
+  FILE* file = fopen(path, "wb");
+  if (!file)
+    return 0;
+  bool written = fputs(source, file) >= 0;
+  if (fclose(file) != 0)
+    written = false;
+  GLuint program = written ? loadShaders("assets/shaders/vertex_shader.glsl", path) : 0;
+  remove(path);
+  return program;
+}
+
 /* Compare the running renderer with independent unit-cube submissions. Six
- * views exercise the top, bottom, and each side of a merged grass prism. */
-static bool testRepeatedTextures(GLuint shader) {
+ * views exercise every face of grass, dirt, stone, and mixed-material prisms. */
+static bool testRepeatedTextures(GLuint shader, int pattern) {
+  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
@@ -69,15 +95,17 @@ static bool testRepeatedTextures(GLuint shader) {
   for (int x = 1; x < 5; x++)
     for (int y = 20; y < 23; y++)
       for (int z = 1; z < 4; z++)
-        setBlock(&(Vec3i){x, y, z}, BLOCK_GRASS);
+        setBlock(&(Vec3i){x, y, z}, materials[pattern < 3 ? pattern : (x + y + z) % 3]);
   if (!initWorld(shader))
     return false;
-  GLuint textures[] = {loadTexture("assets/textures/grass-side.png"), loadTexture("assets/textures/grass-top.png"), loadTexture("assets/textures/dirt.png")};
+  GLuint textures[] = {loadTexture("assets/textures/stone.png"), loadTexture("assets/textures/dirt.png"), loadTexture("assets/textures/grass-top.png"),
+                       loadTexture("assets/textures/grass-side.png")};
+  GLuint referenceShader = referenceProgram();
   GLuint vao = 0, vbo = 0;
   size_t bytes = 960 * 540 * 3;
   unsigned char* merged = malloc(bytes);
   unsigned char* reference = malloc(bytes);
-  bool success = merged && reference && textures[0] && textures[1] && textures[2];
+  bool success = merged && reference && referenceShader && textures[0] && textures[1] && textures[2] && textures[3];
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
   glBindVertexArray(vao);
@@ -97,13 +125,21 @@ static bool testRepeatedTextures(GLuint shader) {
     mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult result = renderWorld(&camera, view, projection);
-    if (!result.success || result.submittedQuads != 6) {
+    if (!result.success || (pattern < 3 && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
       success = false;
       break;
     }
     glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, merged);
-    /* renderWorld leaves the same projection, camera, and lighting uniforms
-     * active for the reference. Its grid is outside the compared prism pixels. */
+    // Use the original 2D sampler with independent face material selection.
+    // The grid is outside the compared prism pixels.
+    Mat4 viewProjection;
+    mat4_multiply(viewProjection, projection, view);
+    glUseProgram(referenceShader);
+    glUniformMatrix4fv(glGetUniformLocation(referenceShader, "viewProjection"), 1, GL_FALSE, viewProjection);
+    glUniform3f(glGetUniformLocation(referenceShader, "viewPos"), camera.position.x, camera.position.y, camera.position.z);
+    glUniform3f(glGetUniformLocation(referenceShader, "lightPos"), 5, 50, 5);
+    glUniform3f(glGetUniformLocation(referenceShader, "lightColor"), 1, 1, 1);
+    glUniform1i(glGetUniformLocation(referenceShader, "texture1"), 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -118,7 +154,9 @@ static bool testRepeatedTextures(GLuint shader) {
               vertices[corner * 8 + 1] = (vertices[corner * 8 + 1] + y + 0.5f) * CUBE_SIZE;
               vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
             }
-            glBindTexture(GL_TEXTURE_2D, textures[face == TOP ? 1 : face == BOTTOM ? 2 : 0]);
+            int id = materials[pattern < 3 ? pattern : (x + y + z) % 3];
+            int material = id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
+            glBindTexture(GL_TEXTURE_2D, textures[material]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
             glDrawArrays(GL_TRIANGLES, 0, 6);
           }
@@ -136,7 +174,7 @@ static bool testRepeatedTextures(GLuint shader) {
     }
     /* Nearest sampling can differ at texel boundaries after retriangulation.
      * Permit at most 0.2% differing pixels, not stretched or rotated tiles. */
-    printf("Repeated texture face %d: %zu/%zu differing pixels\n", direction, different, compared);
+    printf("Repeated texture pattern %d face %d: %zu/%zu differing pixels\n", pattern, direction, different, compared);
     success = compared > 10000 && different * 500 <= compared && glGetError() == GL_NO_ERROR;
   }
   free(merged);
@@ -144,7 +182,9 @@ static bool testRepeatedTextures(GLuint shader) {
   glBindVertexArray(0);
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
-  glDeleteTextures(3, textures);
+  glDeleteTextures(4, textures);
+  glUseProgram(0);
+  glDeleteProgram(referenceShader);
   return success;
 }
 #endif
@@ -235,6 +275,10 @@ int main(int argc, char** argv) {
            draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
 #ifndef KERNELCRAFT_BASELINE
     printf("submitted_quads=%zu submitted_triangles=%zu chunks_rendered=%d\n", result.submittedQuads, result.submittedTriangles, result.chunksRendered);
+    if (result.terrainDrawCalls != result.chunksRendered || draws != 60 * (unsigned long)(result.chunksRendered + 1)) {
+      fprintf(stderr, "Expected one terrain draw per visible chunk plus the grid\n");
+      return 15;
+    }
     if (uploads || lookups || draws > 60 * (4 * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + 1))
       return 2;
     if (scenario == 2 && result.surfaceBlocks != 0)
@@ -353,10 +397,11 @@ int main(int argc, char** argv) {
       return 13;
   }
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
-  if (!testRepeatedTextures(shader)) {
-    fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
-    return 14;
-  }
+  for (int pattern = 0; pattern < 4; pattern++)
+    if (!testRepeatedTextures(shader, pattern)) {
+      fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
+      return 14;
+    }
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;
