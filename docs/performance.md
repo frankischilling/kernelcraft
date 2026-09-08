@@ -1,22 +1,22 @@
 # Rendering performance
 
-The renderer builds indexed meshes after terrain generation. Only faces next to air or the world boundary enter a mesh. Shared chunk boundaries use neighboring block data, so they do not add hidden faces.
+The renderer builds indexed meshes after terrain generation. Only faces next to air or the world boundary enter a mesh. Compatible coplanar faces now merge into greedy rectangles; see the [current measurements and validation](greedy-meshing.md). Shared chunk boundaries use neighboring block data, so they do not add hidden faces.
 
-Each chunk has four texture batches: stone, dirt, grass top, and grass side. Mesh vertices already contain world positions, normals, and the existing face UVs. The renderer uploads them initially and after relevant edits, releasing each chunk's CPU staging buffers immediately. Frames select chunks by distance and occupied bounds, then draw their texture batches. Uniform locations are cached during initialization.
+Each chunk has four texture batches: stone, dirt, grass top, and grass side. Mesh vertices already contain world positions, normals, and face UVs scaled to repeat once per block. The renderer uploads them initially and after relevant edits, releasing each chunk's CPU staging buffers immediately. Frames select chunks by distance and occupied bounds, then draw their texture batches. Uniform locations are cached during initialization.
 
 Gameplay changes block data through `setBlock`, which dirties its chunk and, when
 exposure changes at a seam, the face neighbor. The next frame rebuilds those
 chunks and reuses existing VAO/VBO/EBO names. An empty mesh clears draw metadata;
 its GPU objects are retained for reuse until renderer cleanup. Ordinary frames
 perform no mesh uploads or uniform-name lookups. The four separate textures and
-per-face UVs remain in use; an atlas is unnecessary for this edit path, and the
+repeating face UVs remain in use; an atlas is unnecessary for this edit path, and the
 unused atlas script has not been advertised as integrated.
 
 Terrain is double-sided because debug flight can enter solid blocks. The HUD's
 surface-block count reports blocks represented by submitted chunks, not blocks
 that contribute pixels. Chunk counts are submitted/considered; all 256 chunks
-are considered. Terrain draw calls exclude the grid and overlays. Face/triangle
-counts count submitted mesh geometry. Update time covers CPU mesh work and GL
+are considered. Terrain draw calls exclude the grid and overlays. Quad/triangle
+counts report submitted merged geometry, not exposed unit block faces. Update time covers CPU mesh work and GL
 submission, including the dirty scan, without waiting for GPU completion.
 
 ## Measurements

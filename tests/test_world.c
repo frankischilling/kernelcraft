@@ -135,6 +135,24 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
       int axis = n.x ? 0 : n.y ? 1 : 2;
       int u = axis == 0 ? 2 : 0, v = axis == 1 ? 2 : 1;
       CHECK(low[axis] == high[axis] && high[u] > low[u] && high[v] > low[v]);
+      unsigned references[4] = {0};
+      for (int i = 0; i < 6; i++) {
+        uint32_t vertex = mesh->indices[index + i];
+        CHECK(vertex >= slot * 4 && vertex < (slot + 1) * 4);
+        if (vertex >= slot * 4 && vertex < (slot + 1) * 4)
+          references[vertex - slot * 4]++;
+      }
+      int diagonal[2] = {0}, shared = 0;
+      for (int c = 0; c < 4; c++) {
+        CHECK(references[c] == 1 || references[c] == 2);
+        if (references[c] == 2 && shared < 2)
+          diagonal[shared++] = c;
+      }
+      CHECK(shared == 2);
+      Vec3 d;
+      vec3_subtract(&d, &vertices[diagonal[0]].position, &vertices[diagonal[1]].position);
+      float components[] = {d.x, d.y, d.z};
+      CHECK(fabsf(components[u]) == (high[u] - low[u]) * CUBE_SIZE && fabsf(components[v]) == (high[v] - low[v]) * CUBE_SIZE);
       /* Existing cube mapping: U increases along z on X faces, x otherwise;
        * V increases along z on tops and decreases along the other V axes. */
       for (int c = 0; c < 4; c++) {

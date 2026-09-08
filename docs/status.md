@@ -1,8 +1,8 @@
 # Foundation checkpoint
 
 This records the historical build/input increment in PR #10, now merged.
-PR #11's block editing increment is also merged. The current continuation is
-[player movement](player-movement.md), on `feat/player-movement` in PR #12.
+PRs #11, #12, and #13 are also merged. The current continuation is
+[greedy meshing](greedy-meshing.md), on `feat/greedy-chunk-meshing` in PR #15.
 The observations below describe the earlier checkpoint.
 
 Audit base: `7b078e0a54d428bc97553a9bd998e8fc0a3953e2` (September 8, 2026).
