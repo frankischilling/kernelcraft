@@ -36,20 +36,23 @@ bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved
   return true;
 }
 
-void resetInputTiming(InputState* input) {
+static void resetInputTiming(InputState* input) {
   if (!input)
     return;
-  // A pause may deliver no cursor events. The next position starts a new delta.
-  firstMouse = true;
   playerResetTiming(&input->player);
   input->jumpRequested = false;
   input->simulationSteps = 0;
 }
 
+void pauseInput(InputState* input) {
+  // A pause may deliver no cursor events. The next position starts a new delta.
+  firstMouse = true;
+  resetInputTiming(input);
+}
+
 void setCursorCaptured(GLFWwindow* window, bool captured) {
   // GLFW may move the cursor while changing mode. Discard the next delta.
-  firstMouse = true;
-  resetInputTiming(glfwGetWindowUserPointer(window));
+  pauseInput(glfwGetWindowUserPointer(window));
   glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
@@ -160,7 +163,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     return;
   input->simulationSteps = 0;
   if (!acceptsEditing(window)) {
-    resetInputTiming(input);
+    pauseInput(input);
     return;
   }
   if (!isfinite(deltaTime) || deltaTime <= 0)

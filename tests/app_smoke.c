@@ -57,6 +57,15 @@ static void testInput(GLFWwindow* window) {
   mouse(window, 10, 10);
   mouse(window, 30, 10);
   CHECK(fabsf(camera->yaw - 91.0f) < 0.001f);
+  // Changing movement mode does not pause or warp the cursor.
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying);
+  mouse(window, 50, 10);
+  CHECK(fabsf(camera->yaw - 92.0f) < 0.001f);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->flying);
+  mouse(window, 70, 10);
+  CHECK(fabsf(camera->yaw - 93.0f) < 0.001f);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   CHECK(cursorMode == GLFW_CURSOR_NORMAL);
   key(window, GLFW_KEY_F3, 0, GLFW_PRESS, 0);

@@ -39,9 +39,10 @@ unless a cursor or focus event happened during that pause.
 The main loop now waits for events when iconified or when the framebuffer is
 empty. All input callbacks share the positive-size, focused, non-iconified
 check. Escape and F3 still work with the cursor released in an active window.
-Resetting input timing discards the cached mouse position as well as queued
-jumps and simulation backlog. The first position after an observed pause
-establishes a new baseline; later positions rotate the camera normally.
+Pausing discards the cached mouse position as well as queued jumps and
+simulation backlog. The first position after an observed pause establishes a
+new baseline; later positions rotate the camera normally. Switching between
+walking and flight resets only simulation timing, preserving mouse look.
 
 The application regression retained focus and framebuffer dimensions while
 reporting iconification. It failed successively on F3 changing state, a stale

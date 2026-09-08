@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
     glfwGetFramebufferSize(window, &width, &height);
     // Iconification is independent of framebuffer size on some window systems.
     if (width <= 0 || height <= 0 || glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
-      resetInputTiming(&input);
+      pauseInput(&input);
       glfwWaitEvents();
       lastFrame = glfwGetTime();
       continue;
