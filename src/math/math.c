@@ -8,6 +8,7 @@
  */
 #include "math.h"
 #include <math.h>
+#include <string.h>
 Vec3 vec3FaceMap[6] = {VEC3_RIGHT, VEC3_LEFT, VEC3_UP, VEC3_DOWN, VEC3_FRONT, VEC3_REAR};
 Vec3i vec3iFaceMap[6] = {VEC3_RIGHT, VEC3_LEFT, VEC3_UP, VEC3_DOWN, VEC3_FRONT, VEC3_REAR};
 
@@ -266,4 +267,17 @@ float lerp(float a, float b, float t) {
 // Simple 2D noise function
 float noise2d(float x, float z) {
   return perlin2d(x, z);
+}
+
+void mat4_multiply(Mat4 result, const Mat4 a, const Mat4 b) {
+  Mat4 product;
+  for (int column = 0; column < 4; column++) {
+    for (int row = 0; row < 4; row++) {
+      float sum = 0;
+      for (int k = 0; k < 4; k++)
+        sum += a[k * 4 + row] * b[column * 4 + k];
+      product[column * 4 + row] = sum;
+    }
+  }
+  memcpy(result, product, sizeof(product));
 }

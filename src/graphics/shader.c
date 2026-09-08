@@ -12,20 +12,23 @@
 
 // Function to read shader code from a file
 static char* readShaderFile(const char* filePath) {
-  FILE* file = fopen(filePath, "r");
+  FILE* file = fopen(filePath, "rb");
   if (!file) {
     fprintf(stderr, "Failed to open shader file: %s\n", filePath);
     return NULL;
   }
 
-  fseek(file, 0, SEEK_END);
-  if (ftell(file) == -1) {
+  if (fseek(file, 0, SEEK_END) != 0) {
     fprintf(stderr, "Failed to seek to end of file: %s\n", filePath);
     fclose(file);
     return NULL;
   }
   long length = ftell(file);
-  fseek(file, 0, SEEK_SET);
+  if (length <= 0 || fseek(file, 0, SEEK_SET) != 0) {
+    fprintf(stderr, "Empty or unreadable shader file: %s\n", filePath);
+    fclose(file);
+    return NULL;
+  }
 
   char* buffer = (char*)malloc(length + 1);
   if (!buffer) {
@@ -34,8 +37,14 @@ static char* readShaderFile(const char* filePath) {
     return NULL;
   }
 
-  fread(buffer, 1, length, file);
-  buffer[length - 1] = '\0';
+  size_t bytesRead = fread(buffer, 1, (size_t)length, file);
+  if (ferror(file) || bytesRead != (size_t)length) {
+    fprintf(stderr, "Failed to read shader file: %s\n", filePath);
+    free(buffer);
+    fclose(file);
+    return NULL;
+  }
+  buffer[bytesRead] = '\0';
   fclose(file);
 
   return buffer;

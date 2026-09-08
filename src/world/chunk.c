@@ -1,5 +1,5 @@
-#include "../math/math.h"
 #include "chunk.h"
+#include "../math/math.h"
 #include "cube.h"
 #include "world.h"
 #include <stdio.h>
@@ -35,17 +35,17 @@ Vec3 blockToWorld(Vec3i* blockPos) {
 // Convert world coordinates to block coordinates.
 Vec3i worldToBlock(Vec3* worldPos) {
   return (Vec3i){
-      (int)(worldPos->x),
-      (int)(worldPos->y),
-      (int)(worldPos->z),
+      (int)floorf(worldPos->x / CUBE_SIZE),
+      (int)floorf(worldPos->y / CUBE_SIZE),
+      (int)floorf(worldPos->z / CUBE_SIZE),
   };
 }
 
 // Convert world coordinates to chunk coordinates.
 Vec2i worldToChunk(Vec3* worldPos) {
   return (Vec2i){
-      (int)(worldPos->x / CHUNK_SIZE),
-      (int)(worldPos->z / CHUNK_SIZE),
+      (int)floorf(worldPos->x / (CHUNK_SIZE * CUBE_SIZE)),
+      (int)floorf(worldPos->z / (CHUNK_SIZE * CUBE_SIZE)),
   };
 }
 
@@ -59,16 +59,12 @@ Vec2i blockToChunk(Vec3i* blockPos) {
 
 // Get the local block position within a chunk (adjust for wrapping around).
 Vec3i getLocal(Vec3i* blockPos) {
-  int localX = (int)((blockPos->x % CHUNK_SIZE) / CUBE_SIZE);
-  int localZ = (int)((blockPos->z % CHUNK_SIZE) / CUBE_SIZE);
+  int localX = blockPos->x % CHUNK_SIZE;
+  int localZ = blockPos->z % CHUNK_SIZE;
   if (localX < 0)
     localX += CHUNK_SIZE;
   if (localZ < 0)
     localZ += CHUNK_SIZE;
 
-  if (localX < 0 || localX > 15 || blockPos->y < 0 || localZ < 0 || localZ > 15) {
-    printf(" OUT OF BOUNDS p: %d, %d, %d chunk: %d,%d\n", localX, blockPos->y, localZ);
-    return (Vec3i)VEC3_ZERO;
-  }
   return (Vec3i){localX, blockPos->y, localZ};
 }

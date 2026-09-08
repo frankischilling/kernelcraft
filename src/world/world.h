@@ -14,12 +14,8 @@
 #include "../graphics/frustum.h"
 #include "../graphics/shader.h"
 #include "../math/math.h"
-#include "cube.h"
 #include "chunk.h"
-
-#define WORLD_SIZE 256
-#define WORLD_HEIGHT 64
-#define CUBE_SIZE 1.0f
+#include "cube.h"
 
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
 
@@ -37,14 +33,13 @@ BiomeParameters getInterpolatedBiomeParameters(float x, float z);
 float getTerrainHeight(float x, float z);
 const char* getCurrentBiomeText(float x, float z);
 // World Functions
-void initWorld();
-RenderResult renderWorld(GLuint shaderProgram, const Camera* camera);
-void cleanupWorld();
+bool initWorld(GLuint shaderProgram);
+RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection);
+void cleanupWorld(void);
 
 // Chunk functions
-void initChunks();
-void cleanupChunks();
-void renderChunkGrid(GLuint shaderProgram, const Camera* camera);
+bool initChunks(void);
+void cleanupChunks(void);
 
 Chunk* getChunk(Vec2i* chunkPos);
 Block* getBlock(Vec3i* pos);

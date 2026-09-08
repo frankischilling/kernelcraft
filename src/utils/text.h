@@ -9,8 +9,16 @@
 #ifndef TEXT_H
 #define TEXT_H
 
-#include <GL/freeglut.h>
+#include <GL/glew.h>
 
-void renderText(GLuint shaderProgram, const char* text, float x, float y);
+typedef struct {
+  GLint program, matrixMode;
+  GLint viewport[4];
+  GLboolean depthTest;
+} TextState;
+
+void beginText(TextState* state);
+void renderText(const TextState* state, const char* text, float x, float y);
+void endText(const TextState* state);
 
 #endif

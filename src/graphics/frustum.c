@@ -13,14 +13,7 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   // Combine projection and view matrices
   Mat4 clip;
 
-  for (int i = 0; i < 4; ++i) {
-    for (int j = 0; j < 4; ++j) {
-      clip[i * 4 + j] = 0;
-      for (int k = 0; k < 4; ++k) {
-        clip[i * 4 + j] += view[i * 4 + k] * projection[k * 4 + j];
-      }
-    }
-  }
+  mat4_multiply(clip, projection, view);
 
   // Right plane
   frustum->planes[0][0] = clip[3] - clip[0];
@@ -65,79 +58,40 @@ void frustum_update(Frustum* frustum, const Mat4 projection, const Mat4 view) {
   plane_normalize(frustum->planes[5]);
 }
 
-bool is_face_visible(Vec3i* posi, int face, const Camera* camera) {
-  Vec3 pos = (Vec3){posi->x, posi->y, posi->z};
-  Vec3 toBlock;
-  vec3_subtract(&toBlock, &pos, &camera->position);
-  vec3_normalize(&toBlock, &toBlock);
-
-  Vec3 faceNormal = VEC3_ZERO;
+bool is_face_visible(Vec3i* pos, int face, const Camera* camera) {
+  // Compare against the face plane; no normalization or quadrant correction is needed.
   switch (face) {
-  case 0:
-    faceNormal = (Vec3)VEC3_RIGHT;
-    break; // Right face
-  case 1:
-    faceNormal = (Vec3)VEC3_LEFT;
-    break; // Left face
-  case 2:
-    faceNormal = (Vec3)VEC3_UP;
-    break; // Top face
-  case 3:
-    faceNormal = (Vec3)VEC3_DOWN;
-    break; // Bottom face
-  case 4:
-    faceNormal = (Vec3)VEC3_FRONT;
-    break; // Front face
-  case 5:
-    faceNormal = (Vec3)VEC3_REAR;
-    break; // Rear face
+  case RIGHT:
+    return camera->position.x > (pos->x + 1) * CUBE_SIZE;
+  case LEFT:
+    return camera->position.x < pos->x * CUBE_SIZE;
+  case TOP:
+    return camera->position.y > (pos->y + 1) * CUBE_SIZE;
+  case BOTTOM:
+    return camera->position.y < pos->y * CUBE_SIZE;
+  case FRONT:
+    return camera->position.z > (pos->z + 1) * CUBE_SIZE;
+  case REAR:
+    return camera->position.z < pos->z * CUBE_SIZE;
+  default:
+    return false;
   }
-
-  if ((toBlock.x < 0 && toBlock.z > 0) || (toBlock.x > 0 && toBlock.z < 0)) {
-    faceNormal = (Vec3){-faceNormal.x, faceNormal.y, -faceNormal.z};
-  }
-  return vec3_dot(&toBlock, &faceNormal) < 0.0f;
 }
 
 bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
-  // Get the block type of current block
+  (void)size;
+  (void)camera;
   Block* block = getBlock(pos);
-  if (!block) {
-    printf("BLOCK IS NULL AT %d, %d, %d this shouldnt happen\n", pos->x, pos->y, pos->z);
-  }
-  enum BlockID current = block->id;
-  if (current == BLOCK_AIR) {
-    printf("AIR CHECKED FOR OCCLUSION AT p: %d, %d, %d this shouldnt happen\n", pos->x, pos->y, pos->z);
+  if (!block || block->id == BLOCK_AIR)
     return true;
-  }
-
-  // Check all six faces
-
-  for (int i = 0; i < 6; i++) {
-    Vec3i checkVector;
-    vec3i_add(&checkVector, pos, &vec3iFaceMap[i]);
-    if (checkVector.y < 0) {
-      checkVector.y = 0;
-    }
-    Block* neighborBlock = getBlock(&checkVector);
-    if (!neighborBlock) {
-      // If block is next to world border, make it visible
+  for (int face = 0; face < 6; face++) {
+    Vec3i neighborPos;
+    vec3i_add(&neighborPos, pos, &vec3iFaceMap[face]);
+    Block* neighbor = getBlock(&neighborPos);
+    if (!neighbor || neighbor->id == BLOCK_AIR)
       return false;
-    }
-    enum BlockID neighborID = block->id;
-    if (neighborID == BLOCK_AIR) {
-      // If any face is exposed to air, the block is visible
-      return false;
-    }
   }
-
-  // culling switch when close to the block
-  /*Vec3 posv3 = (Vec3){pos->x, pos->y, pos->z};
-  if (vec3_distance(&camera->position, &posv3) < 3.0f) {
-    return false;
-  }*/
-
-  return true; // Block is completely surrounded by other blocks
+  return true;
 }
 
 bool frustum_cube_visible(const Frustum* frustum, Vec3* pos, float size, const Camera* camera) {

@@ -17,8 +17,13 @@ uniform vec3 lightPos;    // Position of the light source
 uniform vec3 viewPos;     // Camera position for specular calculation
 uniform vec3 lightColor;  // Color of the light source
 uniform sampler2D texture1; // Texture sampler
+uniform bool drawGrid;
 
 void main() {
+    if (drawGrid) {
+        FragColor = vec4(0.3, 0.3, 0.3, 1.0);
+        return;
+    }
     // Calculate ambient lighting component
     float ambientStrength = 0.2;
     vec3 ambient = ambientStrength * lightColor;

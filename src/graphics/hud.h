@@ -19,8 +19,5 @@ typedef struct {
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);
 void HUDInit(char* buildName, char* buildVersion);
-static void EntryDraw(GLuint shaderProgram, DebugEntry* entry, int* i);
-static void UpdateEntries(DebugData* data);
-static void DrawCrosshair(GLuint shaderProgram);
 
 #endif // HUD_H

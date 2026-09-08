@@ -1,16 +1,16 @@
 #include <GL/glew.h>
-#include <GL/freeglut.h>
-#include <GLFW/glfw3.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include "graphics/camera.h"
-#include "world/cube.h"
+#include "graphics/hud.h"
 #include "graphics/shader.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/text.h"
+#include "world/cube.h"
 #include "world/world.h"
-#include "graphics/hud.h"
+#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 #define BUILD_VERSION "v0.0.3-alpha"
 #define BUILD_NAME "kernelcraft"
@@ -18,9 +18,6 @@
 static double lastTime = 0.0;
 static int frameCount = 0;
 static float fps = 0.0f;
-float lastX = 1920.0f / 2.0f;
-float lastY = 1080.0f / 2.0f;
-bool firstMouse = true;
 static Camera camera;
 static bool cursorEnabled = false;
 
@@ -58,7 +55,12 @@ int main(int argc, char** argv) {
   glewExperimental = GL_TRUE;
   if (glewInit() != GLEW_OK) {
     fprintf(stderr, "Failed to initialize GLEW\n");
+    glfwDestroyWindow(window);
+    glfwTerminate();
     return -1;
+  }
+  // Some compatibility drivers leave an error while GLEW probes extensions.
+  while (glGetError() != GL_NO_ERROR) {
   }
 
   glEnable(GL_DEPTH_TEST);
@@ -66,12 +68,18 @@ int main(int argc, char** argv) {
   GLuint shaderProgram = loadShaders("assets/shaders/vertex_shader.glsl", "assets/shaders/fragment_shader.glsl");
   if (!shaderProgram) {
     fprintf(stderr, "Failed to load shaders\n");
+    glfwDestroyWindow(window);
+    glfwTerminate();
     return -1;
   }
 
-  initWorld();
-  initCube();
-  initChunks();
+  if (!initChunks() || !initWorld(shaderProgram)) {
+    cleanupChunks();
+    glDeleteProgram(shaderProgram);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return -1;
+  }
   HUDInit(BUILD_NAME, BUILD_VERSION);
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -82,16 +90,17 @@ int main(int argc, char** argv) {
 
   initCamera(&camera);
 
-  float lastFrame = 0.0f;
+  double lastFrame = glfwGetTime();
+  lastTime = lastFrame;
 
   while (!glfwWindowShouldClose(window)) {
-    float currentFrame = glfwGetTime();
-    float deltaTime = currentFrame - lastFrame;
+    double currentFrame = glfwGetTime();
+    float deltaTime = (float)(currentFrame - lastFrame);
     lastFrame = currentFrame;
 
     frameCount++;
     if (currentFrame - lastTime >= 1.0) {
-      fps = (float)frameCount;
+      fps = (float)(frameCount / (currentFrame - lastTime));
       frameCount = 0;
       lastTime = currentFrame;
     }
@@ -100,21 +109,20 @@ int main(int argc, char** argv) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(shaderProgram);
-
-    Mat4 model, view, projection;
-    mat4_identity(model);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    if (width == 0 || height == 0) {
+      glfwWaitEvents();
+      lastFrame = glfwGetTime();
+      continue;
+    }
+    glViewport(0, 0, width, height);
+    Mat4 view, projection;
     Vec3 target;
     vec3_add(&target, &camera.position, &camera.front);
     mat4_lookAt(view, &camera.position, &target, &camera.up);
-    mat4_perspective(projection, 45.0f, 1920.0f / 1080.0f, 0.1f, 100.0f);
-
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, model);
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projection);
-
-    renderChunkGrid(shaderProgram, &camera);
-    RenderResult result = renderWorld(shaderProgram, &camera);
+    mat4_perspective(projection, 70.0f, (float)width / height, 0.1f, 1000.0f);
+    RenderResult result = renderWorld(&camera, view, projection);
 
     DebugData data = (DebugData){&camera, fps, result.visisbleCubes};
     HUDDraw(shaderProgram, &data);
@@ -123,9 +131,10 @@ int main(int argc, char** argv) {
     glfwPollEvents();
   }
 
+  cleanupWorld();
+  cleanupChunks();
+  glDeleteProgram(shaderProgram);
   glfwDestroyWindow(window);
   glfwTerminate();
-  cleanupChunks();
-  cleanupWorld();
   return 0;
 }

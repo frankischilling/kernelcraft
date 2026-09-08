@@ -5,7 +5,10 @@
 
 #define CHUNK_SIZE 16   // block count
 #define CHUNK_HEIGHT 64 // block count
-#define CHUNKS_PER_AXIS WORLD_SIZE / CHUNK_SIZE
+#define WORLD_SIZE 256
+#define WORLD_HEIGHT CHUNK_HEIGHT
+#define CUBE_SIZE 1.0f
+#define CHUNKS_PER_AXIS (WORLD_SIZE / CHUNK_SIZE)
 #define CHUNK_DIMENSIONS                                                                                                                                                           \
   (Vec3) {                                                                                                                                                                         \
     CHUNK_SIZE *CUBE_SIZE, CHUNK_HEIGHT *CUBE_SIZE, CHUNK_SIZE *CUBE_SIZE,                                                                                                         \
