@@ -16,9 +16,14 @@ for rendering/startup changes, and `make test-build` for Makefile changes.
 `make CC=clang CFLAGS='-O2 -g -Werror' all test` provides another compiler check.
 On native Windows, use `.\build.cmd -Test` and repeat with
 `-Configuration Debug` when changing startup or build behavior. See the README
-for dependencies and `docs/shader-startup.md` for the current continuation point.
+for dependencies and `docs/texture-array.md` for the current continuation point.
 Run Debug and sanitizer builds sequentially in one checkout: `test-sanitize`
 also writes the Debug output directories.
+
+Terrain material IDs map directly to texture-array layers. Keep that ordering
+consistent across the mesher and renderer. New layers must match the existing
+tile dimensions; preserve repeated UVs and extend the independent material
+pixel comparisons when changing face mapping or sampling.
 
 Add tests for observable defects and boundary cases. CPU tests must not create
 an OpenGL context. The application smoke harness substitutes GLFW event/input

@@ -1,7 +1,8 @@
 # Greedy chunk meshing
 
-PR #15 is merged. The current continuation is [responsive HUD work](responsive-hud.md)
-in draft PR #17. The measurements below describe the meshing increment.
+PR #15 is merged. See [texture-array integration](texture-array.md) for the
+current material path. The measurements below describe the earlier meshing
+increment with separate texture batches.
 
 Work starts at `aab7744475bc0318149d89442280fed1cd3fcfcb`, after merging
 PR #13. No other PR was open. The working directory was clean; the existing

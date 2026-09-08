@@ -27,7 +27,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **main.c**: The entry point of the application. It initializes the OpenGL context and handles the main rendering loop.
   - **assets/**: Contains assets like shaders and textures.
   - **graphics/**: Contains rendering-related code.
-    - **world_renderer.c**: Rebuilds dirty chunk meshes and draws visible texture batches.
+    - **world_renderer.c**: Rebuilds dirty chunk meshes and draws each visible chunk with shared texture-array materials.
     - **camera.c**: Manages camera movement and orientation.
     - **hud.c**: Draws gameplay status, a responsive hotbar, and F3 diagnostics.
     - **shader.c**: Handles shader loading and compilation.
@@ -124,7 +124,7 @@ make test-gl           # Hidden application, HUD layout, restart, shader, textur
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [shader startup validation](docs/shader-startup.md), [minimized input status](docs/minimized-input.md), [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [texture-array integration](docs/texture-array.md), [shader startup validation](docs/shader-startup.md), [minimized input status](docs/minimized-input.md), [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
@@ -248,9 +248,10 @@ power-loss durability is not guaranteed. See the [format and validation record](
 - **Graphics Enhancements**:
   - [x] Implement texture mapping and UV coordinates
     - [x] Fix grass texture mapping using the grass top for the top, and sides.
-  - [ ] Integrate a texture atlas (the renderer currently batches four separate textures)
-    - [x] Create atlas image from textures using a Python script.
-    - [ ] Integrate texture atlas into rendering pipeline
+  - [x] Integrate shared material textures using a 2D array in place of an atlas
+    - [x] Keep stone, dirt, grass top, and grass side in separate repeating layers
+    - [x] Submit one terrain draw per visible chunk; verify materials against separate-texture reference renders
+    - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
   - [ ] Add support for transparency and alpha blending
   - [ ] Add support for skyboxes and clouds 
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)

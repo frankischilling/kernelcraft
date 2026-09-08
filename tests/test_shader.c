@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
+#include <string.h>
 
 static PFNGLCREATESHADERPROC realCreateShader;
 static PFNGLCREATEPROGRAMPROC realCreateProgram;
@@ -79,6 +80,96 @@ static int writeShader(const char* path, const char* source) {
   return fclose(file) == 0 && written;
 }
 
+static PFNGLTEXIMAGE3DPROC realTexImage3D;
+static PFNGLTEXSUBIMAGE3DPROC realTexSubImage3D;
+static int failArrayStorage, failArrayUpload, arrayUploads;
+static GLint createdArray;
+
+static void GLAPIENTRY arrayStorage(GLenum target, GLint level, GLint format, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum pixelFormat, GLenum type,
+                                    const void* pixels) {
+  glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &createdArray);
+  realTexImage3D(target, level, failArrayStorage ? GL_NONE : format, width, height, depth, border, pixelFormat, type, pixels);
+}
+
+static void GLAPIENTRY arrayUpload(GLenum target, GLint level, GLint x, GLint y, GLint z, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type,
+                                   const void* pixels) {
+  arrayUploads++;
+  realTexSubImage3D(target, level, x, y, z, width, height, depth, arrayUploads == failArrayUpload ? GL_NONE : format, type, pixels);
+}
+
+static int checkArrayFailure(const char* const paths[], int count, int storageFailure, int uploadFailure, int expectedUploads) {
+  failArrayStorage = storageFailure;
+  failArrayUpload = uploadFailure;
+  arrayUploads = createdArray = 0;
+  GLuint texture = loadTextureArray(paths, count);
+  int failed = texture != 0 || glGetError() != GL_NO_ERROR || arrayUploads != expectedUploads || (createdArray && glIsTexture((GLuint)createdArray));
+  if (failed)
+    fprintf(stderr, "Texture array failure must stop at the expected stage and release its GL object\n");
+  glDeleteTextures(1, &texture);
+  if (createdArray) {
+    GLuint leaked = (GLuint)createdArray;
+    glDeleteTextures(1, &leaked);
+  }
+  return failed;
+}
+
+static int writeGrayTexture(const char* path, int width, unsigned char gray, unsigned char alpha) {
+  const unsigned char tga[] = {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, (unsigned char)width, 0, 1, 0, 16, 8, gray, alpha, gray, alpha};
+  FILE* file = fopen(path, "wb");
+  if (!file)
+    return 0;
+  size_t size = (size_t)(18 + width * 2);
+  int written = fwrite(tga, 1, size, file) == size;
+  return fclose(file) == 0 && written;
+}
+
+static int testTextureArrays(const char* first) {
+  const char* second = "test-array-second.tga";
+  const char* mismatch = "test-array-mismatch.tga";
+  if (!writeGrayTexture(second, 1, 64, 128) || !writeGrayTexture(mismatch, 2, 64, 128))
+    return 1;
+  const char* paths[] = {first, second};
+  realTexImage3D = __glewTexImage3D;
+  realTexSubImage3D = __glewTexSubImage3D;
+  __glewTexImage3D = arrayStorage;
+  __glewTexSubImage3D = arrayUpload;
+  const char* bad[][2] = {{"nonexistent-texture.png", second}, {first, "nonexistent-texture.png"}, {first, mismatch}, {NULL, second}, {first, NULL}};
+  int failed = 0;
+  for (int i = 0; i < 5; i++)
+    failed |= checkArrayFailure(bad[i], 2, 0, 0, i == 0 || i == 3 ? 0 : 1);
+  failed |= checkArrayFailure(NULL, 2, 0, 0, 0);
+  failed |= checkArrayFailure(paths, 0, 0, 0, 0);
+  failed |= checkArrayFailure(paths, -1, 0, 0, 0);
+  GLint maxLayers = 0;
+  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxLayers);
+  failed |= checkArrayFailure(paths, maxLayers + 1, 0, 0, 0);
+  failed |= checkArrayFailure(paths, 2, 1, 0, 0);
+  failed |= checkArrayFailure(paths, 2, 0, 1, 1);
+  failed |= checkArrayFailure(paths, 2, 0, 2, 2);
+  failArrayStorage = failArrayUpload = 0;
+  GLuint texture = loadTextureArray(paths, 2);
+  unsigned char pixels[8] = {0};
+  const unsigned char expected[] = {128, 128, 128, 255, 64, 64, 64, 128};
+  GLint width = 0, height = 0, depth = 0, wrap = 0, filter = 0;
+  glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_WIDTH, &width);
+  glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_HEIGHT, &height);
+  glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_DEPTH, &depth);
+  if (texture && width == 1 && height == 1 && depth == 2)
+    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  glGetTexParameteriv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, &wrap);
+  glGetTexParameteriv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, &filter);
+  if (!texture || width != 1 || height != 1 || depth != 2 || memcmp(pixels, expected, sizeof(pixels)) || wrap != GL_REPEAT || filter != GL_NEAREST || glGetError() != GL_NO_ERROR) {
+    fprintf(stderr, "Texture array must preserve RGBA pixels, layer order, dimensions, and repeating nearest sampling\n");
+    failed = 1;
+  }
+  glDeleteTextures(1, &texture);
+  __glewTexImage3D = realTexImage3D;
+  __glewTexSubImage3D = realTexSubImage3D;
+  remove(second);
+  remove(mismatch);
+  return failed;
+}
+
 int main(void) {
   if (!glfwInit())
     return 1;
@@ -147,6 +238,7 @@ int main(void) {
     failed = 1;
   }
   glDeleteTextures(1, &texture);
+  failed |= testTextureArrays(texturePath);
   remove(texturePath);
   texture = loadTexture("nonexistent-texture.png");
   if (texture) {

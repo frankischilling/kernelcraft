@@ -11,6 +11,7 @@ typedef struct {
   Vec3 position;
   Vec3 normal;
   float uv[2];
+  float material; // Texture-array layer, constant across a rectangle.
 } MeshVertex;
 
 typedef struct {

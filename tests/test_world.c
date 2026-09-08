@@ -124,6 +124,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
       CHECK(n.x == direction.x && n.y == direction.y && n.z == direction.z);
       float low[3] = {INFINITY, INFINITY, INFINITY}, high[3] = {-INFINITY, -INFINITY, -INFINITY};
       for (int c = 0; c < 4; c++) {
+        CHECK(vertices[c].material == material);
         const float p[] = {vertices[c].position.x / CUBE_SIZE, vertices[c].position.y / CUBE_SIZE, vertices[c].position.z / CUBE_SIZE};
         CHECK(vertices[c].normal.x == n.x && vertices[c].normal.y == n.y && vertices[c].normal.z == n.z);
         for (int axis = 0; axis < 3; axis++) {
