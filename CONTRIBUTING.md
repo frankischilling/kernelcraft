@@ -16,7 +16,7 @@ for rendering/startup changes, and `make test-build` for Makefile changes.
 `make CC=clang CFLAGS='-O2 -g -Werror' all test` provides another compiler check.
 On native Windows, use `.\build.cmd -Test` and repeat with
 `-Configuration Debug` when changing startup or build behavior. See the README
-for dependencies and `docs/greedy-meshing.md` for the current continuation point.
+for dependencies and `docs/responsive-hud.md` for the current continuation point.
 
 Add tests for observable defects and boundary cases. CPU tests must not create
 an OpenGL context. The application smoke harness substitutes GLFW event/input
@@ -27,7 +27,9 @@ or whether controls feel right during interactive play.
 For manual input checks: launch the game, navigate with W/A/S/D, release the
 cursor with Escape, and confirm mouse/keyboard movement stops. Capture again and
 check that the view does not jump, then switch applications and return. Focus loss releases the
-cursor; Escape resumes capture. Resize, minimize, and restore the window.
+cursor; Escape resumes capture. Resize, minimize, and restore the window. Toggle F3 while captured and released;
+check that labels and material slots fit small landscape/portrait windows, save
+errors stay readable, and the aiming area remains clear.
 Select each material with 1/2/3, break and place blocks at chunk seams, and check
 that the outline follows the next target. Try placement near the camera and
 while the mouse is released. Use a new explicit `--world` path for manual tests.

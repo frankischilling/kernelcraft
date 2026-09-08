@@ -29,7 +29,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **graphics/**: Contains rendering-related code.
     - **world_renderer.c**: Rebuilds dirty chunk meshes and draws visible texture batches.
     - **camera.c**: Manages camera movement and orientation.
-    - **hud.c**: Provides a basic hud and debug management system.
+    - **hud.c**: Draws gameplay status, a responsive hotbar, and F3 diagnostics.
     - **shader.c**: Handles shader loading and compilation.
     - **frustum.c**: Implements frustum culling for optimization.
     - **texture.c**: Implements texture loading and binding.
@@ -52,7 +52,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **Rendering**:
   - Basic rendering of cubes with lighting effects using shaders.
   - Frustum culling for optimization.
-  - Dynamic text rendering for displaying FPS and biome information.
+  - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics.
 
 - **World Generation**:
   - Procedural terrain generation using Perlin noise and selectable 32-bit seeds.
@@ -118,13 +118,13 @@ make test              # CPU world, mesh, edit, DDA, player, seed, save, and CLI
 make test-sanitize     # CPU checks with AddressSanitizer and UBSan
 sudo apt-get install clang xvfb xauth
 make test-build        # Real incremental/configuration builds in a temporary copy
-make test-gl           # Hidden application, restart, shader, texture, and rendering checks
+make test-gl           # Hidden application, HUD layout, restart, shader, texture, and rendering checks
 ```
 
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
@@ -136,7 +136,16 @@ the player. Jump to climb a one-block step; automatic stepping is not implemente
 F toggles debug flight, where W/A/S/D follows the camera and Space/Left Shift
 moves up/down through terrain. Returning to walking keeps the current body
 position if clear, or finds a standing surface near that column. The HUD shows
-movement mode, grounded/airborne state, and completed simulation steps per frame.
+movement mode and grounded/airborne state. F3 toggles detailed diagnostics,
+including FPS, coordinates, simulation steps, and mesh statistics. It works
+while the mouse is captured or released, without resuming movement.
+
+The HUD fits its text and material slots to the framebuffer. Small windows use
+smaller bitmap text and shorten long labels; diagnostics occupy available space
+above the aiming area. More diagnostic rows appear in taller windows. Save
+status remains visible with diagnostics hidden. Below 96 pixels wide or 120
+high, the hotbar is hidden; control hints also disappear when space is too short.
+This does not establish physical high-DPI scaling behavior.
 
 Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
 press Escape after returning to resume. Minimized windows also pause. The first
@@ -204,7 +213,7 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [ ] Implement shadows
   - [ ] Implement basic post-processing effects
   - [ ] Add a wireframe toggle (solid rendering is implemented)
-  - [x] Show FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
+  - [x] Toggle F3 diagnostics for FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
   - [x] Show completed simulation steps per frame and movement state
   - [x] Optimize render batching and draw calls
 
@@ -338,6 +347,7 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [x] Add CPU editing/DDA and running-application edit/pixel regressions
   - [x] Add CPU collision and application walking/jumping/pause regressions
   - [x] Add persistence and restart regressions
+  - [x] Add responsive HUD layout/pixel and F3 input regressions
   - [ ] Optimize performance across different hardware configurations
   - [ ] Gather user feedback to guide further development
 
