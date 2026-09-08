@@ -124,7 +124,7 @@ make test-gl           # Hidden application, HUD layout, restart, shader, textur
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [minimized input status](docs/minimized-input.md), [responsive HUD status](docs/responsive-hud.md), [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
@@ -148,8 +148,10 @@ high, the hotbar is hidden; control hints also disappear when space is too short
 This does not establish physical high-DPI scaling behavior.
 
 Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
-press Escape after returning to resume. Minimized windows also pause. The first
-mouse sample after capture is discarded to avoid a turn jump. Left click destroys
+press Escape after returning to resume. Minimized windows pause rendering and
+input even if their framebuffer size stays positive. Zero-size framebuffers
+also pause. The first mouse sample after capture or an observed pause is
+discarded to avoid a turn jump. Left click destroys
 the target; right click places on its face. Keys 1/2/3 select grass, dirt, and
 stone. Each press edits once within six world units; a gold outline marks the
 selected block. Placement rejects occupied/out-of-world cells and body overlap

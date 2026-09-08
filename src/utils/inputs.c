@@ -36,7 +36,7 @@ bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved
   return true;
 }
 
-void resetInputTiming(InputState* input) {
+static void resetInputTiming(InputState* input) {
   if (!input)
     return;
   playerResetTiming(&input->player);
@@ -44,10 +44,15 @@ void resetInputTiming(InputState* input) {
   input->simulationSteps = 0;
 }
 
+void pauseInput(InputState* input) {
+  // A pause may deliver no cursor events. The next position starts a new delta.
+  firstMouse = true;
+  resetInputTiming(input);
+}
+
 void setCursorCaptured(GLFWwindow* window, bool captured) {
   // GLFW may move the cursor while changing mode. Discard the next delta.
-  firstMouse = true;
-  resetInputTiming(glfwGetWindowUserPointer(window));
+  pauseInput(glfwGetWindowUserPointer(window));
   glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
@@ -57,14 +62,14 @@ void windowFocusCallback(GLFWwindow* window, int focused) {
     setCursorCaptured(window, false);
 }
 
-static bool acceptsMovement(GLFWwindow* window) {
-  return glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+static bool acceptsWindowInput(GLFWwindow* window) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  return width > 0 && height > 0 && glfwGetWindowAttrib(window, GLFW_FOCUSED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED);
 }
 
 static bool acceptsEditing(GLFWwindow* window) {
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
-  return width > 0 && height > 0 && acceptsMovement(window);
+  return acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
 }
 
 int selectedBlock(void) {
@@ -104,18 +109,15 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   (void)mods;
   if (action != GLFW_PRESS)
     return;
-  if (key == GLFW_KEY_ESCAPE && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+  if (key == GLFW_KEY_ESCAPE && acceptsWindowInput(window)) {
     setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
     return;
   }
   InputState* input = glfwGetWindowUserPointer(window);
   // Diagnostics remain accessible while the cursor is released. They never
   // resume movement or alter the world, and repeats are rejected above.
-  if (input && key == GLFW_KEY_F3 && glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    if (width > 0 && height > 0)
-      input->showDebug = !input->showDebug;
+  if (input && key == GLFW_KEY_F3 && acceptsWindowInput(window)) {
+    input->showDebug = !input->showDebug;
     return;
   }
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_3) {
@@ -161,7 +163,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     return;
   input->simulationSteps = 0;
   if (!acceptsEditing(window)) {
-    resetInputTiming(input);
+    pauseInput(input);
     return;
   }
   if (!isfinite(deltaTime) || deltaTime <= 0)

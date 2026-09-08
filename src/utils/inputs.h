@@ -30,7 +30,8 @@ bool initInputs(InputState* input, Camera* camera);
 // The caller supplies state already validated by loadWorld.
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved);
 bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
-void resetInputTiming(InputState* input);
+// Discard simulation backlog, queued jumps, and the cached mouse position.
+void pauseInput(InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void setCursorCaptured(GLFWwindow* window, bool captured);
