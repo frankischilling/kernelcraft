@@ -271,6 +271,95 @@ static bool testSelectionVisibility(GLuint shader) {
   return success;
 }
 
+static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
+  const Vec3i selected = {-1, 20, 0};
+  unsigned char* pixels = malloc(960 * 540 * 3);
+  if (!pixels)
+    return false;
+  bool success = true;
+  for (int layout = 0; layout < 2; layout++)
+    for (int face = 0; face < 6; face++) {
+      for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+        for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+          Chunk* chunk = getChunk(&(Vec2i){x, z});
+          memset(chunk->blocks, 0, sizeof(chunk->blocks));
+        }
+      Vec3 n = vec3FaceMap[face], u = n.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
+      vec3_cross(&v, &n, &u);
+      // Rotate the same floor/neighbor arrangement onto all six faces.
+      // Layout 0 matches a block on the ground beside a flush neighbor.
+      // Layout 1 also extends that neighbor toward the camera as a side wall.
+      for (int a = -2; a <= 2; a++)
+        for (int b = -1; b <= 2; b++)
+          for (int c = -2; c <= 3; c++) {
+            bool floor = b == -1;
+            bool neighbor = a == 1 && (layout ? b >= 0 && c >= -1 : b == 0 && c == 0);
+            if (floor || neighbor || (a == 0 && b == 0 && c == 0))
+              setBlock(&(Vec3i){selected.x + (int)(a * u.x + b * v.x + c * n.x), selected.y + (int)(a * u.y + b * v.y + c * n.y), selected.z + (int)(a * u.z + b * v.z + c * n.z)},
+                       BLOCK_GRASS);
+          }
+      if (!initWorld(shader)) {
+        free(pixels);
+        return false;
+      }
+      Vec3 center = {selected.x + 0.5f + n.x * 0.5f, selected.y + 0.5f + n.y * 0.5f, selected.z + 0.5f + n.z * 0.5f};
+      for (int angle = 0; angle < 3; angle++) {
+        Camera camera = {.position = {center.x + 3.5f * n.x + (0.75f + angle * 0.75f) * v.x - angle * u.x, center.y + 3.5f * n.y + (0.75f + angle * 0.75f) * v.y - angle * u.y,
+                                      center.z + 3.5f * n.z + (0.75f + angle * 0.75f) * v.z - angle * u.z},
+                         .up = v};
+        vec3_subtract(&camera.front, &center, &camera.position);
+        Mat4 view, projection, combined;
+        mat4_lookAt(view, &camera.position, &center, &camera.up);
+        mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+        mat4_multiply(combined, projection, view);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        RenderResult result = renderWorld(&camera, view, projection);
+        Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
+        if (!result.success || !hit.hit || hit.blockCoords.x != selected.x || hit.blockCoords.y != selected.y || hit.blockCoords.z != selected.z) {
+          fprintf(stderr, "Neighbor selection fixture missed layout %d face %d view %d\n", layout, face, angle);
+          success = false;
+          continue;
+        }
+        drawSelection(&hit, view, projection);
+        glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+        if (capturePrefix && layout == 0 && face == FRONT && angle == 0) {
+          char filename[512];
+          snprintf(filename, sizeof(filename), "%s-selection-neighbors.ppm", capturePrefix);
+          FILE* capture = fopen(filename, "wb");
+          if (!capture) {
+            free(pixels);
+            return false;
+          }
+          fprintf(capture, "P6\n960 540\n255\n");
+          for (int row = 539; row >= 0; row--)
+            fwrite(pixels + row * 960 * 3, 1, 960 * 3, capture);
+          fclose(capture);
+        }
+        // Four edges of the aimed face, plus the other three top edges in
+        // the reference arrangement. Every sampled boundary is visible terrain.
+        for (int edge = 0; edge < (layout ? 4 : 7); edge++) {
+          int visible = 0;
+          for (int sample = 0; sample < 32; sample++) {
+            float along = -0.45f + 0.9f * sample / 31;
+            float a = edge < 2 || edge == 4 ? along : edge == 2 || edge == 5 ? -0.5f : 0.5f;
+            float b = edge < 2 ? (edge == 0 ? -0.5f : 0.5f) : edge < 4 ? along : 0.5f;
+            float c = edge < 4 ? 0 : edge == 4 ? -1 : along - 0.5f;
+            Vec3 point = {center.x + a * u.x + b * v.x + c * n.x, center.y + a * u.y + b * v.y + c * n.y, center.z + a * u.z + b * v.z + c * n.z};
+            visible += selectionPixelNear(pixels, combined, point);
+          }
+          if (visible < 30) {
+            fprintf(stderr, "Neighbor selection layout %d face %d view %d edge %d: only %d/32 visible samples\n", layout, face, angle, edge, visible);
+            success = false;
+          }
+        }
+      }
+    }
+  free(pixels);
+  if (success)
+    puts("Selection floor and side boundaries passed in 36 views");
+  return success;
+}
+
 static bool testCloseSelection(GLuint shader) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -343,7 +432,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
                           GL_BLEND_SRC_ALPHA, GL_BLEND_DST_ALPHA, GL_BLEND_EQUATION_RGB, GL_BLEND_EQUATION_ALPHA, GL_CULL_FACE_MODE};
   const GLint expected[] = {(GLint)shader,    GL_TEXTURE, GL_GREATER, GL_TRUE, GL_ONE, GL_ZERO, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_FUNC_REVERSE_SUBTRACT,
                             GL_FUNC_SUBTRACT, GL_FRONT};
-  bool restored = !glIsEnabled(GL_DEPTH_TEST) && glIsEnabled(GL_BLEND) && glIsEnabled(GL_CULL_FACE) && glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  bool restored = !glIsEnabled(GL_DEPTH_TEST) && glIsEnabled(GL_BLEND) && glIsEnabled(GL_CULL_FACE) && glIsEnabled(GL_POLYGON_OFFSET_FILL) && !glIsEnabled(GL_POLYGON_OFFSET_LINE);
   for (size_t state = 0; state < sizeof(names) / sizeof(names[0]); state++) {
     GLint value;
     glGetIntegerv(names[state], &value);
@@ -389,6 +478,29 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
     drawSelection(&miss, view, projection);
     glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
     occluded &= memcmp(before, after, bytes) == 0;
+    // Put the selected outline fully inside a taller foreground silhouette.
+    // Near-coplanar top/side views must not bias hidden lines through this wall.
+    for (int x = -2; x <= 0; x++)
+      for (int y = 19; y <= 21; y++)
+        setBlock(&(Vec3i){x, y, 2}, BLOCK_STONE);
+    const Vec3 grazingEyes[] = {{-0.5f, 20.999f, 4.5f}, {-0.5f, 21.001f, 4.5f}, {-0.5f, 21.01f, 4.5f}, {-0.001f, 20.5f, 4.5f}, {0.001f, 20.5f, 4.5f}};
+    for (size_t eye = 0; eye < sizeof(grazingEyes) / sizeof(grazingEyes[0]); eye++) {
+      camera.position = grazingEyes[eye];
+      vec3_subtract(&camera.front, &target, &camera.position);
+      mat4_lookAt(view, &camera.position, &target, &camera.up);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      if (!renderWorld(&camera, view, projection).success) {
+        occluded = false;
+        break;
+      }
+      glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, before);
+      drawSelection(&hit, view, projection);
+      glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
+      if (memcmp(before, after, bytes)) {
+        fprintf(stderr, "Selection leaked through foreground at grazing view %zu\n", eye);
+        occluded = false;
+      }
+    }
   }
   free(before);
   free(after);
@@ -616,6 +728,8 @@ int main(int argc, char** argv) {
     }
   if (!testSelectionVisibility(shader))
     return 16;
+  if (!testNeighborSelection(shader, argc > 1 ? argv[1] : NULL))
+    return 19;
   if (!testCloseSelection(shader))
     return 17;
   if (!testSelectionOcclusionAndState(shader))
