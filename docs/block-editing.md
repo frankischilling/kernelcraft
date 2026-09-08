@@ -1,7 +1,8 @@
 # Block editing checkpoint
 
 Historical record for merged PR #11. PR #10 is also merged; the current
-continuation is [player movement](player-movement.md) in draft PR #12.
+continuation is [greedy meshing](greedy-meshing.md) in draft PR #15;
+player movement and persistence have since merged.
 Controls and limitations below describe the editing checkpoint.
 
 This branch starts at `74953fd229483614a44a34925d8f97ea88f4ea48` and depends on

@@ -39,7 +39,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **world.c**: Manages world generation and updates, including biome interpolation and terrain height calculation.
     - **chunk.c**: Converts between world, block, and chunk coordinates.
     - **cube.c**: Defines cube face positions, normals, and texture coordinates.
-    - **mesh.c**: Builds indexed chunk meshes from exposed block faces.
+    - **mesh.c**: Builds indexed greedy rectangles from compatible exposed block faces.
     - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
     - **save.c**: Validated, versioned chunk and player snapshots with safe file replacement.
   - **utils/**: Contains utility functions and input handling.
@@ -124,7 +124,7 @@ make test-gl           # Hidden application, restart, shader, texture, and rende
 CPU tests need only a C compiler, Make, and the math library; they include no
 OpenGL or GLFW headers and create no window. The graphical tests use Mesa/Xvfb
 on Linux and the installed driver on Windows. These are distinct from interactive
-playtesting. See [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
+playtesting. See [greedy meshing status](docs/greedy-meshing.md), [seed and persistence status](docs/world-persistence.md), [player movement status](docs/player-movement.md), [block editing checkpoint](docs/block-editing.md), [build checkpoint](docs/status.md), [Windows setup](docs/windows.md),
 and [rendering checks](docs/performance.md).
 
 New worlds start in walking mode at a clear position above terrain; saved worlds resume at their stored feet position. W/A/S/D walks
@@ -204,7 +204,7 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [ ] Implement shadows
   - [ ] Implement basic post-processing effects
   - [ ] Add a wireframe toggle (solid rendering is implemented)
-  - [x] Show FPS, submitted surface blocks, chunks, terrain draws, faces/triangles, and mesh update time
+  - [x] Show FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
   - [x] Show completed simulation steps per frame and movement state
   - [x] Optimize render batching and draw calls
 
@@ -253,7 +253,7 @@ power-loss durability is not guaranteed. See the [format and validation record](
 
 - **Optimization**:
   - [x] Implement voxel-like meshes using OpenGL meshes
-  - [ ] Implement greedy meshing for chunk rendering to reduce draw calls
+  - [x] Merge compatible chunk faces to reduce mesh storage and submitted triangles
   - [ ] Add level of detail (LOD) system for distant chunks
   - [x] Optimize memory usage for chunk storage
   - [ ] Implement multithreaded chunk generation for smoother performance

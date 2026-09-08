@@ -1,5 +1,8 @@
 # Seeded worlds and persistence
 
+PR #13 is merged. The current continuation is [greedy meshing](greedy-meshing.md)
+in draft PR #15. The record below describes the persistence increment.
+
 Base: `6171a9a2769d7ce36eba1c3fd2e37c6cf644d707`, merged main after PR #12.
 The only open PR was #12; it was reviewed, freshly tested with
 `make -j4 all test test-gl`, and merged before this work. No open PRs remained.

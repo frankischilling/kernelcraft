@@ -16,7 +16,7 @@ for rendering/startup changes, and `make test-build` for Makefile changes.
 `make CC=clang CFLAGS='-O2 -g -Werror' all test` provides another compiler check.
 On native Windows, use `.\build.cmd -Test` and repeat with
 `-Configuration Debug` when changing startup or build behavior. See the README
-for dependencies and `docs/world-persistence.md` for the current continuation point.
+for dependencies and `docs/greedy-meshing.md` for the current continuation point.
 
 Add tests for observable defects and boundary cases. CPU tests must not create
 an OpenGL context. The application smoke harness substitutes GLFW event/input

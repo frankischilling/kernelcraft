@@ -117,7 +117,7 @@ static void UpdateEntries(DebugData* data) {
   snprintf(entryCubeCount.text, sizeof(entryCubeCount.text), "Surface blocks: %d", data->visibleBlocks);
   if (data->stats) {
     snprintf(entryChunks.text, sizeof(entryChunks.text), "Chunks: %d/%d | Draws: %d", data->stats->chunksRendered, data->stats->chunksConsidered, data->stats->terrainDrawCalls);
-    snprintf(entryFaces.text, sizeof(entryFaces.text), "Faces: %zu | Triangles: %zu", data->stats->submittedFaces, data->stats->submittedTriangles);
+    snprintf(entryFaces.text, sizeof(entryFaces.text), "Quads: %zu | Triangles: %zu", data->stats->submittedQuads, data->stats->submittedTriangles);
     snprintf(entryRebuilds.text, sizeof(entryRebuilds.text), "Rebuilt: %d | Update: %.2f ms", data->stats->chunksRebuilt, data->stats->meshUpdateMilliseconds);
   }
 
