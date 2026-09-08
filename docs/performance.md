@@ -25,6 +25,15 @@ These frame times measure a software renderer. They demonstrate reduced renderin
 
 ## Run the checks
 
+On Windows, follow the [native Windows setup](windows.md), then run:
+
+```powershell
+.\build.cmd -Test
+.\build.cmd -Benchmark
+```
+
+These commands use hidden native OpenGL windows and the installed Windows graphics driver. They do not use WSL or Xvfb. The earlier measurements in this document remain software-renderer results; rerun the benchmark to measure your GPU.
+
 On Ubuntu or WSL, install the build and test dependencies:
 
 ```sh

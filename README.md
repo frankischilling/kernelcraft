@@ -63,7 +63,17 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 ## Getting Started
 
-### Install Dependencies
+### Windows
+
+Install the native compiler and libraries using the [Windows setup guide](docs/windows.md), then run this from PowerShell in the repository:
+
+```powershell
+.\build.cmd -Run
+```
+
+The build copies assets and required DLLs beside `bin\windows\Release\minecraft_clone.exe`. Use `.\build.cmd -Test` for native Windows tests or `.\build.cmd -Benchmark` for the rendering benchmark. WSL is not required.
+
+### Linux dependencies
 
 Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Here are the installation instructions for Arch Linux:
 
@@ -82,7 +92,7 @@ Ensure you have OpenGL, GLFW, GLEW, and GLUT installed on your Linux system. Her
   echo 'export XDG_RUNTIME_DIR=/run/user/$(id -u)' >> ~/.bashrc
   ```
 
-### Build the Project
+### Linux build
 
 Use the provided `Makefile` to compile the source files. Run `make` in the project root directory.
 

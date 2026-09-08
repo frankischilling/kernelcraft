@@ -11,6 +11,10 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <wchar.h>
+#endif
 
 #define BUILD_VERSION "v0.0.3-alpha"
 #define BUILD_NAME "kernelcraft"
@@ -37,6 +41,25 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  // Explorer, shortcuts, and terminals can start the game in any directory.
+  wchar_t executablePath[32768];
+  DWORD length = GetModuleFileNameW(NULL, executablePath, sizeof(executablePath) / sizeof(executablePath[0]));
+  if (!length || length >= sizeof(executablePath) / sizeof(executablePath[0])) {
+    fprintf(stderr, "Failed to locate the executable directory\n");
+    return -1;
+  }
+  wchar_t* separator = wcsrchr(executablePath, L'\\');
+  if (!separator) {
+    fprintf(stderr, "Invalid executable path\n");
+    return -1;
+  }
+  *separator = L'\0';
+  if (!SetCurrentDirectoryW(executablePath)) {
+    fprintf(stderr, "Failed to open the executable directory\n");
+    return -1;
+  }
+#endif
   if (!glfwInit()) {
     fprintf(stderr, "Failed to initialize GLFW\n");
     return -1;
