@@ -55,7 +55,7 @@ Tracked prerequisite: [issue #8](https://github.com/frankischilling/kernelcraft/
   verify both builds. Extend the real application smoke test to Linux.
 - [x] Repair cursor/focus transitions and test them through the application
   callbacks. Exercise framebuffer changes, zero dimensions, and context lifetime.
-- [ ] Add GCC/Clang CI, reconcile build/controls/roadmap documentation, and
+- [x] Add GCC/Clang CI, reconcile build/controls/roadmap documentation, and
   publish the tested checkpoint as a draft PR.
 
 Next, [issue #9](https://github.com/frankischilling/kernelcraft/issues/9) orders
@@ -113,3 +113,45 @@ Review found that the build-settings recipe executed during `make -n` on a fresh
 checkout. A new regression reproduced it; moving the write into the shell recipe
 made dry runs leave the output tree absent. The compiler override test now keeps
 CFLAGS constant so the compiler change alone must trigger rebuilding.
+
+## Validation and handoff
+
+Native Windows used MSYS2 MINGW64 GCC 13.2.0, GLFW 3.3.8, GLEW 2.2.0,
+freeglut 3.4.0, and Intel UHD Graphics driver 32.0.101.7077. Linux tests ran on
+Ubuntu under WSL with GCC 13.3.0/Clang 18.1.3 and Mesa llvmpipe (LLVM 20.1.2).
+These are native Windows and Linux/WSL executions, not cross-compilation.
+
+| Command | Observed result |
+| --- | --- |
+| `make -j4 all test-gl` | Pass, exit 0; real hidden application, shaders, textures, terrain pixels, input, viewport/projection, normal shutdown |
+| `make CC=gcc CFLAGS='-O2 -g -Werror' -j4 all test test-gl` | Pass, exit 0 |
+| `make CC=clang CFLAGS='-O2 -g -Werror' -j4 all test test-gl` | Pass, exit 0 |
+| `make CC=gcc CONFIGURATION=Debug CFLAGS='-O0 -g3 -Werror' -j4 all test` | Pass, exit 0 |
+| `make test-sanitize` | Pass with GCC, exit 0; AddressSanitizer and UBSan CPU checks |
+| `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 make CC=clang test-sanitize` | Pass, exit 0 |
+| `make test-build` and `CC=clang make test-build` | Pass, exit 0; controlled GCC-to-Clang switch, header/flags, separate outputs, dry runs |
+| `.\build.cmd -Test` | Pass, exit 0; native Windows Release |
+| `.\build.cmd -Configuration Debug -Test` | Pass, exit 0; native Windows Debug |
+| `make GRAPHICS_LDLIBS= check-deps` | Expected failure, exit 2 with dependency instructions |
+| `make CONFIGURATION='Release unexpected' -n all` | Expected failure, exit 2 with accepted configuration names |
+| `MESA_GL_VERSION_OVERRIDE=3.0 xvfb-run -a ./bin/linux/Release/test-startup` | Expected failure, exit 1 with the required context version |
+
+`tests/test_startup.sh` also checks missing shader/texture exit code 1 and rejects
+harness failures. Compilation and diagnostics are shown directly; no shared build
+log is overwritten. The GCC/Clang Actions jobs repeat Release/Debug builds,
+CPU sanitizers, and Mesa graphical tests on Ubuntu 24.04 with read-only repository
+permissions. See [PR #10](https://github.com/frankischilling/kernelcraft/pull/10)
+for hosted run results. Windows validation is local; there is no Windows CI job.
+
+The independent read-only review identified dry-run and compiler-test problems,
+and a missing positive movement frame in the application test. Each was addressed.
+The movement frame now verifies the game-loop input connection and stall clamp.
+No human reviewer approval has been requested or claimed.
+
+The branch contains the prerequisite repair; it has not been merged. The next
+implementation step is issue #9's validated block edit API with dirty propagation
+across chunk seams and incremental GPU uploads. Finish that with CPU mesh tests
+and a running edit fixture before adding DDA controls and player collision.
+Selectable seeds, save/load, greedy meshing, and the later roadmap remain undone.
+Interactive navigation/editing/collision/persistence, physical high-DPI changes,
+allocation-failure injection, macOS, and Windows sanitizer runs were not performed.
