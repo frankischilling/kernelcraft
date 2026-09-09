@@ -177,6 +177,7 @@ int main(int argc, char** argv) {
       sawSaveFailure = sawModeBlocked = sawFPS = sawDebugHint = false;
       data.showDebug = debug;
       data.captured = debug == 0;
+      data.breakingProgress = width >= 192 && height >= 180 ? 0.5f : 0;
       data.selectedSlot = ((int)i * 2 + debug) % 9;
       glClearColor(0.3f, 0.4f, 0.5f, 1);
       glClear(GL_COLOR_BUFFER_BIT);
@@ -241,6 +242,12 @@ int main(int argc, char** argv) {
         return 1;
       glPixelStorei(GL_PACK_ALIGNMENT, 1);
       glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      if (width >= 192 && height >= 180) {
+        const unsigned char* filled = pixels + ((size_t)(height / 2 + 12) * width + width / 2 - 12) * 3;
+        const unsigned char* empty = pixels + ((size_t)(height / 2 + 12) * width + width / 2 + 12) * 3;
+        CHECK(debug ? filled[0] < 240 : filled[0] > 240 && filled[1] > 180 && filled[2] < 100);
+        CHECK(debug ? empty[0] < 240 : empty[0] < 30 && empty[1] < 30 && empty[2] < 30);
+      }
       if (width >= 192 && height >= 120) {
         for (int slot = 0; slot < 9; slot++)
           CHECK(materialX[slot] >= 0 && (!slot || materialX[slot] > materialX[slot - 1]));

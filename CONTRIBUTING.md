@@ -46,7 +46,7 @@ errors stay readable, and the aiming area remains clear.
 Select all nine hotbar slots with 1–9. Grass, dirt, stone, and cobblestone occupy slots 1–4;
 empty slots 5–9 should break blocks without placing anything. Check the flat
 icons and selected border in small landscape, portrait, and wide/short windows.
-Break and place blocks at chunk seams, and check
+Hold left mouse to break and right-click to place blocks at chunk seams, and check
 that the outline follows the next target. Try placement near the camera and
 while the mouse is released. Use a new explicit `--world` path for manual tests.
 Save with F5, close, reopen without `--seed`, and verify edits, feet, view, and
@@ -71,3 +71,12 @@ unique temporary directories and preserve any existing user saves. CPU tests
 cover malformed files and allocation/write/flush/sync/close/replace failures;
 two-process graphical fixtures cover actual edit callbacks, F5, normal-exit
 saves, and restored rendered chunks. Issue #9 tracks merged foundation delivery.
+
+For timed hand breaking, check the gold progress bar above the crosshair and
+the different dirt/grass/stone/cobblestone times. Release before completion,
+change targets, move beyond reach, and hold through a completed break. Changing
+slots, right-clicking, toggling flight, or pausing must cancel the hold and require
+a fresh press. Repeat in walking and debug flight, including empty hotbar slots.
+The CPU edit tests cover timing, frame stalls, target resets, and seam invalidation;
+the application harness checks held breaking in the game loop and rendered HUD.
+See [timed hand breaking](docs/timed-block-breaking.md).

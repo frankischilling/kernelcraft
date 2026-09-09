@@ -17,6 +17,13 @@ static double lastX, lastY;
 static bool firstMouse = true;
 static int selectedSlot;
 
+static void cancelBreaking(InputState* input) {
+  if (input) {
+    input->breakHeld = false;
+    resetBlockBreaking(&input->breaking);
+  }
+}
+
 bool initInputs(InputState* input, Camera* camera) {
   *input = (InputState){.camera = camera};
   camera->fov = CAMERA_BASE_FOV;
@@ -48,6 +55,7 @@ static void resetInputTiming(InputState* input) {
   input->camera->fov = CAMERA_BASE_FOV;
   input->jumpRequested = false;
   input->simulationSteps = 0;
+  cancelBreaking(input);
 }
 
 void pauseInput(InputState* input) {
@@ -142,8 +150,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     input->showDebug = !input->showDebug;
     return;
   }
-  if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9)
+  if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9) {
+    if (selectedSlot != key - GLFW_KEY_1)
+      cancelBreaking(input);
     selectedSlot = key - GLFW_KEY_1;
+  }
   if (!input || !acceptsEditing(window))
     return;
   if (key == GLFW_KEY_F5)
@@ -170,12 +181,32 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   (void)mods;
   InputState* input = glfwGetWindowUserPointer(window);
+  if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+    cancelBreaking(input);
+    return;
+  }
   if (!input || action != GLFW_PRESS || !acceptsEditing(window))
     return;
   Camera* camera = input->camera;
-  Vec3 feet = inputBodyFeet(input);
-  if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT)
-    editTarget(camera->position, camera->front, feet, !input->flying && input->player.crouched, selectedBlock(), button == GLFW_MOUSE_BUTTON_RIGHT);
+  if (button == GLFW_MOUSE_BUTTON_LEFT && !input->breakHeld) {
+    input->breakHeld = true;
+    advanceBlockBreaking(&input->breaking, camera->position, camera->front, 0);
+  }
+  if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+    cancelBreaking(input);
+    editTarget(camera->position, camera->front, inputBodyFeet(input), !input->flying && input->player.crouched, selectedBlock(), true);
+  }
+}
+
+void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTime) {
+  if (!input)
+    return;
+  if (!acceptsEditing(window)) {
+    cancelBreaking(input);
+    return;
+  }
+  if (input->breakHeld)
+    advanceBlockBreaking(&input->breaking, input->camera->position, input->camera->front, deltaTime);
 }
 
 void processInput(GLFWwindow* window, InputState* input, double deltaTime) {

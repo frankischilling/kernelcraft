@@ -20,6 +20,7 @@ typedef struct {
   int visibleBlocks;
   Ray selection;
   int selectedSlot;
+  float breakingProgress;
   bool captured;
   bool flying, grounded, modeBlocked;
   bool crouched, running;

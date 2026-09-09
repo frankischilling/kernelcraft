@@ -89,6 +89,23 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     }
   }
   glLineWidth(1);
+  if (data->captured && data->breakingProgress > 0 && width >= 64 && height >= 40) {
+    glColor3f(0.08f, 0.08f, 0.08f);
+    glBegin(GL_QUADS);
+    glVertex2f(cx - 25, cy + 10);
+    glVertex2f(cx + 25, cy + 10);
+    glVertex2f(cx + 25, cy + 14);
+    glVertex2f(cx - 25, cy + 14);
+    glEnd();
+    float right = cx - 24 + 48 * fminf(data->breakingProgress, 1.0f);
+    glColor3f(1.0f, 0.85f, 0.2f);
+    glBegin(GL_QUADS);
+    glVertex2f(cx - 24, cy + 11);
+    glVertex2f(right, cy + 11);
+    glVertex2f(right, cy + 13);
+    glVertex2f(cx - 24, cy + 13);
+    glEnd();
+  }
   // Tiny windows keep only status and the crosshair until controls fit again.
   if (width < 192 || height < 120)
     return;
@@ -154,7 +171,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14)
-    drawLabel(state, data->captured ? "Left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 8, baseline, width - 16);
+    drawLabel(state, data->captured ? "Hold left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 8, baseline, width - 16);
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 8, baseline, width - 16);

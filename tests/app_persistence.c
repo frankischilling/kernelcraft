@@ -94,7 +94,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     input->camera->pitch = 0;
     updateCameraVectors(input->camera);
     mouse(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    CHECK(id(removed) == BLOCK_DIRT);
+    for (int i = 0; i < 5; i++)
+      processBlockBreaking(window, input, 0.1);
     CHECK(id(removed) == BLOCK_AIR);
+    mouse(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
     key(window, GLFW_KEY_3, 0, GLFW_PRESS, 0);
     mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(id(placed) == BLOCK_STONE);
@@ -126,6 +130,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     }
     CHECK(!memcmp(&input->player.position, &expectedFeet, sizeof(feet)));
     CHECK(!input->player.crouched && !input->player.running && !input->runInput.tapPending);
+    CHECK(!input->breakHeld && !input->breaking.active);
     CHECK(input->player.velocity.x == 0 && input->player.velocity.y == 0 && input->player.velocity.z == 0);
     CHECK(input->camera->yaw == 90 && input->camera->pitch == (crouchScenario() ? -35 : 0) && selectedBlock() == BLOCK_AIR);
     CHECK(selectedHotbarSlot() == 8);

@@ -11,6 +11,7 @@
 
 #include "../graphics/camera.h"
 #include "../world/player.h"
+#include "../world/edit.h"
 #include "../world/save.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
@@ -19,6 +20,8 @@ typedef struct {
   Camera* camera;
   Player player;
   PlayerRunInput runInput;
+  BlockBreaking breaking;
+  bool breakHeld;
   bool flying;
   bool jumpRequested;
   bool saveRequested;
@@ -35,6 +38,8 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
 // Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
+// Run after movement and before rendering/saving so selection uses the new eye.
+void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void setCursorCaptured(GLFWwindow* window, bool captured);
 void windowFocusCallback(GLFWwindow* window, int focused);

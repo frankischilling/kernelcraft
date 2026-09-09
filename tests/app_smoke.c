@@ -446,6 +446,73 @@ static void testCameraCue(void) {
   CHECK(fine.fov == coarse.fov && fine.fov < 80);
 }
 
+// Complete a held press without advancing physics or changing the test camera.
+static void finishHandBreak(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Ray target = rayCast(input->camera->position, input->camera->front, EDIT_REACH);
+  CHECK(target.hit && getBlock(&target.blockCoords)->id != BLOCK_AIR);
+  for (int frame = 0; frame < 120 && getBlock(&target.blockCoords)->id != BLOCK_AIR; frame++)
+    processBlockBreaking(window, input, 1.0 / 60);
+  CHECK(getBlock(&target.blockCoords)->id == BLOCK_AIR);
+  mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+}
+
+static void testBreakingCancellation(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  InputState saved = *input;
+  Camera camera = *input->camera;
+  int slot = selectedHotbarSlot();
+  Vec3i target = {50, 41, 53};
+  CHECK(setBlock(&(Vec3i){50, 39, 50}, BLOCK_STONE));
+  for (int y = 40; y <= 42; y++)
+    for (int z = 50; z <= 55; z++)
+      CHECK(setBlock(&(Vec3i){50, y, z}, BLOCK_AIR));
+  CHECK(playerSetPosition(&input->player, (Vec3){50.5f, 40, 50.5f}));
+  input->camera->position = playerEyePosition(&input->player);
+  input->camera->front = (Vec3){0, 0, 1};
+  for (int flying = 0; flying <= 1; flying++) {
+    for (int reason = 0; reason < 8; reason++) {
+      input->flying = flying != 0;
+      CHECK(setBlock(&target, BLOCK_DIRT));
+      mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+      processBlockBreaking(window, input, 0.1);
+      CHECK(input->breakHeld && blockBreakingProgress(&input->breaking) > 0);
+      if (reason == 0)
+        mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+      if (reason == 1)
+        keyCallback(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+      if (reason == 2) {
+        focused = GLFW_FALSE;
+        windowFocusCallback(window, GLFW_FALSE);
+      }
+      iconified = reason == 3;
+      zeroFramebuffer = reason == 4;
+      if (reason == 5)
+        keyCallback(window, selectedHotbarSlot() == 8 ? GLFW_KEY_1 : GLFW_KEY_9, 0, GLFW_PRESS, 0);
+      if (reason == 6)
+        mouseButtonCallback(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+      if (reason == 7)
+        keyCallback(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+      processBlockBreaking(window, input, 10);
+      CHECK(!input->breakHeld && !input->breaking.active && getBlock(&target)->id == BLOCK_DIRT);
+      focused = GLFW_TRUE;
+      iconified = zeroFramebuffer = false;
+      if (cursorMode != GLFW_CURSOR_DISABLED)
+        setCursorCaptured(window, true);
+      CHECK(setBlock(&(Vec3i){50, 41, 52}, BLOCK_AIR)); // Clear a possible right-click placement.
+      for (int i = 0; i < 20; i++)
+        processBlockBreaking(window, input, 0.1);
+      CHECK(getBlock(&target)->id == BLOCK_DIRT && blockBreakingProgress(&input->breaking) == 0);
+      mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+      mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_REPEAT, 0);
+      finishHandBreak(window);
+    }
+  }
+  keyCallback(window, GLFW_KEY_1 + slot, 0, GLFW_PRESS, 0);
+  *input->camera = camera;
+  *input = saved;
+}
+
 static void testEditing(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   Camera* camera = input->camera;
@@ -467,6 +534,9 @@ static void testEditing(GLFWwindow* window) {
   click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
   CHECK(getBlock(&placement)->id == BLOCK_COBBLESTONE);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  // A press must start hand breaking without removing the block immediately.
+  CHECK(getBlock(&placement)->id == BLOCK_COBBLESTONE);
+  finishHandBreak(window);
   CHECK(getBlock(&placement)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
   for (int number = GLFW_KEY_5; number <= GLFW_KEY_9; number++) {
     key(window, number, 0, GLFW_PRESS, 0);
@@ -478,6 +548,7 @@ static void testEditing(GLFWwindow* window) {
     CHECK(getBlock(&placement)->id == BLOCK_AIR);
   }
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  finishHandBreak(window);
   CHECK(getBlock(&target)->id == BLOCK_AIR);
   CHECK(setBlock(&target, BLOCK_STONE));
   key(window, GLFW_KEY_2, 0, GLFW_PRESS, 0);
@@ -489,6 +560,7 @@ static void testEditing(GLFWwindow* window) {
   click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
   CHECK(getBlock(&placement)->id == BLOCK_DIRT);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  finishHandBreak(window);
   CHECK(getBlock(&placement)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_REPEAT, 0);
   CHECK(getBlock(&target)->id == BLOCK_STONE);
@@ -505,6 +577,7 @@ static void testEditing(GLFWwindow* window) {
   click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
   CHECK(getBlock(&placement)->id == BLOCK_AIR);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  finishHandBreak(window);
   CHECK(getBlock(&target)->id == BLOCK_AIR);
   key(window, GLFW_KEY_1, 0, GLFW_PRESS, 0);
   *camera = saved;
@@ -620,6 +693,7 @@ static void walkingFrame(GLFWwindow* window) {
     click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(getBlock(&(Vec3i){0, 40, 1})->id == BLOCK_AIR); // Placement cannot overlap the actual feet/body.
     click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    finishHandBreak(window);
     CHECK(getBlock(&(Vec3i){0, 39, 1})->id == BLOCK_AIR);
     key(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
   }
@@ -685,6 +759,32 @@ static void movementFrame(GLFWwindow* window) {
     CHECK(!input->player.running && input->player.velocity.x == 0 && input->player.velocity.z == 0);
 }
 
+// Drive a whole held break through main's frame loop, mesh upload, and HUD.
+static const Vec3i heldTarget = {-32, 41, -29};
+static void breakingFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (frame == 55) {
+    for (int y = 40; y <= 42; y++)
+      for (int z = -32; z <= -28; z++)
+        CHECK(setBlock(&(Vec3i){-32, y, z}, BLOCK_AIR));
+    CHECK(setBlock(&(Vec3i){-32, 39, -32}, BLOCK_STONE));
+    CHECK(playerSetPosition(&input->player, (Vec3){-31.5f, 40, -31.5f}));
+    input->camera->position = playerEyePosition(&input->player);
+    input->camera->yaw = 90;
+    input->camera->pitch = 0;
+    updateCameraVectors(input->camera);
+    CHECK(setBlock(&heldTarget, BLOCK_DIRT));
+    mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  }
+  if (frame < 70)
+    CHECK(getBlock(&heldTarget)->id == BLOCK_DIRT);
+  else {
+    CHECK(getBlock(&heldTarget)->id == BLOCK_AIR);
+    CHECK(!input->breaking.active);
+    mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+  }
+}
+
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
 GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share) {
   (void)width;
@@ -703,6 +803,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     testCrouchControl(window);
     testRunningControls(window);
     testWalkingControls(window);
+    testBreakingCancellation(window);
     testEditing(window);
     InputState* input = glfwGetWindowUserPointer(window);
     Camera* camera = input->camera;
@@ -720,6 +821,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
     glfwSetMouseButtonCallback(window, click);
     click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    finishHandBreak(window);
     CHECK(getBlock(&editFixture)->id == BLOCK_AIR && getChunk(&(Vec2i){7, 8})->dirty);
     pressedKey = -1;
   }
@@ -755,9 +857,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   }
   if (frame >= 4 && frame < 50)
     walkingFrame(window);
-  if (frame >= 50)
+  if (frame >= 50 && frame <= 55)
     movementFrame(window);
-  return frame >= 55;
+  if (frame >= 55)
+    breakingFrame(window);
+  return frame >= 70;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -839,10 +943,20 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   if (frame >= 4) {
     InputState* input = glfwGetWindowUserPointer(window);
     Vec3 eye = playerEyePosition(&input->player);
-    CHECK(frame < 55 && frame != 47 && !input->flying);
+    CHECK(frame < 70 && frame != 47 && !input->flying);
     CHECK(playerCanOccupyPosture(input->player.position, input->player.crouched));
     CHECK(input->camera->position.x == eye.x && input->camera->position.y == eye.y && input->camera->position.z == eye.z);
     CHECK(input->simulationSteps == (frame == 48 ? 0 : 4));
+    if (frame >= 55) {
+      CHECK(getBlock(&heldTarget)->id == (frame < 69 ? BLOCK_DIRT : BLOCK_AIR));
+      CHECK(!getChunk(&(Vec2i){6, 6})->dirty && !getChunk(&(Vec2i){5, 6})->dirty);
+      if (frame < 69) {
+        CHECK(fabs(blockBreakingProgress(&input->breaking) - (frame - 54) / 15.0) < 0.00001);
+        unsigned char pixel[3];
+        glReadPixels(1280 / 2 - 23, 720 / 2 + 12, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+        CHECK(pixel[0] > 240 && pixel[1] > 180 && pixel[2] < 100);
+      }
+    }
     if (frame >= 52 && frame <= 54) {
       GLint program;
       GLfloat matrix[16];
@@ -918,7 +1032,7 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
     exit(EXIT_FAILURE);
   }
   if (frame >= 0) {
-    CHECK(swaps == 53 && waits == 2);
+    CHECK(swaps == 68 && waits == 2);
     CHECK(sawCompactHUD && sawDebugHUD);
     puts("Application walking, crouching, running, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
   }

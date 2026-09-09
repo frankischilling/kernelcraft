@@ -1,6 +1,7 @@
 #include "world/world.h"
 #include "world/mesh.h"
 #include "world/hotbar.h"
+#include "world/edit.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,9 +99,83 @@ static void testEdits(void) {
   freeChunkMesh(&mesh);
 }
 
+static void testHandBreaking(void) {
+  const Vec3 eye = {-0.5f, 20.5f, -3}, direction = {0, 0, 1};
+  const Vec3i target = {-1, 20, -1}, behind = {-1, 20, 0};
+  const struct {
+    int block;
+    double seconds;
+  } cases[] = {{BLOCK_DIRT, 0.5}, {BLOCK_GRASS, 0.75}, {BLOCK_STONE, 1.5}, {BLOCK_COBBLESTONE, 2.0}};
+  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+    for (int rate = 30; rate <= 120; rate *= 2) {
+      resetWorld();
+      CHECK(setBlock(&target, cases[i].block) && setBlock(&behind, BLOCK_STONE));
+      BlockBreaking breaking = {0};
+      CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0));
+      CHECK(blockBreakingProgress(&breaking) == 0 && getBlock(&target)->id == cases[i].block);
+      int frames = (int)ceil(cases[i].seconds * rate);
+      for (int frame = 1; frame < frames; frame++) {
+        CHECK(!advanceBlockBreaking(&breaking, eye, direction, 1.0 / rate));
+        CHECK(getBlock(&target)->id == cases[i].block);
+        CHECK(fabs(blockBreakingProgress(&breaking) - (double)frame / rate / cases[i].seconds) < 0.00001);
+      }
+      // Remove only the target, and rebuild its negative-coordinate seam neighbors.
+      for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+        for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+          getChunk(&(Vec2i){x, z})->dirty = false;
+      CHECK(advanceBlockBreaking(&breaking, eye, direction, 1.0 / rate));
+      CHECK(getBlock(&target)->id == BLOCK_AIR && getBlock(&behind)->id == BLOCK_STONE);
+      CHECK(dirtyCount() == 3 && !breaking.active && blockBreakingProgress(&breaking) == 0);
+      CHECK(!advanceBlockBreaking(&breaking, eye, direction, 10));
+      CHECK(breaking.elapsed == 0 && getBlock(&behind)->id == BLOCK_STONE);
+    }
+  }
+  resetWorld();
+  CHECK(setBlock(&target, BLOCK_DIRT));
+  BlockBreaking breaking = {0};
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0));
+  for (int i = 0; i < 4; i++)
+    CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.099999));
+  CHECK(getBlock(&target)->id == BLOCK_DIRT);
+  CHECK(advanceBlockBreaking(&breaking, eye, direction, 0.000001));
+
+  CHECK(setBlock(&target, BLOCK_DIRT));
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0));
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 1000));
+  CHECK(fabs(blockBreakingProgress(&breaking) - 0.2) < 0.00001);
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0) && getBlock(&target)->id == BLOCK_DIRT);
+  const double invalid[] = {-1, NAN, INFINITY};
+  for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+    CHECK(!advanceBlockBreaking(&breaking, eye, direction, invalid[i]) && !breaking.active);
+    CHECK(getBlock(&target)->id == BLOCK_DIRT);
+    CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
+  }
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
+  resetBlockBreaking(&breaking);
+  CHECK(!breaking.active && blockBreakingProgress(&breaking) == 0);
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1) && breaking.elapsed == 0);
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
+  // Changing a block's material resets its hand rate and accrued time.
+  CHECK(setBlock(&target, BLOCK_STONE));
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1) && breaking.elapsed == 0);
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
+  CHECK(!advanceBlockBreaking(&breaking, eye, (Vec3){0, 1, 0}, 0.1) && !breaking.active);
+  CHECK(!advanceBlockBreaking(&breaking, (Vec3){-0.5f, 20.5f, -7}, direction, 0)); // Reach exactly six.
+  CHECK(breaking.active);
+  CHECK(!advanceBlockBreaking(&breaking, (Vec3){-0.5f, 20.5f, -7.01f}, direction, 0.1) && !breaking.active);
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0));
+  CHECK(setBlock(&behind, BLOCK_STONE) && setBlock(&target, BLOCK_AIR));
+  CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1) && breaking.elapsed == 0 && breaking.target.z == 0);
+  CHECK(!advanceBlockBreaking(&breaking, eye, (Vec3){NAN, 0, 1}, 0.1) && !breaking.active);
+  CHECK(!advanceBlockBreaking(NULL, eye, direction, 0.1) && blockBreakingProgress(NULL) == 0);
+  resetBlockBreaking(NULL);
+}
+
 int main(void) {
   CHECK(initChunks());
   testEdits();
+  testHandBreaking();
   cleanupChunks();
   CHECK(getBlock(&(Vec3i){0, 0, 0}) == NULL);
   CHECK(!setBlock(&(Vec3i){0, 0, 0}, BLOCK_STONE));
