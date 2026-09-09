@@ -4,8 +4,10 @@ PR #13 is merged. The record below describes the original version 1 persistence
 increment. The [nine-slot hotbar](textured-hotbar.md) adds version 2: header
 offset 60 stores a one-based slot number from 1 through 9. Version 1 saves still
 load, mapping block IDs 1–3 to the same numbered slots. Other fields, checksum,
-payload order, and replacement behavior are unchanged. New saves use version 2
-and require an updated build to reopen.
+payload order, and replacement behavior are unchanged. The
+[cobblestone increment](cobblestone-texture.md) writes version 3 to add block ID 4.
+Versions 1 and 2 still load but reject payloads containing this newer ID.
+Version 3 saves require the updated build to reopen.
 
 Base: `6171a9a2769d7ce36eba1c3fd2e37c6cf644d707`, merged main after PR #12.
 The only open PR was #12; it was reviewed, freshly tested with

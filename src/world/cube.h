@@ -16,6 +16,7 @@ enum BlockID {
   BLOCK_GRASS = 1,
   BLOCK_DIRT = 2,
   BLOCK_STONE = 3,
+  BLOCK_COBBLESTONE = 4,
 };
 
 // block struct

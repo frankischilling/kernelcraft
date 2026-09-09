@@ -1,5 +1,6 @@
 #include "world/world.h"
 #include "world/mesh.h"
+#include "world/hotbar.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,15 @@ static int dirtyCount(void) {
 
 static void testEdits(void) {
   CHECK(dirtyCount() == CHUNKS_PER_AXIS * CHUNKS_PER_AXIS);
+  resetWorld();
+  // Slot 4 is a distinct, solid, placeable cobblestone block (persisted ID 4).
+  CHECK(hotbarBlock(3) == 4);
+  CHECK(setBlock(&(Vec3i){-1, 20, -1}, hotbarBlock(3)));
+  CHECK(getBlock(&(Vec3i){-1, 20, -1})->id == 4 && blockIsSolid(4));
+  CHECK(dirtyCount() == 3);
+  CHECK(!blockIDValid(5) && !setBlock(&(Vec3i){0, 20, 0}, 5));
+  for (int slot = 4; slot < HOTBAR_SLOT_COUNT; slot++)
+    CHECK(hotbarBlock(slot) == BLOCK_AIR);
   resetWorld();
   Vec3i invalid[] = {{INT_MIN, 0, 0}, {INT_MAX, 0, 0}, {-129, 0, 0}, {128, 0, 0}, {0, -1, 0}, {0, 64, 0}, {0, 0, -129}, {0, 0, 128}};
   CHECK(getChunk(NULL) == NULL && getBlock(NULL) == NULL);

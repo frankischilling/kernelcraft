@@ -1,7 +1,7 @@
 # Block, building, and item design backlog
 
-Everything below is planned. These are content and design tasks, not a list of
-items available in the current build. Grass, dirt, and stone are the implemented
+Unchecked entries below are planned content and design tasks. Grass, dirt,
+stone, and cobblestone are the implemented
 block materials. Keep the existing voxel foundation and develop the colorful,
 explorable Cube World-inspired direction through coherent content sets.
 
@@ -14,7 +14,8 @@ explorable Cube World-inspired direction through coherent content sets.
 - [ ] Packed mud and dried clay: building materials with cracked surface patterns.
 - [ ] Snow layers and snow blocks: define thin-layer collision and accumulation.
 - [ ] Ice and packed ice: blue-white textures, transparency, and slipperiness rules.
-- [ ] Cobblestone and mossy cobblestone: broken rock faces with restrained moss coverage.
+- [x] Cobblestone: [textured block in hotbar slot 4](cobblestone-texture.md), with placement, collision, meshing, and save support.
+- [ ] Mossy cobblestone: broken rock faces with restrained moss coverage.
 - [ ] Granite, limestone, slate, basalt, marble, and sandstone: distinct palettes and grain sizes.
 - [ ] Polished stone variants: smoother surfaces that still repeat cleanly across greedy quads.
 - [ ] Obsidian and volcanic rock: dark glassy fractures and cooling lava patterns.

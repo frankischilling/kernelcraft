@@ -24,12 +24,13 @@ static float yawBeforeMinimize, pitchBeforeMinimize;
 static const Vec3i editFixture = {-1, 40, 6};
 static const int sizes[][2] = {{640, 360}, {360, 640}, {0, 0}, {1280, 720}};
 
-#define CHECK(condition) do { \
-  if (!(condition)) { \
-    fprintf(stderr, "Application smoke test: %s (line %d)\n", #condition, __LINE__); \
-    exit(EXIT_FAILURE); \
-  } \
-} while (0)
+#define CHECK(condition)                                                                                                                                                           \
+  do {                                                                                                                                                                             \
+    if (!(condition)) {                                                                                                                                                            \
+      fprintf(stderr, "Application smoke test: %s (line %d)\n", #condition, __LINE__);                                                                                             \
+      exit(EXIT_FAILURE);                                                                                                                                                          \
+    }                                                                                                                                                                              \
+  } while (0)
 
 static void testInput(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
@@ -459,7 +460,15 @@ static void testEditing(GLFWwindow* window) {
   Vec3i target = {0, 40, 0}, placement = {0, 40, -1};
   CHECK(setBlock(&target, BLOCK_STONE));
   CHECK(setBlock(&placement, BLOCK_AIR));
-  for (int number = GLFW_KEY_4; number <= GLFW_KEY_9; number++) {
+  key(window, GLFW_KEY_4, 0, GLFW_PRESS, 0);
+  CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
+  key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
+  CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
+  click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+  CHECK(getBlock(&placement)->id == BLOCK_COBBLESTONE);
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  CHECK(getBlock(&placement)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
+  for (int number = GLFW_KEY_5; number <= GLFW_KEY_9; number++) {
     key(window, number, 0, GLFW_PRESS, 0);
     CHECK(selectedBlock() == BLOCK_AIR);
     CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);

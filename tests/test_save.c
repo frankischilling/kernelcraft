@@ -202,7 +202,7 @@ int main(void) {
   size_t size;
   unsigned char* original = readFile(path, &size);
   CHECK(size == 72 + 256 * 64 * 256 && memcmp(original, "KCRFTSV\0", 8) == 0);
-  CHECK(original[8] == 2 && original[60] == 3);
+  CHECK(original[8] == 3 && original[60] == 3);
   const int allocationFailures[] = {1, 17, 256};
   for (size_t i = 0; i < sizeof(allocationFailures) / sizeof(allocationFailures[0]); i++) {
     SavedPlayer unchanged = player;
@@ -238,6 +238,16 @@ int main(void) {
   put32(bad + 60, 4);
   fixChecksum(bad, size);
   rejected(path, bad, size, hash);
+  // Version 2 supports all nine selected slots, but only the original blocks.
+  for (int slot = 1; slot <= 9; slot++) {
+    memcpy(bad, original, size);
+    put32(bad + 8, 2);
+    put32(bad + 60, (uint32_t)slot);
+    fixChecksum(bad, size);
+    writeFile(path, bad, size);
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(loaded.selectedSlot == slot - 1 && fingerprint() == hash);
+  }
   for (int slot = 0; slot < 9; slot++) {
     SavedPlayer selection = player;
     selection.selectedSlot = slot;
@@ -245,10 +255,30 @@ int main(void) {
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(!memcmp(&loaded, &selection, sizeof(loaded)) && fingerprint() == hash);
   }
+  // Cobblestone retains its own persisted ID, including at a negative seam.
+  CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_COBBLESTONE));
+  SavedPlayer cobblePlayer = player;
+  cobblePlayer.selectedSlot = 3;
+  uint64_t cobbleHash = fingerprint();
+  CHECK(saveWorld(path, &cobblePlayer, error, sizeof(error)) == SAVE_OK);
+  size_t cobbleSize;
+  unsigned char* cobbleSave = readFile(path, &cobbleSize);
+  CHECK(cobbleSize == size && cobbleSave[8] == 3 && cobbleSave[60] == 4);
+  CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
+  CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+  CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == BLOCK_COBBLESTONE && loaded.selectedSlot == 3 && fingerprint() == cobbleHash);
+  for (int version = 1; version <= 2; version++) {
+    put32(cobbleSave + 8, (uint32_t)version);
+    put32(cobbleSave + 60, 3);
+    fixChecksum(cobbleSave, cobbleSize);
+    rejected(path, cobbleSave, cobbleSize, cobbleHash);
+  }
+  free(cobbleSave);
+  CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_DIRT) && fingerprint() == hash);
   const struct {
     size_t offset;
     uint32_t value;
-  } cases[] = {{0, 0},           {8, 3},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
+  } cases[] = {{0, 0},           {8, 4},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
                {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memcpy(bad, original, size);

@@ -5,6 +5,8 @@
 #include <string.h>
 
 static enum Material faceMaterial(uint8_t block, int face) {
+  if (block == BLOCK_COBBLESTONE)
+    return MATERIAL_COBBLESTONE;
   if (block == BLOCK_STONE)
     return MATERIAL_STONE;
   if (block == BLOCK_DIRT || face == BOTTOM)
