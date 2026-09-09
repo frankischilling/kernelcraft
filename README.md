@@ -63,8 +63,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Walking with gravity, grounded jumps, solid-block collision, and safe spawning.
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
-  - Block placement and destruction, a target outline, crosshair, and three-slot material selector.
-  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected material.
+  - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
+  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected hotbar slot.
 
 ## Getting Started
 
@@ -143,7 +143,7 @@ while the mouse is captured or released, without resuming movement.
 The HUD fits its text and material slots to the framebuffer. Small windows use
 smaller bitmap text and shorten long labels; diagnostics occupy available space
 above the aiming area. More diagnostic rows appear in taller windows. Save
-status remains visible with diagnostics hidden. Below 96 pixels wide or 120
+status remains visible with diagnostics hidden. Below 192 pixels wide or 120
 high, the hotbar is hidden; control hints also disappear when space is too short.
 This does not establish physical high-DPI scaling behavior.
 
@@ -152,8 +152,11 @@ press Escape after returning to resume. Minimized windows pause rendering and
 input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Left click destroys
-the target; right click places on its face. Keys 1/2/3 select grass, dirt, and
-stone. Each press edits once within six world units; a gold outline marks the
+the target; right click places on its face. Keys 1–9 select the corresponding
+hotbar slot. Slots 1–3 contain grass, dirt, and stone as flat texture icons;
+slots 4–9 are empty. Empty slots can break blocks but cannot place them. A gold
+border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
+Each press edits once within six world units; a gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
 visible under low ceilings when the outline is off-screen. See the
 [selection highlighting checks](docs/selection-highlight.md). Placement rejects occupied/out-of-world cells and body overlap
@@ -207,6 +210,9 @@ without replacing the file. `--no-save` makes a temporary session (optionally
 with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
+Version 1 saves still load with their previous material selected. New saves use
+version 2 to preserve any selected hotbar slot, including empty slots; older
+builds cannot load version 2 saves.
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
 sessions writing the same world. Saving is synchronous and may pause a frame;
@@ -246,6 +252,8 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [x] Deterministic terrain with selectable seeds
   - [ ] Add cave generation using 3D noise
   - [ ] Add trees
+  - [ ] Add more block types and textures, including wood, leaves, coal ore, and iron ore
+  - [ ] Add more terrain features and biome types
   - [ ] Create water system with basic fluid physics
   - [ ] Expand world size **(Planned for later phases)**
 
@@ -256,6 +264,9 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [x] Implement solid-voxel player collision and finite movement bounds
   - [x] Add player physics (gravity, grounded jumping, safe spawn)
   - [x] Add DDA selection, placement-face results, target outline, crosshair, and material selection
+  - [ ] Hold Shift to crouch in walking mode
+  - [ ] Double-tap W to run
+  - [ ] Make block-breaking time depend on the block and whether the player uses a hand or a suitable tool
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
@@ -267,13 +278,17 @@ power-loss durability is not guaranteed. See the [format and validation record](
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
   - [ ] Add support for transparency and alpha blending
   - [ ] Add support for skyboxes and clouds 
+  - [ ] Improve terrain and block lighting
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
   - [ ] Add day/night cycle
     - [ ] Within the system implement tick based time
+    - [ ] Add a sun and moon that follow the day/night cycle
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
   - [ ] Create water shader with reflections and refractions
   - [ ] Add support for different camera modes (first person, third person)
+  - [ ] Add a textured first-person hand with movement and action animations
+  - [ ] Add a textured third-person player model and skin textures, with hand and body animations
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 
 - **Optimization**:
@@ -288,9 +303,15 @@ power-loss durability is not guaranteed. See the [format and validation record](
 ### Phase 3: Gameplay Features
 - **World Interaction**:
   - [ ] Add inventory system
+  - [ ] Support item stacks with a maximum of 999 items per stack
+  - [ ] Add item management: move, split, and merge stacks between inventory and hotbar slots
   - [ ] Implement crafting system
   - [ ] Create a basic UI system for inventory and crafting
   - [ ] Add health and hunger mechanics
+  - [ ] Show a health bar
+  - [ ] Add damage from mobs, falls, and other environmental hazards
+  - [ ] Let the player drop items from the inventory and hotbar
+  - [ ] Render dropped items as spinning textured sprites, similar to Minecraft
   - [ ] Implement tool durability
   - [ ] Add block metadata system for more complex interactions
 
@@ -314,6 +335,8 @@ power-loss durability is not guaranteed. See the [format and validation record](
 - **World Management**:
   - [x] Add world saving and loading functionality
   - [x] Implement seed-based world generation for reproducible worlds
+  - [ ] Add a world menu with saving, loading, deleting, renaming, and seed selection
+  - [ ] Use the dirt texture as the world menu background
   - [ ] Create a world backup and recovery system
   - [ ] Add world settings and configuration options for customization
   - [ ] Implement a world border system to limit exploration
@@ -331,7 +354,7 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [ ] Add ambient sounds corresponding to different biomes and environments
   - [ ] Create a music system for background tracks
   - [ ] Add positional audio for immersive experiences
-  - [ ] Implement sound effects for player actions and environmental interactions
+  - [ ] Implement sound effects for player actions and environmental interactions, including footsteps and breaking blocks
 
 - **Visual Effects**:
   - [ ] Add screen effects such as damage flashes and underwater visuals

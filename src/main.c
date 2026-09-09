@@ -181,11 +181,19 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
-  HUDInit(BUILD_NAME, BUILD_VERSION);
+  if (!HUDInit(BUILD_NAME, BUILD_VERSION)) {
+    cleanupWorld();
+    cleanupChunks();
+    glDeleteProgram(shaderProgram);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
 
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
+    HUDCleanup();
     cleanupWorld();
     cleanupChunks();
     glDeleteProgram(shaderProgram);
@@ -254,7 +262,7 @@ int main(int argc, char** argv) {
                       .fps = fps,
                       .visibleBlocks = result.surfaceBlocks,
                       .selection = selection,
-                      .selectedBlock = selectedBlock(),
+                      .selectedSlot = selectedHotbarSlot(),
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
                       .flying = input.flying,
                       .grounded = input.player.grounded,
@@ -271,6 +279,7 @@ int main(int argc, char** argv) {
 
   if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
     exitStatus = EXIT_FAILURE;
+  HUDCleanup();
   cleanupWorld();
   cleanupChunks();
   glDeleteProgram(shaderProgram);

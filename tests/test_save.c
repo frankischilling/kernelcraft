@@ -156,7 +156,7 @@ static void sameFile(const char* path, const unsigned char* expected, size_t siz
 }
 static void rejected(const char* path, const unsigned char* bytes, size_t size, uint64_t hash) {
   writeFile(path, bytes, size);
-  SavedPlayer output = {.feet = {7, 8, 9}, .yaw = 12, .pitch = 13, .selectedBlock = BLOCK_DIRT}, previous = output;
+  SavedPlayer output = {.feet = {7, 8, 9}, .yaw = 12, .pitch = 13, .selectedSlot = 1}, previous = output;
   char error[256];
   CHECK(loadWorld(path, &output, error, sizeof(error)) != SAVE_OK);
   CHECK(error[0] && memcmp(&output, &previous, sizeof(output)) == 0);
@@ -188,7 +188,7 @@ int main(void) {
   CHECK(snprintf(blocked, sizeof(blocked), "%s/blocked", directory) > 0);
   CHECK(snprintf(nested, sizeof(nested), "%s/previous.kcw", blocked) > 0);
   CHECK(initChunksSeeded(42));
-  SavedPlayer player = {.feet = {4.6f, 1, 4.5f}, .yaw = 357.5f, .pitch = -35, .selectedBlock = BLOCK_STONE};
+  SavedPlayer player = {.feet = {4.6f, 1, 4.5f}, .yaw = 357.5f, .pitch = -35, .selectedSlot = 2};
   CHECK(loadWorld(path, &player, error, sizeof(error)) == SAVE_NOT_FOUND);
   CHECK(setBlock(&(Vec3i){4, 0, 4}, BLOCK_STONE));
   for (int y = 1; y <= 3; y++)
@@ -202,6 +202,7 @@ int main(void) {
   size_t size;
   unsigned char* original = readFile(path, &size);
   CHECK(size == 72 + 256 * 64 * 256 && memcmp(original, "KCRFTSV\0", 8) == 0);
+  CHECK(original[8] == 2 && original[60] == 3);
   const int allocationFailures[] = {1, 17, 256};
   for (size_t i = 0; i < sizeof(allocationFailures) / sizeof(allocationFailures[0]); i++) {
     SavedPlayer unchanged = player;
@@ -223,11 +224,32 @@ int main(void) {
 
   unsigned char* bad = malloc(size + 1);
   CHECK(bad);
+  // The previous format's material IDs map to the same first three slots.
+  for (int material = 1; material <= 3; material++) {
+    memcpy(bad, original, size);
+    put32(bad + 8, 1);
+    put32(bad + 60, (uint32_t)material);
+    fixChecksum(bad, size);
+    writeFile(path, bad, size);
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(loaded.selectedSlot == material - 1 && loaded.yaw == player.yaw && loaded.pitch == player.pitch);
+    CHECK(!memcmp(&loaded.feet, &player.feet, sizeof(player.feet)) && fingerprint() == hash);
+  }
+  put32(bad + 60, 4);
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+  for (int slot = 0; slot < 9; slot++) {
+    SavedPlayer selection = player;
+    selection.selectedSlot = slot;
+    CHECK(saveWorld(path, &selection, error, sizeof(error)) == SAVE_OK);
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(!memcmp(&loaded, &selection, sizeof(loaded)) && fingerprint() == hash);
+  }
   const struct {
     size_t offset;
     uint32_t value;
-  } cases[] = {{0, 0},           {8, 2},           {12, 2}, {20, 512},        {24, 0},          {28, 32}, {32, 255}, {36, UINT32_MAX},
-               {40, 0x7f7fffff}, {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0},  {64, 1},   {72, 255}};
+  } cases[] = {{0, 0},           {8, 3},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
+               {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memcpy(bad, original, size);
     put32(bad + cases[i].offset, cases[i].value);
@@ -248,6 +270,12 @@ int main(void) {
   invalid.feet.y = NAN;
   CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
   sameFile(path, original, size);
+  for (int slot = -1; slot <= 9; slot += 10) {
+    invalid = player;
+    invalid.selectedSlot = slot;
+    CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
+    sameFile(path, original, size);
+  }
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_STONE));
   for (int failure = 1; failure <= 5; failure++) {
     failIO = failure;

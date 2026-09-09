@@ -39,5 +39,6 @@ void windowFocusCallback(GLFWwindow* window, int focused);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 int selectedBlock(void);
+int selectedHotbarSlot(void);
 
 #endif

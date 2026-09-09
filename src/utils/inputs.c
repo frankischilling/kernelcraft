@@ -9,30 +9,32 @@
 #include "inputs.h"
 #include "../graphics/camera.h"
 #include "../world/edit.h"
+#include "../world/hotbar.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
 static double lastX, lastY;
 static bool firstMouse = true;
-static int selected = BLOCK_GRASS;
+static int selectedSlot;
 
 bool initInputs(InputState* input, Camera* camera) {
   *input = (InputState){.camera = camera};
   if (!playerFindSpawn(&input->player, camera->position))
     return false;
   camera->position = playerEyePosition(&input->player);
+  selectedSlot = 0;
   return true;
 }
 
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved) {
   *input = (InputState){.camera = camera};
-  if (!saved || !playerSetPosition(&input->player, saved->feet))
+  if (!saved || saved->selectedSlot < 0 || saved->selectedSlot >= HOTBAR_SLOT_COUNT || !playerSetPosition(&input->player, saved->feet))
     return false;
   camera->position = playerEyePosition(&input->player);
   camera->yaw = saved->yaw;
   camera->pitch = saved->pitch;
   updateCameraVectors(camera);
-  selected = saved->selectedBlock;
+  selectedSlot = saved->selectedSlot;
   return true;
 }
 
@@ -73,7 +75,11 @@ static bool acceptsEditing(GLFWwindow* window) {
 }
 
 int selectedBlock(void) {
-  return selected;
+  return hotbarBlock(selectedSlot);
+}
+
+int selectedHotbarSlot(void) {
+  return selectedSlot;
 }
 
 static Vec3 inputBodyFeet(const InputState* input) {
@@ -100,7 +106,7 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
   // Adding 360 can round a tiny negative remainder to exactly 360.
   if (yaw >= 360)
     yaw = 0;
-  *saved = (SavedPlayer){.feet = standing.position, .yaw = yaw, .pitch = input->camera->pitch, .selectedBlock = selected};
+  *saved = (SavedPlayer){.feet = standing.position, .yaw = yaw, .pitch = input->camera->pitch, .selectedSlot = selectedSlot};
   return true;
 }
 
@@ -120,10 +126,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     input->showDebug = !input->showDebug;
     return;
   }
-  if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_3) {
-    const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
-    selected = materials[key - GLFW_KEY_1];
-  }
+  if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9)
+    selectedSlot = key - GLFW_KEY_1;
   if (!input || !acceptsEditing(window))
     return;
   if (key == GLFW_KEY_F5)
@@ -155,7 +159,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   Camera* camera = input->camera;
   Vec3 feet = inputBodyFeet(input);
   if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT)
-    editTarget(camera->position, camera->front, feet, selected, button == GLFW_MOUSE_BUTTON_RIGHT);
+    editTarget(camera->position, camera->front, feet, selectedBlock(), button == GLFW_MOUSE_BUTTON_RIGHT);
 }
 
 void processInput(GLFWwindow* window, InputState* input, double deltaTime) {

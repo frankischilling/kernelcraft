@@ -6,9 +6,12 @@
  */
 
 #include "hud.h"
+#include "texture.h"
 #include "../utils/raycast.h"
 #include "../utils/text.h"
+#include "../world/hotbar.h"
 #include "../world/world.h"
+#include <GL/freeglut.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -22,6 +25,7 @@ static DebugEntry entryLookingAtBlockCoords;
 static DebugEntry entryChunks, entryFaces, entryRebuilds;
 static DebugEntry entryMovement;
 static DebugEntry entrySave;
+static GLuint itemTextures[3];
 
 static void UpdateEntries(DebugData* data);
 
@@ -86,16 +90,24 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   }
   glLineWidth(1);
   // Tiny windows keep only status and the crosshair until controls fit again.
-  if (width < 96 || height < 120)
+  if (width < 192 || height < 120)
     return;
-  int slotWidth = (width - 28) / 3;
-  if (slotWidth > 100)
-    slotWidth = 100;
-  int barHeight = state->fontHeight + 14;
-  const char* labels[] = {"1 Grass", "2 Dirt", "3 Stone"};
-  const char* numbers[] = {"1", "2", "3"};
-  for (int i = 0; i < 3; i++) {
-    float x = (width - (3 * slotWidth + 12)) * 0.5f + i * (slotWidth + 6);
+  TextState numbers = *state;
+  numbers.font = GLUT_BITMAP_HELVETICA_10;
+  numbers.fontHeight = glutBitmapHeight(numbers.font);
+  int pitch = (width - 16) / HOTBAR_SLOT_COUNT;
+  if (pitch > 48)
+    pitch = 48;
+  // Wide, short windows still need a clear band around the crosshair.
+  int verticalPitch = height / 2 - numbers.fontHeight - 26;
+  if (pitch > verticalPitch)
+    pitch = verticalPitch;
+  int slotWidth = pitch - 2, barHeight = pitch + numbers.fontHeight + 4;
+  // Prefer whole multiples of the 16-pixel tiles when there is room.
+  int iconSize = pitch >= 40 ? 32 : pitch >= 24 ? 16 : pitch - 8;
+  int left = (width - (HOTBAR_SLOT_COUNT * pitch - 2)) / 2;
+  for (int i = 0; i < HOTBAR_SLOT_COUNT; i++) {
+    float x = left + i * pitch;
     glColor3f(0.12f, 0.12f, 0.12f);
     glBegin(GL_QUADS);
     glVertex2f(x, 8);
@@ -103,7 +115,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     glVertex2f(x + slotWidth, 8 + barHeight);
     glVertex2f(x, 8 + barHeight);
     glEnd();
-    if (data->selectedBlock == i + BLOCK_GRASS)
+    if (data->selectedSlot == i)
       glColor3f(1.0f, 0.85f, 0.2f);
     else
       glColor3f(0.6f, 0.6f, 0.6f);
@@ -113,10 +125,34 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     glVertex2f(x + slotWidth, 8 + barHeight);
     glVertex2f(x, 8 + barHeight);
     glEnd();
-    const char* label = textWidth(state, labels[i]) <= slotWidth - 12 ? labels[i] : numbers[i];
-    drawLabel(state, label, x + 6, height - 8 - (barHeight - state->fontHeight) / 2, slotWidth - 12);
+    if (hotbarBlock(i) != BLOCK_AIR) {
+      float iconX = x + (slotWidth - iconSize) / 2;
+      float iconY = 8 + numbers.fontHeight + 8;
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, itemTextures[i]);
+      glColor3f(1, 1, 1);
+      glBegin(GL_QUADS);
+      // PNG row zero is the top of the icon; the HUD uses bottom-origin quads.
+      glTexCoord2f(0, 1);
+      glVertex2f(iconX, iconY);
+      glTexCoord2f(1, 1);
+      glVertex2f(iconX + iconSize, iconY);
+      glTexCoord2f(1, 0);
+      glVertex2f(iconX + iconSize, iconY + iconSize);
+      glTexCoord2f(0, 0);
+      glVertex2f(iconX, iconY + iconSize);
+      glEnd();
+      glDisable(GL_TEXTURE_2D);
+    }
+    char number[] = {(char)('1' + i), '\0'};
+    drawLabel(&numbers, number, x + (slotWidth - textWidth(&numbers, number)) / 2, height - 14, slotWidth - 4);
   }
   float baseline = height - barHeight - 22;
+  const char* names[] = {"Empty", "Grass", "Dirt", "Stone"};
+  const char* selectedName = names[hotbarBlock(data->selectedSlot)];
+  if (baseline - state->fontHeight >= height * 0.5f + 14)
+    drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
+  baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, data->captured ? "Left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 8, baseline, width - 16);
   baseline -= state->fontHeight + 6;
@@ -135,9 +171,18 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y, cast.blockCoords.z);
 
   TextState state;
-  glPushAttrib(GL_CURRENT_BIT | GL_LINE_BIT | GL_ENABLE_BIT);
+  GLint activeTexture;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+  glPushAttrib(GL_CURRENT_BIT | GL_LINE_BIT | GL_ENABLE_BIT | GL_TEXTURE_BIT | GL_COLOR_BUFFER_BIT | GL_POLYGON_BIT);
   beginText(&state);
+  glActiveTexture(GL_TEXTURE0);
   glDisable(GL_TEXTURE_2D);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glDisable(GL_CULL_FACE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   float baseline = 8 + state.fontHeight;
   if (data->saveStatus)
     drawTopLabel(&state, entrySave.text, &baseline);
@@ -161,6 +206,7 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   DrawControls(&state, data);
   endText(&state);
   glPopAttrib();
+  glActiveTexture((GLenum)activeTexture);
 }
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
@@ -186,9 +232,34 @@ static void UpdateEntries(DebugData* data) {
 
   snprintf(entryChunkCoords.text, sizeof(entryChunkCoords.text), "Chunk coordinates: X:%d Z:%d", currentChunkX, currentChunkZ);
 }
-void HUDInit(char* buildName, char* buildVersion) {
+void HUDCleanup(void) {
+  glDeleteTextures(3, itemTextures);
+  memset(itemTextures, 0, sizeof(itemTextures));
+}
+
+bool HUDInit(const char* buildName, const char* buildVersion) {
+  HUDCleanup();
   entryBiome.text[0] = '\0';
   entryFPS.text[0] = '\0';
   entryCubeCount.text[0] = '\0';
   snprintf(entryBuildInfo.text, sizeof(entryBuildInfo.text), "%s %s", buildName, buildVersion);
+  const char* paths[] = {"assets/textures/grass-side.png", "assets/textures/dirt.png", "assets/textures/stone.png"};
+  GLint activeTexture;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+  glPushAttrib(GL_TEXTURE_BIT);
+  glActiveTexture(GL_TEXTURE0);
+  bool ready = true;
+  for (int i = 0; i < 3; i++) {
+    itemTextures[i] = loadTexture(paths[i]);
+    if (!itemTextures[i] || glGetError() != GL_NO_ERROR) {
+      fprintf(stderr, "Cannot load hotbar icon: %s\n", paths[i]);
+      ready = false;
+      break;
+    }
+  }
+  if (!ready)
+    HUDCleanup();
+  glPopAttrib();
+  glActiveTexture((GLenum)activeTexture);
+  return ready;
 }

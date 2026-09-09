@@ -549,7 +549,12 @@ int main(int argc, char** argv) {
 #endif
   printf("initialization_ms: %.3f\n", (glfwGetTime() - start) * 1000.0);
   printf("block_storage_bytes: %zu\n", sizeof(Block) * (size_t)WORLD_SIZE * WORLD_SIZE * WORLD_HEIGHT);
+#ifdef KERNELCRAFT_BASELINE
   HUDInit("kernelcraft", "benchmark");
+#else
+  if (!HUDInit("kernelcraft", "benchmark"))
+    return 1;
+#endif
   realBufferSubData = __glewBufferSubData;
   realBufferData = __glewBufferData;
   realGetUniformLocation = __glewGetUniformLocation;
@@ -590,7 +595,7 @@ int main(int argc, char** argv) {
       DebugData data = {&camera, 60.0f, result.surfaceBlocks};
 #ifndef KERNELCRAFT_BASELINE
       data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
-      data.selectedBlock = BLOCK_GRASS;
+      data.selectedSlot = 0;
       data.captured = true;
       data.stats = &result;
       data.showDebug = true;
@@ -626,8 +631,8 @@ int main(int argc, char** argv) {
         return 1;
       glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 #ifndef KERNELCRAFT_BASELINE
-      // The grid and HUD are grayscale. Colored pixels outside the HUD prove
-      // that the terrain shader, textures, and mesh attributes produced output.
+      // This region starts beyond the colored hotbar icons. Colored pixels
+      // prove that the terrain shader, textures, and mesh attributes produced output.
       int terrainPixels = 0;
       for (int y = 0; y < 540; y++)
         for (int x = 400; x < 960; x++) {
@@ -747,6 +752,9 @@ int main(int argc, char** argv) {
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;
   __glewGetUniformLocation = realGetUniformLocation;
+#ifndef KERNELCRAFT_BASELINE
+  HUDCleanup();
+#endif
   cleanupWorld();
   cleanupChunks();
   glDeleteProgram(shader);

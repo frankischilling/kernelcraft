@@ -137,6 +137,7 @@ static void testIconifiedInput(GLFWwindow* window) {
   updateCameraVectors(camera);
   Vec3 position = camera->position;
   int material = selectedBlock();
+  int slot = selectedHotbarSlot();
   bool debug = input->showDebug;
   // Retain focus and framebuffer dimensions to isolate iconification from
   // platform-dependent resize/focus callback ordering.
@@ -145,8 +146,8 @@ static void testIconifiedInput(GLFWwindow* window) {
   CHECK(input->showDebug == debug);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   CHECK(cursorMode == GLFW_CURSOR_DISABLED);
-  key(window, GLFW_KEY_3, 0, GLFW_PRESS, 0);
-  CHECK(selectedBlock() == material);
+  key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
+  CHECK(selectedBlock() == material && selectedHotbarSlot() == slot);
   key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
   CHECK(!input->saveRequested);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
@@ -220,6 +221,18 @@ static void testEditing(GLFWwindow* window) {
   Vec3i target = {0, 40, 0}, placement = {0, 40, -1};
   CHECK(setBlock(&target, BLOCK_STONE));
   CHECK(setBlock(&placement, BLOCK_AIR));
+  for (int number = GLFW_KEY_4; number <= GLFW_KEY_9; number++) {
+    key(window, number, 0, GLFW_PRESS, 0);
+    CHECK(selectedBlock() == BLOCK_AIR);
+    CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);
+    key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
+    CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);
+    click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+    CHECK(getBlock(&placement)->id == BLOCK_AIR);
+  }
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  CHECK(getBlock(&target)->id == BLOCK_AIR);
+  CHECK(setBlock(&target, BLOCK_STONE));
   key(window, GLFW_KEY_2, 0, GLFW_PRESS, 0);
   CHECK(selectedBlock() == BLOCK_DIRT);
   key(window, GLFW_KEY_3, 0, GLFW_REPEAT, 0);
@@ -234,8 +247,8 @@ static void testEditing(GLFWwindow* window) {
   CHECK(getBlock(&target)->id == BLOCK_STONE);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
-  key(window, GLFW_KEY_3, 0, GLFW_PRESS, 0);
-  CHECK(getBlock(&target)->id == BLOCK_STONE && selectedBlock() == BLOCK_DIRT);
+  key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
+  CHECK(getBlock(&target)->id == BLOCK_STONE && selectedBlock() == BLOCK_DIRT && selectedHotbarSlot() == 1);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   focused = GLFW_FALSE;
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
