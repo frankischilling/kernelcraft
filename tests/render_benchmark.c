@@ -59,6 +59,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
+#include "lighting_render_checks.h"
 
 static bool testWireframe(GLuint shader) {
   clearTerrainFixture();
@@ -113,20 +114,21 @@ static bool testWireframe(GLuint shader) {
   return success && glGetError() == GL_NO_ERROR;
 }
 
-// Independent sampler2D reference for the original Phong shader by
-// frankischilling (2024-11-20). Keep this separate from the array shader so
-// incorrect layer selection cannot change both sides of the pixel comparison.
+// Independent sampler2D reference, adapted from the original Phong fixture by
+// frankischilling (2024-11-20). Use tabulated face irradiance instead of the
+// production lighting equation; layer selection still happens on the CPU.
 static GLuint referenceProgram(void) {
   const char* path = "test-material-reference.frag";
   const char* source = "#version 330 core\n"
-                       "in vec3 FragPos; in vec3 Normal; in vec2 TexCoord; out vec4 FragColor;\n"
-                       "uniform vec3 lightPos, viewPos, lightColor; uniform sampler2D texture1;\n"
+                       "in vec2 TexCoord; out vec4 FragColor;\n"
+                       "uniform vec3 faceLight; uniform sampler2D texture1;\n"
+                       "float shade(float c,float light){\n"
+                       "float linear=c<=0.04045 ? c/12.92 : pow((c+0.055)/1.055,2.4);\n"
+                       "linear*=light;\n"
+                       "return linear<=0.0031308 ? linear*12.92 : 1.055*pow(linear,1.0/2.4)-0.055;}\n"
                        "void main(){\n"
-                       "vec3 norm=normalize(Normal); vec3 lightDir=normalize(lightPos-FragPos);\n"
-                       "vec3 ambient=0.2*lightColor; vec3 diffuse=max(dot(norm,lightDir),0.0)*lightColor;\n"
-                       "vec3 viewDir=normalize(viewPos-FragPos); vec3 reflectDir=reflect(-lightDir,norm);\n"
-                       "float spec=pow(max(dot(viewDir,reflectDir),0.0),32); vec3 specular=0.5*spec*lightColor;\n"
-                       "FragColor=vec4((ambient+diffuse+specular)*texture(texture1,TexCoord).rgb,1.0);}\n";
+                       "vec3 c=texture(texture1,TexCoord).rgb;\n"
+                       "FragColor=vec4(shade(c.r,faceLight.r),shade(c.g,faceLight.g),shade(c.b,faceLight.b),1.0);}\n";
   FILE* file = fopen(path, "wb");
   if (!file)
     return 0;
@@ -153,6 +155,9 @@ static int repeatedTextureBlock(int pattern, int x, int y, int z) {
 /* Compare the running renderer with independent unit-cube submissions. Six
  * views exercise every face of all six block materials and mixed prisms. */
 static bool testRepeatedTextures(GLuint shader, int pattern) {
+  // Linear irradiance for +X, -X, +Y, -Y, +Z, -Z under the fixed light setup.
+  const GLfloat faceLight[6][3] = {{0.55401452f, 0.54985276f, 0.54652925f}, {0.27f, 0.275f, 0.29f}, {0.86491471f, 0.87862713f, 0.89605199f}, {0.18f, 0.16f, 0.14f},
+                                   {0.49090018f, 0.48877437f, 0.48952275f}, {0.27f, 0.275f, 0.29f}};
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
@@ -206,9 +211,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
     mat4_multiply(viewProjection, projection, view);
     glUseProgram(referenceShader);
     glUniformMatrix4fv(glGetUniformLocation(referenceShader, "viewProjection"), 1, GL_FALSE, viewProjection);
-    glUniform3f(glGetUniformLocation(referenceShader, "viewPos"), camera.position.x, camera.position.y, camera.position.z);
-    glUniform3f(glGetUniformLocation(referenceShader, "lightPos"), 5, 50, 5);
-    glUniform3f(glGetUniformLocation(referenceShader, "lightColor"), 1, 1, 1);
+    GLint faceLightLocation = glGetUniformLocation(referenceShader, "faceLight");
     glUniform1i(glGetUniformLocation(referenceShader, "texture1"), 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindVertexArray(vao);
@@ -217,6 +220,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
       for (int y = 20; y < 23; y++)
         for (int z = 1; z < 4; z++)
           for (int face = 0; face < 6; face++) {
+            glUniform3fv(faceLightLocation, 1, faceLight[face]);
             float vertices[48];
             memcpy(vertices, getCubeFaceVertices(face), sizeof(vertices));
             for (int corner = 0; corner < 6; corner++) {
@@ -801,6 +805,8 @@ int main(int argc, char** argv) {
     return 22;
   if (!testFarTerrain(shader))
     return 20;
+  if (!testTerrainLighting(shader))
+    return 23;
   if (!testTerrainVariants(shader))
     return 21;
   for (int pattern = 0; pattern < 9; pattern++)
