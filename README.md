@@ -137,8 +137,9 @@ Hold either Shift key while walking to crouch at 1.5 units/second. The body
 becomes one block high, with the eye 0.9 blocks above the feet, so it fits
 one-block-high passages. Releasing Shift stands up only when the full body
 fits; move out from under a ceiling to stand. Body and eye height change together
-on a physics tick, without an animated transition. Crouching still allows a
-grounded jump and falling from ledges.
+on a physics tick, without an animated transition. Grounded crouching prevents
+walking off ledges, including diagonal corners. Release Shift or jump to leave
+an edge; removing the supporting block still makes the player fall.
 
 Double-tap W within 0.25 seconds (press to press, including the endpoint) to run
 at 7 units/second while holding W. Running keeps the same collision and diagonal
@@ -146,6 +147,8 @@ speed limits and continues through a jump. Releasing W after starting a run,
 pressing S or either Shift key, toggling flight, or pausing cancels the run and
 tap history. Key repeats do not count as taps. After cancellation, start a fresh
 double-tap to run again. See [crouch and running checks](docs/crouch-running.md).
+Running also eases the field of view from 70 to 80 degrees, then back when it
+stops. Pausing or entering debug flight restores 70 degrees immediately.
 
 F toggles debug flight, where W/A/S/D follows the camera and Space/Left Shift
 moves up/down through terrain. Returning to walking keeps the current body
@@ -238,6 +241,12 @@ power-loss durability is not guaranteed. See the [format and validation record](
 
 ## Roadmap
 
+The [block, building, and item design backlog](docs/content-roadmap.md) expands
+the planned content into terrain materials, wood and masonry sets, shaped
+building pieces, decorations, workstations, tools, weapons, armor, and supplies.
+Those checklists describe future content; the game currently has grass, dirt,
+and stone. Pickaxes, axes, swords, and the other listed items are not implemented.
+
 ### Phase 1: Core Engine Development
 - **Basic Rendering**:
   - [x] Set up OpenGL context and render a simple cube
@@ -282,7 +291,9 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [x] Add player physics (gravity, grounded jumping, safe spawn)
   - [x] Add DDA selection, placement-face results, target outline, crosshair, and material selection
   - [x] Hold Shift to crouch in walking mode
+  - [x] Prevent grounded crouching from walking off ledges and corners
   - [x] Double-tap W to run
+  - [x] Smoothly widen the field of view while running
   - [ ] Make block-breaking time depend on the block and whether the player uses a hand or a suitable tool
 
 ### Phase 2: Graphics and Performance
@@ -330,6 +341,9 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [ ] Let the player drop items from the inventory and hotbar
   - [ ] Render dropped items as spinning textured sprites, similar to Minecraft
   - [ ] Implement tool durability
+  - [ ] Add pickaxes, axes, shovels, hoes, shears, and fishing rods
+  - [ ] Add swords, spears, bows, crossbows, shields, and armor sets
+  - [ ] Design material tiers, recipes, loot, icons, and held models using the [content backlog](docs/content-roadmap.md)
   - [ ] Add block metadata system for more complex interactions
 
 - **Entity System**:

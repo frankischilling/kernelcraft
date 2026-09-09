@@ -19,6 +19,7 @@ static int selectedSlot;
 
 bool initInputs(InputState* input, Camera* camera) {
   *input = (InputState){.camera = camera};
+  camera->fov = CAMERA_BASE_FOV;
   if (!playerFindSpawn(&input->player, camera->position))
     return false;
   camera->position = playerEyePosition(&input->player);
@@ -28,6 +29,7 @@ bool initInputs(InputState* input, Camera* camera) {
 
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved) {
   *input = (InputState){.camera = camera};
+  camera->fov = CAMERA_BASE_FOV;
   if (!saved || saved->selectedSlot < 0 || saved->selectedSlot >= HOTBAR_SLOT_COUNT || !playerSetPosition(&input->player, saved->feet))
     return false;
   camera->position = playerEyePosition(&input->player);
@@ -43,6 +45,7 @@ static void resetInputTiming(InputState* input) {
     return;
   playerResetTiming(&input->player);
   playerResetRunInput(&input->runInput);
+  input->camera->fov = CAMERA_BASE_FOV;
   input->jumpRequested = false;
   input->simulationSteps = 0;
 }
@@ -202,6 +205,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     input->simulationSteps = playerAdvance(&input->player, motion, deltaTime);
     input->jumpRequested = false;
     camera->position = playerEyePosition(&input->player);
+    updateCameraFov(camera, input->player.running, deltaTime);
     return;
   }
   float velocity = camera->speed * (float)fmin(deltaTime, 0.1);

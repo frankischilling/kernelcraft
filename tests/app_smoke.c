@@ -15,6 +15,7 @@ static bool iconified;
 static int pressedKey = -1;
 static bool shiftHeld, sideHeld, backHeld, zeroFramebuffer;
 static double eventSeconds = -1;
+static float previousProjectionScale;
 static int frame = -1;
 static int swaps, waits;
 static bool sawCompactHUD, sawDebugHUD;
@@ -287,6 +288,22 @@ static void testCrouchControl(GLFWwindow* window) {
   CHECK(fabsf(camera->position.y - eye.y + 0.1f) < 0.00001f);
   key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
   CHECK(!input->flying && !input->player.crouched && playerCanOccupy(input->player.position));
+  CHECK(setBlock(&(Vec3i){-45, 39, -45}, BLOCK_STONE));
+  CHECK(playerSetPosition(&input->player, (Vec3){-44.5f, 40, -44.5f}));
+  camera->yaw = 90;
+  camera->pitch = 0;
+  updateCameraVectors(camera);
+  shiftHeld = true;
+  pressedKey = GLFW_KEY_W;
+  for (int i = 0; i < 60; i++) {
+    processInput(window, input, 1.0 / 30);
+    CHECK(input->player.grounded && input->player.position.y == 40);
+  }
+  CHECK(input->player.position.z > -44 && input->player.position.z < -43.69f);
+  CHECK(setBlock(&(Vec3i){-45, 39, -45}, BLOCK_AIR));
+  processInput(window, input, 1.0 / 30);
+  CHECK(input->player.position.y < 40 && !input->player.grounded);
+  shiftHeld = false;
   pressedKey = -1;
   *camera = originalCamera;
   *input = originalInput;
@@ -367,6 +384,8 @@ static void testRunningControls(GLFWwindow* window) {
         key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
         CHECK(input->runInput.tapPending);
       }
+      updateCameraFov(camera, true, 0.1);
+      CHECK(camera->fov > 70);
       before = input->player.position;
       if (pause == 0)
         key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
@@ -378,6 +397,7 @@ static void testRunningControls(GLFWwindow* window) {
       zeroFramebuffer = pause == 3;
       processInput(window, input, 10);
       CHECK(!input->player.running && !input->runInput.running && !input->runInput.tapPending);
+      CHECK(camera->fov == 70);
       CHECK(input->player.position.x == before.x && input->player.position.y == before.y && input->player.position.z == before.z);
       focused = GLFW_TRUE;
       iconified = zeroFramebuffer = false;
@@ -391,6 +411,7 @@ static void testRunningControls(GLFWwindow* window) {
   startRunning(window, key);
   key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
   CHECK(input->flying && !input->runInput.running && !input->runInput.tapPending && !input->player.running);
+  CHECK(camera->fov == 70);
   key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
   key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
   CHECK(!input->runInput.tapPending);
@@ -398,6 +419,30 @@ static void testRunningControls(GLFWwindow* window) {
   eventSeconds = -1;
   *camera = originalCamera;
   *input = originalInput;
+}
+
+static void testCameraCue(void) {
+  Camera fine, coarse;
+  initCamera(&fine);
+  coarse = fine;
+  for (int i = 0; i < 60; i++)
+    updateCameraFov(&fine, true, 1.0 / 60);
+  for (int i = 0; i < 30; i++)
+    updateCameraFov(&coarse, true, 1.0 / 30);
+  CHECK(fine.fov > 79.9f && fine.fov <= 80 && fabsf(fine.fov - coarse.fov) < 0.0001f);
+  for (int i = 0; i < 60; i++)
+    updateCameraFov(&fine, false, 1.0 / 60);
+  CHECK(fine.fov >= 70 && fine.fov < 70.01f);
+  float before = fine.fov;
+  updateCameraFov(&fine, true, NAN);
+  updateCameraFov(&fine, true, -1);
+  updateCameraFov(&fine, true, 0);
+  CHECK(fine.fov == before);
+  initCamera(&fine);
+  coarse = fine;
+  updateCameraFov(&fine, true, 1000);
+  updateCameraFov(&coarse, true, 0.1);
+  CHECK(fine.fov == coarse.fov && fine.fov < 80);
 }
 
 static void testEditing(GLFWwindow* window) {
@@ -642,6 +687,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
+    testCameraCue();
     testInput(window);
     testIconifiedInput(window);
     testSavedInput(window);
@@ -788,6 +834,19 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
     CHECK(playerCanOccupyPosture(input->player.position, input->player.crouched));
     CHECK(input->camera->position.x == eye.x && input->camera->position.y == eye.y && input->camera->position.z == eye.z);
     CHECK(input->simulationSteps == (frame == 48 ? 0 : 4));
+    if (frame >= 52 && frame <= 54) {
+      GLint program;
+      GLfloat matrix[16];
+      glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+      glGetUniformfv((GLuint)program, glGetUniformLocation((GLuint)program, "viewProjection"), matrix);
+      if (frame == 52)
+        CHECK(matrix[5] < 1.4f && matrix[5] > 1.3f);
+      else if (frame == 53)
+        CHECK(matrix[5] < previousProjectionScale);
+      else
+        CHECK(matrix[5] > previousProjectionScale && matrix[5] < 1.429f);
+      previousProjectionScale = matrix[5];
+    }
     if ((frame == 18 || frame == 20 || frame == 50 || frame == 52) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
       unsigned char* pixels = malloc(1280 * 720 * 3);
       CHECK(pixels);

@@ -22,7 +22,11 @@ current full-block world. Body and eye height change on the next simulation
 tick, with no interpolation. Releasing Shift retries standing at each tick;
 the entire standing body must fit inside world bounds and outside solid blocks.
 Feet do not move during the posture change. A blocked stand retains crouch
-speed and cannot run. There is no protection against walking off a ledge.
+speed and cannot run. While crouched and grounded, horizontal movement stops
+before the footprint loses support, including at diagonal corners. Each axis
+retains its last supported position, so the player can slide along an edge.
+Jumping deliberately leaves support, and breaking the supporting block still
+causes a fall. Release crouch or jump to descend a ledge.
 
 Two W press edges, separated by a release and at most `PLAYER_RUN_TAP_SECONDS`
 (0.25 seconds), start running. The endpoint counts; key repeats and duplicate
@@ -51,6 +55,14 @@ state. `src/utils/inputs.c` supplies registered W events and polled movement,
 shares the active posture with editing, and handles cancellation and snapshots.
 The main loop passes crouch/run state to the HUD; the compact status and F3
 diagnostics show it. Control hints use the existing available-space checks.
+
+The camera now provides a running cue: vertical FOV eases from 70 to 80 degrees
+while running and returns toward 70 when running stops. The exponential
+transition uses elapsed seconds (response 12 per second), capped at 0.1 seconds
+per update after a stall. Capture/focus/minimize pauses and flight toggles reset
+FOV to 70 immediately. Loading a world also starts at 70; the effect is not saved.
+The actual perspective matrix uses this FOV, while the crosshair and HUD keep
+their screen-space layout. There is no added camera shake or motion blur.
 
 ## Saves and placement
 
@@ -84,12 +96,23 @@ These commands exited 0:
 | Native Windows, MINGW64 GCC 13.2.0 | `.\build.cmd -Test` |
 | Native Windows, MINGW64 GCC 13.2.0 | `.\build.cmd -Configuration Debug -Test` |
 
+For the ledge/FOV follow-up, GCC build, CPU, graphical, and sanitizer checks
+were repeated, along with `make CC=clang CFLAGS='-O2 -g -Werror' all test test-gl`
+and both native Windows commands above. Each exited 0. Build scripts are
+unchanged; the local `make test-build` result above is from the first increment.
+
 The first new application regression failed on the unchanged standing eye
 height after Shift input. It passed after the controls reached the player model.
 CPU tests cover the exact double-tap endpoint and adjacent doubles, repeats,
 clock reversal/invalid values, posture timing, ceiling and world-top clearance,
 speed across frame partitions, diagonal movement, jumping, and running into
 walls across negative chunk seams. Existing walking/collision tests remain.
+Follow-up regressions first reproduced falling from a block while crouched and
+the unchanged running projection. CPU coverage now includes all eight edge/corner
+directions, repeated stalled frames at a ledge, releasing crouch, jumping away,
+and removing support. Application checks cover actual crouch controls on a
+single-block platform, rendered FOV entry/exit, timing partitions, invalid
+elapsed time, frame stalls, and FOV reset through each pause path.
 
 The application harness exercises registered callbacks and the real renderer.
 It covers both Shift keys, crouched placement, blocked standing after all pause

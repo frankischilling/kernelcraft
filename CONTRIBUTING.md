@@ -57,6 +57,10 @@ block. Check that holding Space does not repeat jumps and that walking speed
 stays constant when looking up. Use F to test flight and returning from inside
 terrain. Hold either Shift key, enter a one-block-high passage, and release Shift;
 the player must stay crouched until the full standing body clears the ceiling.
+Move toward each edge and diagonal corner of a single block while crouched;
+the player must stay supported. Check moving along an edge, releasing Shift,
+jumping away, and breaking the support block. Running should smoothly widen
+the view and stopping should narrow it; pauses and flight should reset it.
 Try placing a ceiling above the crouched head and a block inside the body.
 Double-tap W to run, add A/D, and run into walls and corners. Check that W release,
 S, Shift, flight, capture release, focus loss, minimization, and a zero framebuffer

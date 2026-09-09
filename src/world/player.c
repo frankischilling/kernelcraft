@@ -151,9 +151,10 @@ Vec3 playerEyePosition(const Player* player) {
   return (Vec3){player->position.x, player->position.y + (player->crouched ? PLAYER_CROUCH_EYE_HEIGHT : PLAYER_EYE_HEIGHT), player->position.z};
 }
 
-static bool moveAxis(Player* player, int axis, double displacement) {
+static bool moveAxis(Player* player, int axis, double displacement, bool guardLedge) {
   double allowed = clipAxis(player->position, player->crouched, axis, displacement);
   float* coordinate = axis == 0 ? &player->position.x : axis == 1 ? &player->position.y : &player->position.z;
+  float start = *coordinate;
   double exact = *coordinate + allowed;
   float rounded = (float)exact;
   bool blocked = allowed != displacement;
@@ -162,6 +163,20 @@ static bool moveAxis(Player* player, int axis, double displacement) {
   // Round back only at contact, avoiding a bias on ordinary free movement.
   if (((displacement > 0 && rounded > exact) || (displacement < 0 && rounded < exact)) && (blocked || !playerCanOccupyPosture(player->position, player->crouched))) {
     *coordinate = nextafterf(rounded, displacement > 0 ? -INFINITY : INFINITY);
+    blocked = true;
+  }
+  if (guardLedge && !supported(player->position, player->crouched)) {
+    float safe = start, unsafe = *coordinate;
+    // Each crouch step is at most 0.0125 units, smaller than a block gap.
+    // Keep the last supported float so rounding cannot push feet off an edge.
+    for (int i = 0; i < 16; i++) {
+      *coordinate = safe + (unsafe - safe) * 0.5f;
+      if (supported(player->position, player->crouched))
+        safe = *coordinate;
+      else
+        unsafe = *coordinate;
+    }
+    *coordinate = safe;
     blocked = true;
   }
   return blocked;
@@ -182,11 +197,12 @@ static void playerStep(Player* player, PlayerMotion motion) {
   player->velocity.x = motion.wish.x * speed;
   player->velocity.z = motion.wish.z * speed;
   player->velocity.y = fmaxf(-PLAYER_TERMINAL_SPEED, player->velocity.y - PLAYER_GRAVITY * PLAYER_STEP_SECONDS);
-  if (moveAxis(player, 0, player->velocity.x * PLAYER_STEP_SECONDS))
+  bool guardLedge = player->crouched && player->grounded;
+  if (moveAxis(player, 0, player->velocity.x * PLAYER_STEP_SECONDS, guardLedge))
     player->velocity.x = 0;
-  if (moveAxis(player, 2, player->velocity.z * PLAYER_STEP_SECONDS))
+  if (moveAxis(player, 2, player->velocity.z * PLAYER_STEP_SECONDS, guardLedge))
     player->velocity.z = 0;
-  if (moveAxis(player, 1, player->velocity.y * PLAYER_STEP_SECONDS)) {
+  if (moveAxis(player, 1, player->velocity.y * PLAYER_STEP_SECONDS, false)) {
     player->grounded = player->velocity.y < 0;
     player->velocity.y = 0;
   } else {

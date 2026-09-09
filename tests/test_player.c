@@ -308,6 +308,39 @@ static void testRunTaps(void) {
   CHECK(!input.running); // A backwards clock must not complete a tap.
 }
 
+static void testCrouchLedges(void) {
+  const Vec3 directions[] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {1, 0, 1}, {-1, 0, -1}, {1, 0, -1}, {-1, 0, 1}};
+  for (int d = 0; d < 8; d++) {
+    clearWorld();
+    CHECK(setBlock(&(Vec3i){-16, 3, -1}, BLOCK_STONE));
+    Player player;
+    CHECK(playerSetPosition(&player, (Vec3){-15.5f, 4, -0.5f}));
+    for (int i = 0; i < 120; i++) {
+      CHECK(playerAdvance(&player, (PlayerMotion){.wish = directions[d], .crouch = true}, 1000) == 8);
+      CHECK(player.position.y == 4 && player.grounded);
+    }
+    CHECK((double)player.position.x + PLAYER_RADIUS > -16 && (double)player.position.x - PLAYER_RADIUS < -15);
+    CHECK((double)player.position.z + PLAYER_RADIUS > -1 && (double)player.position.z - PLAYER_RADIUS < 0);
+    // Releasing crouch deliberately walks off the same ledge.
+    for (int i = 0; i < 30; i++)
+      motionTick(&player, (PlayerMotion){.wish = directions[d]});
+    CHECK(player.position.y < 4);
+  }
+  clearWorld();
+  CHECK(setBlock(&(Vec3i){0, 3, 0}, BLOCK_STONE));
+  Player player;
+  CHECK(playerSetPosition(&player, (Vec3){0.5f, 4, 0.5f}));
+  motionTick(&player, (PlayerMotion){.crouch = true, .jump = true});
+  for (int i = 0; i < 120; i++)
+    motionTick(&player, (PlayerMotion){.crouch = true, .wish = {1, 0, 0}});
+  CHECK(player.position.x > 1.3f && player.position.y < 4);
+  CHECK(playerSetPosition(&player, (Vec3){0.5f, 4, 0.5f}));
+  motionTick(&player, (PlayerMotion){.crouch = true});
+  CHECK(setBlock(&(Vec3i){0, 3, 0}, BLOCK_AIR));
+  motionTick(&player, (PlayerMotion){.crouch = true});
+  CHECK(player.position.y < 4 && !player.grounded);
+}
+
 int main(void) {
   CHECK(initChunks());
   testSpawn();
@@ -319,6 +352,7 @@ int main(void) {
   testCrouchClearance();
   testMovementSpeeds();
   testRunTaps();
+  testCrouchLedges();
   cleanupChunks();
   Player player;
   CHECK(!playerFindSpawn(&player, (Vec3){0}) && !playerCanOccupy((Vec3){0}));
