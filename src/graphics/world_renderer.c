@@ -1,6 +1,7 @@
 #include "world_renderer.h"
 #include "frustum.h"
 #include "../world/mesh.h"
+#include "../world/mesh_visibility.h"
 #include "../world/world.h"
 #include "texture.h"
 #include <GLFW/glfw3.h>
@@ -17,6 +18,7 @@ typedef struct {
   size_t indexCount;
   Vec3 center, dimensions;
   int surfaceBlocks;
+  MeshVisibility meshVisibility;
 } RenderChunk;
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
@@ -90,6 +92,11 @@ static void initGrid(void) {
 }
 
 static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
+  MeshVisibility visibility;
+  if (!buildMeshVisibility(mesh, &visibility)) {
+    freeChunkMesh(mesh);
+    return false;
+  }
   if (mesh->indexCount) {
     if (!render->vao) {
       glGenVertexArrays(1, &render->vao);
@@ -112,6 +119,7 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     glEnableVertexAttribArray(3);
   }
   if (glGetError() != GL_NO_ERROR) {
+    freeMeshVisibility(&visibility);
     freeChunkMesh(mesh);
     return false;
   }
@@ -120,6 +128,8 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
   vec3_scale(&render->center, &render->center, 0.5f);
   vec3_subtract(&render->dimensions, &mesh->max, &mesh->min);
   render->indexCount = mesh->indexCount;
+  freeMeshVisibility(&render->meshVisibility);
+  render->meshVisibility = visibility;
   freeChunkMesh(mesh);
   chunk->dirty = false;
   return true;
@@ -242,6 +252,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
         continue;
       if (!frustum_block_visible(&frustum, &chunk->center, &chunk->dimensions, camera))
         continue;
+      // A chunk box can overlap a sky view through empty space above terrain.
+      // Test its actual surfaces in this view before drawing or querying them.
+      if (!meshVisibilityIntersects(&chunk->meshVisibility, frustum.planes))
+        continue;
       // Near boxes first so their opaque surfaces can hide farther geometry.
       Vec3 offset;
       vec3_subtract(&offset, &chunk->center, &camera->position);
@@ -294,6 +308,7 @@ void cleanupWorld(void) {
       glDeleteBuffers(1, &chunk->vbo);
       glDeleteBuffers(1, &chunk->ebo);
       glDeleteQueries(1, &chunk->query);
+      freeMeshVisibility(&chunk->meshVisibility);
     }
   }
   memset(renderChunks, 0, sizeof(renderChunks));

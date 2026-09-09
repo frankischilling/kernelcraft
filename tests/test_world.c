@@ -6,6 +6,7 @@
 #include <string.h>
 #ifndef KERNELCRAFT_BASELINE
 #include "world/mesh.h"
+#include "world/mesh_visibility.h"
 #endif
 
 static int failures;
@@ -69,6 +70,65 @@ static void test_frustum(void) {
 }
 
 #ifndef KERNELCRAFT_BASELINE
+static void test_mesh_visibility(void) {
+  // An orthographic box centered at negative world coordinates.
+  const float box[6][4] = {{1, 0, 0, 11}, {-1, 0, 0, -9}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 6}, {0, 0, -1, -4}};
+  ChunkMesh mesh = {0};
+  MeshVisibility visibility;
+  CHECK(buildMeshVisibility(&mesh, &visibility));
+  CHECK(!meshVisibilityIntersects(&visibility, box));
+  freeMeshVisibility(&visibility);
+  freeMeshVisibility(&visibility);
+
+  MeshVertex vertices[8] = {0};
+  mesh.vertices = vertices;
+  mesh.vertexCount = 4;
+  const Vec3 rectangles[][4] = {
+      {{-10.5f, -0.5f, -5}, {-9.5f, -0.5f, -5}, {-9.5f, 0.5f, -5}, {-10.5f, 0.5f, -5}}, // Inside.
+      {{-12, -2, -5}, {-8, -2, -5}, {-8, 2, -5}, {-12, 2, -5}},                         // All corners outside, but covers the view.
+      {{-10, -0.5f, -5}, {-10, 0.5f, -5}, {-10, 0.5f, -3}, {-10, -0.5f, -3}},           // Crosses near plane.
+      {{-12, 0, -5}, {-8, 0, -5}, {-8, 0, -3}, {-12, 0, -3}},                           // Horizontal, crosses near plane.
+      {{-10.5f, -0.5f, -4}, {-9.5f, -0.5f, -4}, {-9.5f, 0.5f, -4}, {-10.5f, 0.5f, -4}}, // Near-plane contact.
+      {{-10.5f, -0.5f, -3}, {-9.5f, -0.5f, -3}, {-9.5f, 0.5f, -3}, {-10.5f, 0.5f, -3}}, // Before near plane.
+      {{-10.5f, -0.5f, -7}, {-9.5f, -0.5f, -7}, {-9.5f, 0.5f, -7}, {-10.5f, 0.5f, -7}}, // Beyond far plane.
+  };
+  for (size_t rectangle = 0; rectangle < sizeof(rectangles) / sizeof(rectangles[0]); rectangle++) {
+    for (int i = 0; i < 4; i++)
+      vertices[i].position = rectangles[rectangle][i];
+    CHECK(buildMeshVisibility(&mesh, &visibility));
+    CHECK(meshVisibilityIntersects(&visibility, box) == (rectangle < 5));
+    freeMeshVisibility(&visibility);
+  }
+
+  // A broad mesh box intersects the view, but both separated surfaces miss it.
+  mesh.vertexCount = 8;
+  for (int i = 0; i < 8; i++) {
+    vertices[i].position = rectangles[0][i % 4];
+    vertices[i].position.x += i < 4 ? -5 : 5;
+  }
+  CHECK(buildMeshVisibility(&mesh, &visibility));
+  CHECK(visibility.nodeCount == 3);
+  CHECK(!meshVisibilityIntersects(&visibility, box));
+  freeMeshVisibility(&visibility);
+
+  // A rectangle beyond a rotated frustum corner passes all six individual
+  // box/plane tests, but clipping must reject it.
+  const float corner[6][4] = {{-0.70710678f, -0.70710678f, 0, 0.70710678f},
+                              {0.70710678f, 0.70710678f, 0, 0.70710678f},
+                              {-0.70710678f, 0.70710678f, 0, 0.70710678f},
+                              {0.70710678f, -0.70710678f, 0, 0.70710678f},
+                              {0, 0, 1, 1},
+                              {0, 0, -1, 1}};
+  mesh.vertexCount = 4;
+  vertices[0].position = (Vec3){1.5f, -1, 0};
+  vertices[1].position = (Vec3){1.6f, -1, 0};
+  vertices[2].position = (Vec3){1.6f, 1, 0};
+  vertices[3].position = (Vec3){1.5f, 1, 0};
+  CHECK(buildMeshVisibility(&mesh, &visibility));
+  CHECK(!meshVisibilityIntersects(&visibility, corner));
+  freeMeshVisibility(&visibility);
+}
+
 static void clear_world(void) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -376,6 +436,7 @@ int main(void) {
   test_frustum();
 #ifndef KERNELCRAFT_BASELINE
   test_mesh();
+  test_mesh_visibility();
   test_greedy_shapes();
 #endif
   cleanupChunks();

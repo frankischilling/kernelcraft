@@ -19,6 +19,67 @@ static RenderResult occlusionFrame(const Camera* camera, const Mat4 view, const 
   return result;
 }
 
+static bool testMovingSky(GLuint shader) {
+  if (!initChunksSeeded(0) || !initWorld(shader))
+    return false;
+  float* depth = malloc(960 * 540 * sizeof(*depth));
+  if (!depth)
+    return false;
+  bool success = true;
+  Camera camera;
+  initCamera(&camera);
+  Mat4 view, projection;
+  mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+  for (int frame = 0; frame < 12; frame++) {
+    camera.position = (Vec3){0.5f + frame * 0.0025f, 13.62f, 3.5f};
+    camera.pitch = 89;
+    camera.yaw = 90 + frame * 0.05f;
+    updateCameraVectors(&camera);
+    Vec3 target;
+    vec3_add(&target, &camera.position, &camera.front);
+    mat4_lookAt(view, &camera.position, &target, &camera.up);
+    RenderResult result = occlusionFrame(&camera, view, projection, false);
+    glReadPixels(0, 0, 960, 540, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
+    int pixels = 0;
+    for (int i = 0; i < 960 * 540; i++)
+      pixels += depth[i] < 1;
+    success &= result.success && result.terrainDrawCalls == 0 && result.occlusionQueries == 0 && pixels == 0;
+    if (frame == 0 || frame == 11)
+      printf("Moving sky frame %d: terrain draws=%d queries=%d visible pixels=%d\n", frame, result.terrainDrawCalls, result.occlusionQueries, pixels);
+  }
+  // Editing must rebuild the visibility sidecar along with the GPU mesh.
+  // A new overhead block is visible on the very next frame; removing it
+  // returns to zero draws immediately, even with a query still pending.
+  Vec3i overhead = {0, 18, 3};
+  success &= setBlock(&overhead, BLOCK_STONE);
+  RenderResult placed = occlusionFrame(&camera, view, projection, false);
+  glReadPixels(0, 0, 960, 540, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
+  int pixels = 0;
+  for (int i = 0; i < 960 * 540; i++)
+    pixels += depth[i] < 1;
+  success &= placed.success && placed.chunksRebuilt > 0 && placed.terrainDrawCalls > 0 && pixels > 0;
+  success &= setBlock(&overhead, BLOCK_AIR);
+  RenderResult removed = occlusionFrame(&camera, view, projection, false);
+  success &= removed.success && removed.chunksRebuilt > 0 && removed.terrainDrawCalls == 0 && removed.occlusionQueries == 0;
+  printf("Sky overhead edit: placed draws=%d visible pixels=%d; removed draws=%d queries=%d\n", placed.terrainDrawCalls, pixels, removed.terrainDrawCalls,
+         removed.occlusionQueries);
+
+  camera.pitch = -45;
+  updateCameraVectors(&camera);
+  Vec3 target;
+  vec3_add(&target, &camera.position, &camera.front);
+  mat4_lookAt(view, &camera.position, &target, &camera.up);
+  RenderResult ground = occlusionFrame(&camera, view, projection, false);
+  glReadPixels(0, 0, 960, 540, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
+  pixels = 0;
+  for (int i = 0; i < 960 * 540; i++)
+    pixels += depth[i] < 1;
+  success &= ground.success && ground.terrainDrawCalls > 0 && pixels > 0;
+  printf("Sky to ground: terrain draws=%d visible pixels=%d\n", ground.terrainDrawCalls, pixels);
+  free(depth);
+  return success && glGetError() == GL_NO_ERROR;
+}
+
 // Real GPU regression: removing culling must fail the submission assertion;
 // reusing stale visibility must fail the edit/movement pixel comparisons.
 static bool testOcclusion(GLuint shader) {

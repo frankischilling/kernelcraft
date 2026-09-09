@@ -846,6 +846,8 @@ int main(int argc, char** argv) {
     return 17;
   if (!testSelectionOcclusionAndState(shader))
     return 18;
+  if (!testMovingSky(shader))
+    return 26;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;
