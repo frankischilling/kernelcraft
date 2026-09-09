@@ -5,6 +5,19 @@ samples passing the depth test. This runs after the existing render-distance
 and frustum filters. It does not change the world, greedy meshes, materials,
 selection, movement, or save format.
 
+The frustum filter checks actual mesh surfaces after the broad chunk box. A
+CPU hierarchy of greedy-rectangle bounds rejects empty space inside that box;
+leaf rectangles are clipped against the current frustum when needed. This
+keeps sky-only views at zero terrain draws and zero queries during mouse look
+and movement. A chunk box alone could accept those views, causing useless
+draws whenever movement invalidated a previous zero-sample query.
+
+The hierarchy is built with the mesh, replaced on dirty-chunk uploads, and
+freed on cleanup. Traversal uses no per-frame allocation. Near-plane crossings
+and boundary contact remain visible, and edits can reveal overhead blocks on
+the next frame. This is a more precise frustum test; it does not reuse old
+occlusion answers after movement or cull individual quads from a visible chunk.
+
 Candidates are sorted by distance to their bounding boxes, nearest first, so
 near opaque surfaces can hide farther chunks. A `GL_ANY_SAMPLES_PASSED` query
 wraps each unknown chunk's normal terrain draw. There is no extra depth pass
@@ -17,7 +30,7 @@ the chunk's GPU resources and are deleted while the context is current.
 A zero-sample result is valid only for the same view and opaque world. Every
 camera-position, view-matrix, projection, viewport, framebuffer-binding, or
 mesh change invalidates all cached visibility. Pending answers from before a
-change are discarded before reuse. Wireframe bypasses queries and culling,
+change are discarded before reuse. Wireframe bypasses queries and occlusion,
 and returning to solid rendering starts with unknown visibility.
 
 This conservative policy avoids delayed reveals after movement or block edits.
@@ -58,6 +71,12 @@ benchmark, reached by `make test-gl`, `make benchmark`, and native
   answer from suppressing newly exposed terrain.
 - Existing seam, upload-failure, material, selection, HUD, input, and
   persistence tests continue through the production renderer.
+- At seed-0 spawn height, twelve moving sky frames submit no terrain or
+  queries. Placing an overhead block produces visible pixels immediately;
+  removing it returns to zero draws, and looking down restores terrain.
+- CPU tests cover empty meshes, separated surfaces with overlapping combined
+  bounds, negative coordinates, all rectangle orientations, near/far planes,
+  boundary contact, and rejection beyond a rotated frustum corner.
 
 The benchmark also translates the camera by 0.01 blocks per frame for a fifth
 scenario. It checks that moving frames do not reuse hidden-chunk results.
@@ -65,12 +84,14 @@ These are hidden graphical checks, not hands-on interactive playtesting.
 
 ## Measurements and validation
 
-The later [five-pair rendering benchmark](occlusion-benchmark.md) supersedes
+The [sky-motion follow-up](sky-motion-culling.md) records the current fix and
+its measurements. The earlier [five-pair rendering benchmark](occlusion-benchmark.md) supersedes
 the single-run timing comparison below. It includes FPS distributions, CPU/GPU
 intervals, geometry, uploads, edits, and initialization. It did not establish
 an FPS improvement; stationary geometry reductions remain repeatable.
 
-Measurements use seed 0, a 960x540 hidden window, native Windows Release,
+The historical measurements below predate the surface-frustum refinement.
+They use seed 0, a 960x540 hidden window, native Windows Release,
 Intel UHD Graphics, ten warm-up frames, and 60 measured frames with `glFinish`.
 The first four camera positions/pitches are unchanged from the existing
 benchmark. The fifth uses the same horizontal view with the small translation
@@ -118,7 +139,8 @@ WSL Ubuntu 24.04, hidden Mesa/Xvfb graphics:
   make test-build
 ```
 
-Native Windows incremental-build regressions were not rerun because build
-scripts were unchanged. No hands-on interactive playtest was performed.
+At that checkpoint, native Windows incremental-build regressions were not
+rerun because build scripts were unchanged. They passed during the later
+sky-motion fix. No hands-on interactive playtest was performed.
 The next optimization target is safe culling during camera movement, with
 the current pixel comparisons retained as a regression oracle.

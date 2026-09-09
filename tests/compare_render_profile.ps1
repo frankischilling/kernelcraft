@@ -50,7 +50,7 @@ try {
                 if ($LASTEXITCODE -ne 0) { throw "Profile failed; see $log" }
             } finally { Pop-Location }
             $lines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_RESULT ') })
-            if ($lines.Count -ne 7) { throw "Expected seven complete scenes in $log" }
+            if ($lines.Count -ne 8) { throw "Expected eight complete scenes in $log" }
             foreach ($line in $lines) {
                 $values = $line.Substring('PROFILE_RESULT '.Length).Split(',')
                 if ($values.Count -ne $columns.Count) { throw "Unexpected result schema in $log" }

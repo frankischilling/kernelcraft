@@ -4,6 +4,10 @@ This report compares PR #49's production renderer at `1972ec2` with its base
 `71c710b`. Both builds use the same additional profiling harness. No production
 code was changed for this follow-up measurement.
 
+These results predate the subsequent [sky-motion fix](sky-motion-culling.md),
+which adds mesh-surface frustum checks. The current profiling harness also has
+an eighth `sky_moving` scene; it was not part of the seven-scene runs below.
+
 The repeated benchmark does **not establish an FPS improvement**. Geometry
 submissions fall substantially in occluded stationary views, but median FPS
 fell in this run set, especially during movement. The zero-terrain sky workload
@@ -153,6 +157,9 @@ driver allocation size was not measured. Texture memory and process RSS were
 not measured.
 
 ## Reproduce
+
+For the exact historical seven-scene workload, use the profiling header and
+comparison driver from `0a72efa`. The current versions add a moving-sky scene.
 
 Use a clean archive of `71c710b` for the baseline and this branch for the
 candidate. Copy `tests/render_profile.h` to the baseline. In its

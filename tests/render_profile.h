@@ -72,13 +72,13 @@ static int profileRendering(GLuint shader) {
   success = success && playerFindSpawn(&player, (Vec3){0, 0, 3});
   Vec3 eye = playerEyePosition(&player);
   printf("PROFILE_SPAWN x=%.3f y=%.3f z=%.3f\n", eye.x, eye.y, eye.z);
-  const char* scenarios[] = {"underground", "surface_still", "overview", "sky", "translate", "rotate", "seam_edits"};
+  const char* scenarios[] = {"underground", "surface_still", "overview", "sky", "translate", "rotate", "seam_edits", "sky_moving"};
   // One changing block on an X chunk seam, visible from the spawned eye.
   Vec3i edit = {-1, (int)floorf(player.position.y), 6};
   const Block* original = getBlock(&edit);
   int originalID = original ? original->id : BLOCK_AIR;
   int changedID = originalID == BLOCK_AIR ? BLOCK_STONE : BLOCK_AIR;
-  for (int scenario = 0; success && scenario < 7; scenario++) {
+  for (size_t scenario = 0; success && scenario < sizeof(scenarios) / sizeof(scenarios[0]); scenario++) {
     double frameTimes[PROFILE_FRAMES], cpuTimes[PROFILE_FRAMES], gpuTimes[PROFILE_FRAMES];
     double totalFrame = 0, totalCPU = 0, totalGPU = 0, rebuildMs = 0;
     size_t totalTriangles = 0, totalBytes = 0;
@@ -107,6 +107,13 @@ static int profileRendering(GLuint shader) {
         camera.position.x += step * 0.015f;
       if (scenario == 5)
         camera.yaw += step * 0.3f;
+      if (scenario == 7) {
+        // Repeat the sky-motion regression at the spawn height, where chunk
+        // boxes overlap the view even though their terrain surfaces do not.
+        camera.pitch = 89;
+        camera.position.x += (step % 12) * 0.0025f;
+        camera.yaw += (step % 12) * 0.05f;
+      }
       updateCameraVectors(&camera);
       if (scenario == 6)
         success = setBlock(&edit, step % 2 ? originalID : changedID);
