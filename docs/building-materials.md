@@ -22,12 +22,10 @@ retain their previous behavior.
 The new layers follow cobblestone at layer 7. Existing base layers 0–3 and
 terrain variants 4–6 keep their ordering. The runtime files are opaque
 16×16 RGBA tiles: [oak planks](../src/assets/textures/oak-planks.png) and
-[stone bricks](../src/assets/textures/stone-bricks.png). Source artwork is in
-[oak-planks-source.png](../art/oak-planks-source.png) and
-[stone-bricks-source.png](../art/stone-bricks-source.png).
-Stone bricks use the stone palette (`#6E7071`, `#646464`, `#555555`); oak
-planks use muted browns (`#B58A52`, `#A07845`, `#896239`, `#715030`).
-Both exports were inspected in repeated 4×4 panels with nearest sampling.
+[stone bricks](../src/assets/textures/stone-bricks.png). The refreshed tiles and
+their current palettes are editable in [textures.aseprite](../art/textures.aseprite).
+The earlier source PNGs remain in `art/` as previous artwork. See the
+[texture source notes](../art/README.md) for export requirements and atlas usage.
 
 ## Save compatibility
 
