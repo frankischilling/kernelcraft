@@ -46,6 +46,8 @@ These frame times measure a software renderer. They demonstrate reduced renderin
 
 The [occlusion-culling record](occlusion-culling.md) covers the newer GPU query
 path, stationary-view draw reductions, moving-view limits, and validation.
+The [repeated occlusion benchmark](occlusion-benchmark.md) adds five alternating
+baseline/PR pairs and records timing variability alongside rendering work.
 
 On Windows, follow the [native Windows setup](windows.md), then run:
 

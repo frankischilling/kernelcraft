@@ -58,6 +58,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 }
 
 #ifndef KERNELCRAFT_BASELINE
+#include "render_profile.h"
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
 #include "occlusion_render_checks.h"
@@ -632,6 +633,18 @@ int main(int argc, char** argv) {
   __glewBufferSubData = countSubData;
   __glewBufferData = countData;
   __glewGetUniformLocation = countLookup;
+#ifndef KERNELCRAFT_BASELINE
+  if (getenv("KERNELCRAFT_RENDER_PROFILE")) {
+    int status = profileRendering(shader);
+    HUDCleanup();
+    cleanupWorld();
+    cleanupChunks();
+    glDeleteProgram(shader);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return status;
+  }
+#endif
   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f, 0.0f};
   for (int scenario = 0; scenario < 5; scenario++) {
     Camera camera;

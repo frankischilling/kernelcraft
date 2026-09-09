@@ -65,6 +65,11 @@ These are hidden graphical checks, not hands-on interactive playtesting.
 
 ## Measurements and validation
 
+The later [five-pair rendering benchmark](occlusion-benchmark.md) supersedes
+the single-run timing comparison below. It includes FPS distributions, CPU/GPU
+intervals, geometry, uploads, edits, and initialization. It did not establish
+an FPS improvement; stationary geometry reductions remain repeatable.
+
 Measurements use seed 0, a 960x540 hidden window, native Windows Release,
 Intel UHD Graphics, ten warm-up frames, and 60 measured frames with `glFinish`.
 The first four camera positions/pitches are unchanged from the existing
