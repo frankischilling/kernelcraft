@@ -3,11 +3,11 @@
 This records the cobblestone milestone merged in PR #37. For the current
 hotbar and save version, see [building materials](building-materials.md).
 
-The approved [source image](../art/cobblestone-source.png) is exported as
-[cobblestone.png](../src/assets/textures/cobblestone.png), a 16-by-16, opaque RGBA
-tile. It uses the same three colors as `stone.png`: `#6E7071`, `#646464`, and
-`#555555`. The larger stone clusters and dark joints distinguish cobblestone
-from the existing cracked stone tile.
+The current [cobblestone.png](../src/assets/textures/cobblestone.png) is a
+16-by-16, opaque RGBA tile with six gray tones and dark joints. It is editable
+in [textures.aseprite](../art/textures.aseprite). The earlier
+[source image](../art/cobblestone-source.png) records the previous artwork.
+See the [texture source notes](../art/README.md) for export requirements.
 
 Press **4** to select cobblestone, then right-click a block face to place it.
 Left-click breaks it using the existing block-editing controls. The fourth
