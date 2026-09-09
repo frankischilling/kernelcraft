@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 // Layers 4..6 remain reserved for shader-selected dirt and grass variants.
-enum Material { MATERIAL_STONE, MATERIAL_DIRT, MATERIAL_GRASS_TOP, MATERIAL_GRASS_SIDE, MATERIAL_COBBLESTONE = 7, MATERIAL_COUNT };
+enum Material { MATERIAL_STONE, MATERIAL_DIRT, MATERIAL_GRASS_TOP, MATERIAL_GRASS_SIDE, MATERIAL_COBBLESTONE = 7, MATERIAL_OAK_PLANKS, MATERIAL_STONE_BRICKS, MATERIAL_COUNT };
 
 typedef struct {
   Vec3 position;

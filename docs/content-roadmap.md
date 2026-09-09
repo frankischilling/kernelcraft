@@ -1,8 +1,9 @@
 # Block, building, and item design backlog
 
 Unchecked entries below are planned content and design tasks. Grass, dirt,
-stone, and cobblestone are the implemented
-block materials. Keep the existing voxel foundation and develop the colorful,
+stone, and cobblestone are the merged block materials. Oak planks and stone
+bricks are implemented on the building-materials branch; see the
+[controls and compatibility](building-materials.md). Keep the existing voxel foundation and develop the colorful,
 explorable Cube World-inspired direction through coherent content sets.
 
 ## Terrain and underground blocks
@@ -28,7 +29,8 @@ explorable Cube World-inspired direction through coherent content sets.
 
 - [ ] Oak, birch, pine, willow, and acacia tree sets with recognizable silhouettes.
 - [ ] Logs with bark sides, end grain, and placement orientation.
-- [ ] Stripped logs, planks, and bark blocks for every supported wood family.
+- [x] Oak planks: solid building block in hotbar slot 5, implemented on the current branch.
+- [ ] Stripped logs, bark blocks, and planks for the remaining wood families.
 - [ ] Leaves with defined cutout rendering, transparency sorting needs, and decay rules.
 - [ ] Saplings, roots, branches, and stumps, including growth and harvest behavior.
 - [ ] Tall grass, ferns, reeds, cattails, and dry shrubs.
@@ -40,7 +42,8 @@ explorable Cube World-inspired direction through coherent content sets.
 
 ## Building sets and shapes
 
-- [ ] Clay brick, stone brick, mossy brick, and cracked brick sets.
+- [x] Stone bricks: solid building block in hotbar slot 6, implemented on the current branch.
+- [ ] Clay brick, mossy brick, and cracked brick sets.
 - [ ] Carved sandstone, patterned terracotta, and glazed tile sets.
 - [ ] Copper, iron, and brass panels, grates, rivets, and trim.
 - [ ] Clear and colored glass, plus window panes and framed windows.

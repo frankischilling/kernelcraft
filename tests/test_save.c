@@ -202,7 +202,7 @@ int main(void) {
   size_t size;
   unsigned char* original = readFile(path, &size);
   CHECK(size == 72 + 256 * 64 * 256 && memcmp(original, "KCRFTSV\0", 8) == 0);
-  CHECK(original[8] == 3 && original[60] == 3);
+  CHECK(original[8] == 4 && original[60] == 3);
   const int allocationFailures[] = {1, 17, 256};
   for (size_t i = 0; i < sizeof(allocationFailures) / sizeof(allocationFailures[0]); i++) {
     SavedPlayer unchanged = player;
@@ -263,7 +263,10 @@ int main(void) {
   CHECK(saveWorld(path, &cobblePlayer, error, sizeof(error)) == SAVE_OK);
   size_t cobbleSize;
   unsigned char* cobbleSave = readFile(path, &cobbleSize);
-  CHECK(cobbleSize == size && cobbleSave[8] == 3 && cobbleSave[60] == 4);
+  CHECK(cobbleSize == size && cobbleSave[8] == 4 && cobbleSave[60] == 4);
+  put32(cobbleSave + 8, 3);
+  fixChecksum(cobbleSave, cobbleSize);
+  writeFile(path, cobbleSave, cobbleSize);
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
   CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == BLOCK_COBBLESTONE && loaded.selectedSlot == 3 && fingerprint() == cobbleHash);
@@ -274,11 +277,31 @@ int main(void) {
     rejected(path, cobbleSave, cobbleSize, cobbleHash);
   }
   free(cobbleSave);
+  for (int id = 5; id <= 6; id++) {
+    CHECK(setBlock(&(Vec3i){-1, 40, -1}, id));
+    SavedPlayer builder = player;
+    builder.selectedSlot = id - 1;
+    uint64_t buildingHash = fingerprint();
+    CHECK(saveWorld(path, &builder, error, sizeof(error)) == SAVE_OK);
+    size_t buildingSize;
+    unsigned char* buildingSave = readFile(path, &buildingSize);
+    CHECK(buildingSize == size && buildingSave[8] == 4 && buildingSave[60] == id);
+    CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
+    for (int version = 1; version <= 3; version++) {
+      put32(buildingSave + 8, (uint32_t)version);
+      put32(buildingSave + 60, 3);
+      fixChecksum(buildingSave, buildingSize);
+      rejected(path, buildingSave, buildingSize, buildingHash);
+    }
+    free(buildingSave);
+  }
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_DIRT) && fingerprint() == hash);
   const struct {
     size_t offset;
     uint32_t value;
-  } cases[] = {{0, 0},           {8, 4},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
+  } cases[] = {{0, 0},           {8, 5},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
                {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memcpy(bad, original, size);

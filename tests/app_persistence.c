@@ -20,6 +20,7 @@ static int frame = -1, swaps, cursorMode = GLFW_CURSOR_NORMAL;
 static bool failureShown;
 static const Vec3 feet = {-0.5f, 40, 0.5f};
 static const Vec3i removed = {-1, 41, 2}, placed = {-1, 41, 3}, exitEdit = {0, 42, 4}, cobblestone = {0, 41, 3};
+static const Vec3i building[] = {{-2, 41, 3}, {1, 41, 3}};
 static bool crouchScenario(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   return phase && !strncmp(phase, "crouch-", 7);
@@ -112,6 +113,23 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
     mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(id(cobblestone) == BLOCK_COBBLESTONE);
+    for (int material = 5; material <= 6; material++) {
+      Vec3i cell = building[material - 5];
+      CHECK(setBlock(&(Vec3i){cell.x, cell.y, cell.z + 1}, BLOCK_GRASS));
+      input->camera->position.x = cell.x + 0.5f;
+      key(window, GLFW_KEY_1 + material - 1, 0, GLFW_PRESS, 0);
+      CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+      mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+      CHECK(id(cell) == material);
+      mouse(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+      CHECK(id(cell) == material);
+      for (int tick = 0; tick < (material == 5 ? 10 : 20); tick++)
+        processBlockBreaking(window, input, 0.1);
+      CHECK(id(cell) == BLOCK_AIR);
+      mouse(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+      mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+      CHECK(id(cell) == material);
+    }
     input->camera->position = playerEyePosition(&input->player);
     CHECK(getChunk(&(Vec2i){7, 8})->dirty && getChunk(&(Vec2i){8, 8})->dirty);
     if (crouchScenario()) {
@@ -127,6 +145,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(input->saveRequested);
   } else if (frame == 0) {
     CHECK(id(removed) == BLOCK_AIR && id(placed) == BLOCK_STONE && id(exitEdit) == BLOCK_DIRT && id(cobblestone) == BLOCK_COBBLESTONE);
+    CHECK(id(building[0]) == 5 && id(building[1]) == 6);
     Vec3 expectedFeet = feet;
     if (crouchScenario()) {
       expectedFeet.y = 42;
@@ -152,7 +171,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       CHECK(fseek(file, 0, SEEK_END) == 0 && ftell(file) == 72 + 4194304);
       unsigned char selection[4];
       CHECK(fseek(file, 60, SEEK_SET) == 0 && fread(selection, 1, 4, file) == 4);
-      CHECK(selection[0] == 4 && !selection[1] && !selection[2] && !selection[3]);
+      CHECK(selection[0] == 6 && !selection[1] && !selection[2] && !selection[3]);
       if (crouchScenario()) {
         float savedY;
         CHECK(fseek(file, 44, SEEK_SET) == 0 && fread(&savedY, sizeof(savedY), 1, file) == 1);

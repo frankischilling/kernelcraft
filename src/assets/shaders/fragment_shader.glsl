@@ -23,8 +23,8 @@ uniform uint worldSeed;
 uniform float blockSize;
 
 float terrainLayer(vec3 normal) {
-    if (Material == 0.0 || Material == 7.0)
-        return Material; // Stone and cobblestone have no alternate tile.
+    if (Material == 0.0 || Material >= 7.0)
+        return Material; // Stone and building materials have no alternate tile.
     // Move just inside the face to identify its owning voxel on either sign
     // of each axis. World coordinates keep variants stable across merged quads,
     // chunk seams, edits, and saved-world reloads.

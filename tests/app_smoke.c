@@ -571,18 +571,21 @@ static void testEditing(GLFWwindow* window) {
   Vec3i target = {0, 40, 0}, placement = {0, 40, -1};
   CHECK(setBlock(&target, BLOCK_STONE));
   CHECK(setBlock(&placement, BLOCK_AIR));
-  key(window, GLFW_KEY_4, 0, GLFW_PRESS, 0);
-  CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
-  key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
-  CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
-  click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
-  CHECK(getBlock(&placement)->id == BLOCK_COBBLESTONE);
-  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
-  // A press must start hand breaking without removing the block immediately.
-  CHECK(getBlock(&placement)->id == BLOCK_COBBLESTONE);
-  finishHandBreak(window);
-  CHECK(getBlock(&placement)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
-  for (int number = GLFW_KEY_5; number <= GLFW_KEY_9; number++) {
+  for (int number = GLFW_KEY_4; number <= GLFW_KEY_6; number++) {
+    int material = number - GLFW_KEY_1 + 1;
+    key(window, number, 0, GLFW_PRESS, 0);
+    CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+    key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
+    CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+    click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+    CHECK(getBlock(&placement)->id == material);
+    click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    // A press must start hand breaking without removing the block immediately.
+    CHECK(getBlock(&placement)->id == material);
+    finishHandBreak(window);
+    CHECK(getBlock(&placement)->id == BLOCK_AIR && getBlock(&target)->id == BLOCK_STONE);
+  }
+  for (int number = GLFW_KEY_7; number <= GLFW_KEY_9; number++) {
     key(window, number, 0, GLFW_PRESS, 0);
     CHECK(selectedBlock() == BLOCK_AIR);
     CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);

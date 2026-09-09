@@ -12,7 +12,10 @@ double blockHandBreakSeconds(int block) {
   case BLOCK_STONE:
     return 1.5;
   case BLOCK_COBBLESTONE:
+  case BLOCK_STONE_BRICKS:
     return 2.0;
+  case BLOCK_OAK_PLANKS:
+    return 1.0;
   default:
     return 0;
   }

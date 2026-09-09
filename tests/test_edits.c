@@ -2,6 +2,8 @@
 #include "world/mesh.h"
 #include "world/hotbar.h"
 #include "world/edit.h"
+#include "world/player.h"
+#include "utils/raycast.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,8 +42,20 @@ static void testEdits(void) {
   CHECK(setBlock(&(Vec3i){-1, 20, -1}, hotbarBlock(3)));
   CHECK(getBlock(&(Vec3i){-1, 20, -1})->id == 4 && blockIsSolid(4));
   CHECK(dirtyCount() == 3);
-  CHECK(!blockIDValid(5) && !setBlock(&(Vec3i){0, 20, 0}, 5));
-  for (int slot = 4; slot < HOTBAR_SLOT_COUNT; slot++)
+  for (int id = 5; id <= 6; id++) {
+    resetWorld();
+    CHECK(hotbarBlock(id - 1) == id);
+    CHECK(setBlock(&(Vec3i){-1, 20, -1}, id));
+    CHECK(getBlock(&(Vec3i){-1, 20, -1})->id == id && dirtyCount() == 3);
+    CHECK(!playerCanOccupy((Vec3){-0.5f, 20, -0.5f}));
+    Ray selected = rayCast((Vec3){-0.5f, 20.5f, -3}, (Vec3){0, 0, 1}, 6);
+    CHECK(selected.hit && selected.blockCoords.x == -1 && selected.blockCoords.z == -1);
+    CHECK(!editTarget((Vec3){-0.5f, 20.5f, -3}, (Vec3){0, 0, 1}, (Vec3){-0.5f, 20, -1.5f}, false, id, true));
+    CHECK(editTarget((Vec3){-0.5f, 20.5f, -3}, (Vec3){0, 0, 1}, (Vec3){-0.5f, 20, -3}, false, id, true));
+    CHECK(getBlock(&(Vec3i){-1, 20, -2})->id == id);
+  }
+  CHECK(!blockIDValid(7) && !setBlock(&(Vec3i){0, 20, 0}, 7));
+  for (int slot = 6; slot < HOTBAR_SLOT_COUNT; slot++)
     CHECK(hotbarBlock(slot) == BLOCK_AIR);
   resetWorld();
   Vec3i invalid[] = {{INT_MIN, 0, 0}, {INT_MAX, 0, 0}, {-129, 0, 0}, {128, 0, 0}, {0, -1, 0}, {0, 64, 0}, {0, 0, -129}, {0, 0, 128}};
@@ -105,7 +119,7 @@ static void testHandBreaking(void) {
   const struct {
     int block;
     double seconds;
-  } cases[] = {{BLOCK_DIRT, 0.5}, {BLOCK_GRASS, 0.75}, {BLOCK_STONE, 1.5}, {BLOCK_COBBLESTONE, 2.0}};
+  } cases[] = {{BLOCK_DIRT, 0.5}, {BLOCK_GRASS, 0.75}, {BLOCK_STONE, 1.5}, {BLOCK_COBBLESTONE, 2.0}, {5, 1.0}, {6, 2.0}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     for (int rate = 30; rate <= 120; rate *= 2) {
       resetWorld();

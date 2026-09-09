@@ -178,11 +178,13 @@ input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Hold left mouse to break
 the target; right click places on its face. Keys 1–9 select the corresponding
-hotbar slot. Slots 1–4 contain grass, dirt, stone, and cobblestone as flat texture icons;
-slots 5–9 are empty. Empty slots can break blocks but cannot place them. A gold
+hotbar slot. Slots 1–6 contain grass, dirt, stone, cobblestone, oak planks, and
+stone bricks as flat texture icons; slots 7–9 are empty. Empty slots can break
+blocks but cannot place them. A gold
 border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
-Breaking by hand takes 0.5 seconds for dirt, 0.75 for grass, 1.5 for stone,
-and 2 for cobblestone. A gold bar above the crosshair shows progress. Keep
+Breaking by hand takes 0.5 seconds for dirt, 0.75 for grass, 1 for oak planks,
+1.5 for stone, and 2 for cobblestone or stone bricks. A gold bar above the
+crosshair shows progress. Keep
 aiming at the same block; releasing left mouse, losing or changing the target,
 or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
@@ -249,10 +251,11 @@ without replacing the file. `--no-save` makes a temporary session (optionally
 with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
-Versions 1 and 2 still load, preserving their selected material or hotbar slot.
-New saves use version 3, which adds cobblestone's block ID while retaining all
-nine selected slots. Builds that support only versions 1 or 2 cannot reopen
-version 3 saves. See [cobblestone controls and compatibility](docs/cobblestone-texture.md).
+Versions 1-3 still load, preserving their selected material or hotbar slot.
+New saves use version 4, which adds oak planks and stone bricks while retaining
+all nine selected slots. Older builds cannot reopen version 4 saves. Existing
+worlds retain their terrain; the new materials are available from the hotbar.
+See [building materials and compatibility](docs/building-materials.md).
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
 sessions writing the same world. Saving is synchronous and may pause a frame;

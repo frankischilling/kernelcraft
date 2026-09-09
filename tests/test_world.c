@@ -175,7 +175,9 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
             continue;
           CHECK(seen[x][y][z][face]++ == 0);
           int id = chunk->blocks[x][y][z].id;
-          int expected = id == BLOCK_COBBLESTONE              ? MATERIAL_COBBLESTONE
+          int expected = id == 5                              ? 8
+                         : id == 6                            ? 9
+                         : id == BLOCK_COBBLESTONE            ? MATERIAL_COBBLESTONE
                          : id == BLOCK_STONE                  ? MATERIAL_STONE
                          : id == BLOCK_DIRT || face == BOTTOM ? MATERIAL_DIRT
                          : face == TOP                        ? MATERIAL_GRASS_TOP
@@ -268,6 +270,23 @@ static void test_mesh(void) {
 }
 
 static void test_greedy_shapes(void) {
+  for (int id = 5; id <= 6; id++) {
+    clear_world();
+    Chunk* buildingChunk = getChunk(&(Vec2i){7, 7});
+    buildingChunk->blocks[1][20][1].id = (uint8_t)id;
+    buildingChunk->blocks[2][20][1].id = (uint8_t)id;
+    ChunkMesh buildingMesh;
+    CHECK(buildChunkMesh(buildingChunk, &buildingMesh));
+    CHECK(buildingMesh.indexCount == 36 && buildingMesh.batches[id + 3].indexCount == 36);
+    CHECK(check_mesh_coverage(buildingChunk, &buildingMesh) == 10);
+    check_mesh_geometry(&buildingMesh);
+    freeChunkMesh(&buildingMesh);
+    buildingChunk->blocks[2][20][1].id = (uint8_t)(id == 5 ? 6 : 5);
+    CHECK(buildChunkMesh(buildingChunk, &buildingMesh));
+    CHECK(buildingMesh.indexCount == 60 && buildingMesh.batches[8].indexCount == 30 && buildingMesh.batches[9].indexCount == 30);
+    CHECK(check_mesh_coverage(buildingChunk, &buildingMesh) == 10);
+    freeChunkMesh(&buildingMesh);
+  }
   clear_world();
   Chunk* chunk = getChunk(&(Vec2i){7, 7});
   for (int x = 2; x < 7; x++)

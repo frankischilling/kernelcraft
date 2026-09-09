@@ -102,10 +102,11 @@ bool initWorld(GLuint shaderProgram) {
   cleanupWorld();
   program = shaderProgram;
   // Base material layers 0..3 match MeshVertex.material; GLSL selects variants
-  // 4..6 per voxel. Cobblestone occupies layer 7 on every face.
-  const char* paths[] = {"assets/textures/stone.png",      "assets/textures/dirt.png",       "assets/textures/grass-top.png",
-                         "assets/textures/grass-side.png", "assets/textures/dirt-rocks.png", "assets/textures/grass-top-leaves.png",
-                         "assets/textures/grass-bug.png",  "assets/textures/cobblestone.png"};
+  // 4..6 per voxel. Building materials occupy layers 7..9 on every face.
+  const char* paths[] = {"assets/textures/stone.png",       "assets/textures/dirt.png",        "assets/textures/grass-top.png",
+                         "assets/textures/grass-side.png",  "assets/textures/dirt-rocks.png",  "assets/textures/grass-top-leaves.png",
+                         "assets/textures/grass-bug.png",   "assets/textures/cobblestone.png", "assets/textures/oak-planks.png",
+                         "assets/textures/stone-bricks.png"};
   glActiveTexture(GL_TEXTURE0);
   textureArray = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!textureArray)
