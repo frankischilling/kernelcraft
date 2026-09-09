@@ -238,6 +238,7 @@ int main(int argc, char** argv) {
       continue;
     }
     processInput(window, &input, deltaTime);
+    processBlockBreaking(window, &input, deltaTime);
     if (input.saveRequested) {
       input.saveRequested = false;
       if (!options.noSave)
@@ -263,6 +264,7 @@ int main(int argc, char** argv) {
                       .visibleBlocks = result.surfaceBlocks,
                       .selection = selection,
                       .selectedSlot = selectedHotbarSlot(),
+                      .breakingProgress = blockBreakingProgress(&input.breaking),
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
                       .flying = input.flying,
                       .grounded = input.player.grounded,

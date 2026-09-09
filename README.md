@@ -168,12 +168,23 @@ Escape toggles mouse capture and pauses movement. Focus loss releases the cursor
 press Escape after returning to resume. Minimized windows pause rendering and
 input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
-discarded to avoid a turn jump. Left click destroys
+discarded to avoid a turn jump. Hold left mouse to break
 the target; right click places on its face. Keys 1–9 select the corresponding
 hotbar slot. Slots 1–4 contain grass, dirt, stone, and cobblestone as flat texture icons;
 slots 5–9 are empty. Empty slots can break blocks but cannot place them. A gold
 border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
-Each press edits once within six world units; a gold outline marks the
+Breaking by hand takes 0.5 seconds for dirt, 0.75 for grass, 1.5 for stone,
+and 2 for cobblestone. A gold bar above the crosshair shows progress. Keep
+aiming at the same block; releasing left mouse, losing or changing the target,
+or changing its material discards partial progress. Changing hotbar slots,
+right-clicking, toggling flight, or pausing also cancels the hold and requires
+a fresh press. All current slots use the same hand rates in walking and flight.
+Holding through completion starts the next target from zero; excess time never
+carries over. Tools and their speed modifiers remain planned. See
+[timed hand breaking](docs/timed-block-breaking.md) for timing and checks.
+
+Each right press places once within six world units; breaking uses the same
+reach. A gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
 visible under low ceilings when the outline is off-screen. See the
 [selection highlighting checks](docs/selection-highlight.md). Placement rejects occupied/out-of-world cells and body overlap
@@ -295,7 +306,8 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Prevent grounded crouching from walking off ledges and corners
   - [x] Double-tap W to run
   - [x] Smoothly widen the field of view while running
-  - [ ] Make block-breaking time depend on the block and whether the player uses a hand or a suitable tool
+  - [x] Hold left mouse to break blocks at material-dependent hand rates, with visible progress
+  - [ ] Add suitable-tool modifiers to material-dependent block-breaking times
 
 ### Phase 2: Graphics and Performance
 - **Graphics Enhancements**:
