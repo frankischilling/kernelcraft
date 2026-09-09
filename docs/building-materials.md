@@ -24,7 +24,7 @@ terrain variants 4–6 keep their ordering. The runtime files are opaque
 16×16 RGBA tiles: [oak planks](../src/assets/textures/oak-planks.png) and
 [stone bricks](../src/assets/textures/stone-bricks.png). The refreshed tiles and
 their current palettes are editable in [textures.aseprite](../art/textures.aseprite).
-The earlier source PNGs remain in `art/` as previous artwork. See the
+Current viewing copies of all runtime PNGs are also in `art/`. See the
 [texture source notes](../art/README.md) for export requirements and atlas usage.
 
 ## Save compatibility

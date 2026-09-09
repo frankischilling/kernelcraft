@@ -5,8 +5,8 @@ hotbar and save version, see [building materials](building-materials.md).
 
 The current [cobblestone.png](../src/assets/textures/cobblestone.png) is a
 16-by-16, opaque RGBA tile with six gray tones and dark joints. It is editable
-in [textures.aseprite](../art/textures.aseprite). The earlier
-[source image](../art/cobblestone-source.png) records the previous artwork.
+in [textures.aseprite](../art/textures.aseprite), with a current
+[viewing copy](../art/cobblestone.png) alongside it.
 See the [texture source notes](../art/README.md) for export requirements.
 
 Press **4** to select cobblestone, then right-click a block face to place it.
