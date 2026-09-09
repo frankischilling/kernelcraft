@@ -170,8 +170,8 @@ input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Left click destroys
 the target; right click places on its face. Keys 1–9 select the corresponding
-hotbar slot. Slots 1–3 contain grass, dirt, and stone as flat texture icons;
-slots 4–9 are empty. Empty slots can break blocks but cannot place them. A gold
+hotbar slot. Slots 1–4 contain grass, dirt, stone, and cobblestone as flat texture icons;
+slots 5–9 are empty. Empty slots can break blocks but cannot place them. A gold
 border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
 Each press edits once within six world units; a gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
@@ -230,9 +230,10 @@ without replacing the file. `--no-save` makes a temporary session (optionally
 with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
-Version 1 saves still load with their previous material selected. New saves use
-version 2 to preserve any selected hotbar slot, including empty slots; older
-builds cannot load version 2 saves.
+Versions 1 and 2 still load, preserving their selected material or hotbar slot.
+New saves use version 3, which adds cobblestone's block ID while retaining all
+nine selected slots. Builds that support only versions 1 or 2 cannot reopen
+version 3 saves. See [cobblestone controls and compatibility](docs/cobblestone-texture.md).
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
 sessions writing the same world. Saving is synchronous and may pause a frame;

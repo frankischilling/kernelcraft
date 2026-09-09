@@ -84,10 +84,19 @@ static GLuint referenceProgram(void) {
   return program;
 }
 
+static int repeatedTextureBlock(int pattern, int x, int y, int z) {
+  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_COBBLESTONE};
+  if (pattern < 3)
+    return materials[pattern];
+  if (pattern == 4)
+    return BLOCK_COBBLESTONE;
+  // Preserve the original mixed fixture, and add a mix including cobblestone.
+  return materials[(x + y + z) % (pattern == 3 ? 3 : 4)];
+}
+
 /* Compare the running renderer with independent unit-cube submissions. Six
- * views exercise every face of grass, dirt, stone, and mixed-material prisms. */
+ * views exercise every face of grass, dirt, stone, cobblestone, and mixed prisms. */
 static bool testRepeatedTextures(GLuint shader, int pattern) {
-  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE};
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
@@ -96,19 +105,19 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   for (int x = 1; x < 5; x++)
     for (int y = 20; y < 23; y++)
       for (int z = 1; z < 4; z++)
-        setBlock(&(Vec3i){x, y, z}, materials[pattern < 3 ? pattern : (x + y + z) % 3]);
+        setBlock(&(Vec3i){x, y, z}, repeatedTextureBlock(pattern, x, y, z));
   if (!initWorld(shader))
     return false;
   GLuint textures[] = {loadTexture("assets/textures/stone.png"),      loadTexture("assets/textures/dirt.png"),       loadTexture("assets/textures/grass-top.png"),
                        loadTexture("assets/textures/grass-side.png"), loadTexture("assets/textures/dirt-rocks.png"), loadTexture("assets/textures/grass-top-leaves.png"),
-                       loadTexture("assets/textures/grass-bug.png")};
+                       loadTexture("assets/textures/grass-bug.png"),  loadTexture("assets/textures/cobblestone.png")};
   GLuint referenceShader = referenceProgram();
   GLuint vao = 0, vbo = 0;
   size_t bytes = 960 * 540 * 3;
   unsigned char* merged = malloc(bytes);
   unsigned char* reference = malloc(bytes);
   bool success = merged && reference && referenceShader;
-  for (int layer = 0; layer < 7; layer++)
+  for (int layer = 0; layer < 8; layer++)
     success &= textures[layer] != 0;
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
@@ -129,7 +138,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
     mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult result = renderWorld(&camera, view, projection);
-    if (!result.success || (pattern < 3 && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
+    if (!result.success || ((pattern < 3 || pattern == 4) && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
       success = false;
       break;
     }
@@ -158,8 +167,8 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
               vertices[corner * 8 + 1] = (vertices[corner * 8 + 1] + y + 0.5f) * CUBE_SIZE;
               vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
             }
-            int id = materials[pattern < 3 ? pattern : (x + y + z) % 3];
-            int material = id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
+            int id = repeatedTextureBlock(pattern, x, y, z);
+            int material = referenceTerrainMaterial(id, face);
             material = referenceTerrainLayer(material, (Vec3i){x, y, z}, worldSeed());
             glBindTexture(GL_TEXTURE_2D, textures[material]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
@@ -187,7 +196,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   glBindVertexArray(0);
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
-  glDeleteTextures(7, textures);
+  glDeleteTextures(8, textures);
   glUseProgram(0);
   glDeleteProgram(referenceShader);
   return success;
@@ -735,7 +744,7 @@ int main(int argc, char** argv) {
     return 20;
   if (!testTerrainVariants(shader))
     return 21;
-  for (int pattern = 0; pattern < 4; pattern++)
+  for (int pattern = 0; pattern < 6; pattern++)
     if (!testRepeatedTextures(shader, pattern)) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
       return 14;

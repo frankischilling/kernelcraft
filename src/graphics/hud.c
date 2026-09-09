@@ -25,7 +25,7 @@ static DebugEntry entryLookingAtBlockCoords;
 static DebugEntry entryChunks, entryFaces, entryRebuilds;
 static DebugEntry entryMovement;
 static DebugEntry entrySave;
-static GLuint itemTextures[3];
+static GLuint itemTextures[HOTBAR_SLOT_COUNT];
 
 static void UpdateEntries(DebugData* data);
 
@@ -148,7 +148,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     drawLabel(&numbers, number, x + (slotWidth - textWidth(&numbers, number)) / 2, height - 14, slotWidth - 4);
   }
   float baseline = height - barHeight - 22;
-  const char* names[] = {"Empty", "Grass", "Dirt", "Stone"};
+  const char* names[] = {"Empty", "Grass", "Dirt", "Stone", "Cobblestone"};
   const char* selectedName = names[hotbarBlock(data->selectedSlot)];
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
@@ -242,7 +242,7 @@ static void UpdateEntries(DebugData* data) {
   snprintf(entryChunkCoords.text, sizeof(entryChunkCoords.text), "Chunk coordinates: X:%d Z:%d", currentChunkX, currentChunkZ);
 }
 void HUDCleanup(void) {
-  glDeleteTextures(3, itemTextures);
+  glDeleteTextures(HOTBAR_SLOT_COUNT, itemTextures);
   memset(itemTextures, 0, sizeof(itemTextures));
 }
 
@@ -252,13 +252,13 @@ bool HUDInit(const char* buildName, const char* buildVersion) {
   entryFPS.text[0] = '\0';
   entryCubeCount.text[0] = '\0';
   snprintf(entryBuildInfo.text, sizeof(entryBuildInfo.text), "%s %s", buildName, buildVersion);
-  const char* paths[] = {"assets/textures/grass-side.png", "assets/textures/dirt.png", "assets/textures/stone.png"};
+  const char* paths[] = {"assets/textures/grass-side.png", "assets/textures/dirt.png", "assets/textures/stone.png", "assets/textures/cobblestone.png"};
   GLint activeTexture;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
   glPushAttrib(GL_TEXTURE_BIT);
   glActiveTexture(GL_TEXTURE0);
   bool ready = true;
-  for (int i = 0; i < 3; i++) {
+  for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
     itemTextures[i] = loadTexture(paths[i]);
     if (!itemTextures[i] || glGetError() != GL_NO_ERROR) {
       fprintf(stderr, "Cannot load hotbar icon: %s\n", paths[i]);

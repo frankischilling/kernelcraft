@@ -22,7 +22,7 @@ or native `make test-build`. This checks the object cache in a temporary project
 Run Debug and sanitizer builds sequentially in one checkout: `test-sanitize`
 also writes the Debug output directories.
 
-Terrain material IDs map to base texture-array layers 0..3. The fragment shader
+Terrain material IDs map to base texture-array layers 0..3 and cobblestone layer 7. The fragment shader
 selects per-block variants from layers 4..6 using world position and seed.
 Keep that ordering consistent across the mesher, renderer, and shader. New layers must match the existing
 tile dimensions; preserve repeated UVs and extend the independent material
@@ -43,8 +43,8 @@ view jump. The automated fixture covers iconification with positive framebuffer
 dimensions independently of focus loss, plus zero-size pauses. Toggle F3 while captured and released;
 check that labels and material slots fit small landscape/portrait windows, save
 errors stay readable, and the aiming area remains clear.
-Select all nine hotbar slots with 1–9. Grass, dirt, and stone occupy slots 1–3;
-empty slots 4–9 should break blocks without placing anything. Check the flat
+Select all nine hotbar slots with 1–9. Grass, dirt, stone, and cobblestone occupy slots 1–4;
+empty slots 5–9 should break blocks without placing anything. Check the flat
 icons and selected border in small landscape, portrait, and wide/short windows.
 Break and place blocks at chunk seams, and check
 that the outline follows the next target. Try placement near the camera and

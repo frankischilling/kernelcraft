@@ -175,7 +175,11 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
             continue;
           CHECK(seen[x][y][z][face]++ == 0);
           int id = chunk->blocks[x][y][z].id;
-          int expected = id == BLOCK_STONE ? MATERIAL_STONE : id == BLOCK_DIRT || face == BOTTOM ? MATERIAL_DIRT : face == TOP ? MATERIAL_GRASS_TOP : MATERIAL_GRASS_SIDE;
+          int expected = id == BLOCK_COBBLESTONE              ? MATERIAL_COBBLESTONE
+                         : id == BLOCK_STONE                  ? MATERIAL_STONE
+                         : id == BLOCK_DIRT || face == BOTTOM ? MATERIAL_DIRT
+                         : face == TOP                        ? MATERIAL_GRASS_TOP
+                                                              : MATERIAL_GRASS_SIDE;
           CHECK(blockIsSolid(id) && material == expected);
           Vec3i neighbor = {pos.x + direction.x, pos.y + direction.y, pos.z + direction.z};
           const Block* block = getBlock(&neighbor);
@@ -248,6 +252,19 @@ static void test_mesh(void) {
   check_mesh_geometry(&mesh);
   CHECK(check_mesh_coverage(chunk, &mesh) == 4608);
   freeChunkMesh(&mesh);
+
+  clear_world();
+  chunk->blocks[0][0][0].id = BLOCK_COBBLESTONE;
+  chunk->blocks[1][0][0].id = BLOCK_COBBLESTONE;
+  CHECK(buildChunkMesh(chunk, &mesh));
+  CHECK(mesh.indexCount == 36 && mesh.batches[MATERIAL_COBBLESTONE].indexCount == 36);
+  CHECK(check_mesh_coverage(chunk, &mesh) == 10);
+  freeChunkMesh(&mesh);
+  chunk->blocks[1][0][0].id = BLOCK_STONE;
+  CHECK(buildChunkMesh(chunk, &mesh));
+  CHECK(mesh.indexCount == 60 && mesh.batches[MATERIAL_COBBLESTONE].indexCount == 30 && mesh.batches[MATERIAL_STONE].indexCount == 30);
+  CHECK(check_mesh_coverage(chunk, &mesh) == 10);
+  freeChunkMesh(&mesh);
 }
 
 static void test_greedy_shapes(void) {
@@ -269,7 +286,7 @@ static void test_greedy_shapes(void) {
     for (int x = -18; x < 2; x++)
       for (int z = -18; z < 2; z++)
         for (int y = 0; y < 6; y++) {
-          int id = pattern == 0 ? BLOCK_GRASS : 1 + (x * x + y + z * z) % 3;
+          int id = pattern == 0 ? BLOCK_GRASS : 1 + (x * x + y + z * z) % 4;
           if ((pattern == 1 && (x + y + z) % 2) || (pattern == 2 && y > (x * x + z * z) % 6) || (pattern == 3 && x % 3 == 0 && z % 3 == 0))
             id = BLOCK_AIR;
           CHECK(setBlock(&(Vec3i){x, y, z}, id));

@@ -151,7 +151,7 @@ $(BIN_DIR)/benchmark: $(OBJ_DIR)/tests/render_benchmark.o $(filter-out $(OBJ_DIR
 	$(CC) $(filter %.o,$^) $(WRAP_BENCHMARK) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 $(BIN_DIR)/test-hud: $(OBJ_DIR)/tests/test_hud.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
-	$(CC) $(filter %.o,$^) -Wl,--wrap=renderText -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
+	$(CC) $(filter %.o,$^) -Wl,--wrap=renderText -Wl,--wrap=loadTexture -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 $(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/app_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_STARTUP) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)

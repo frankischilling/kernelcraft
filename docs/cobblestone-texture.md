@@ -1,4 +1,4 @@
-# Cobblestone texture draft
+# Cobblestone block and texture
 
 The approved [source image](../art/cobblestone-source.png) is exported as
 [cobblestone.png](../src/assets/textures/cobblestone.png), a 16-by-16, opaque RGBA
@@ -6,32 +6,52 @@ tile. It uses the same three colors as `stone.png`: `#6E7071`, `#646464`, and
 `#555555`. The larger stone clusters and dark joints distinguish cobblestone
 from the existing cracked stone tile.
 
-This is an artwork draft. Cobblestone is not yet a block type or a hotbar item.
-The current seven texture-array layers and existing stone artwork are unchanged.
-The tile is sized for the renderer's nearest filtering and repeated UVs; the
-historical atlas is not involved.
+Press **4** to select cobblestone, then right-click a block face to place it.
+Left-click breaks it using the existing block-editing controls. The fourth
+hotbar slot shows its flat texture icon and the name "Cobblestone"; slots 5–9
+remain empty. This implementation is on the branch in PR #37 until merged.
 
-## Source and export
+Cobblestone is solid block ID 4. Every face uses texture-array layer 7, appended
+after the existing seven layers. Greedy meshes merge adjacent cobblestone faces
+and repeat the tile once per block, with no random terrain variant. Existing
+stone artwork, generated terrain, and layers 0–6 retain their previous behavior.
 
-The source was created with the built-in ImageGen tool using the repository's
-`stone.png` as its style reference. The selected source is preserved at its
-generated resolution. The game-sized export samples each of the 16-by-16 cell
-centers, maps each sample to the nearest reference palette color by squared RGB
-distance, and writes opaque RGBA pixels. This removes generated gradients and
-keeps the output crisp. No source pixels were painted by hand.
-
-The final generation prompt was:
-
-```text
-Use case: style-transfer.
-Create a cobblestone variant of the reference voxel-game stone PNG. Match its flat, muted gray pixel art. The new tile must read as individual small cobbles packed together, not a cracked continuous rock surface.
-One tile, straight-on, edge to edge. Coarse 16x16 pixel sprite, shown enlarged with hard square pixels. About 12 irregular roughly square stones, each 3-5 logical pixels across, a staggered mix of small and medium chunks. Separate every cobble from its neighbors with dark gray joints, 1 logical pixel thick. Light gray flat stone centers, a few mid-gray edge pixels. Short discontinuous joints in varied directions, no long diagonal veins, no repeated diagonal stripes, no large uninterrupted stone patches. Random fitted cobble layout with seamlessly repeating image edges in both axes.
-Use exactly 3 opaque colors from the reference: light stone #6E7071, mid gray #646464, joints #555555. These colors are close in brightness: maintain the subdued contrast. No black, no white, no gradients, no grain, no tiny detail within a pixel. No perspective, bevels, cast shadows, scene, frame, border, lettering, or watermark. Return the flat tile only.
-```
+New saves use version 3 with the same header layout, checksum, and payload order.
+Versions 1 and 2 still load; their payloads may contain only the original IDs
+0–3. Version 3 also accepts cobblestone ID 4. Old builds reject version 3 saves,
+so reopening a newly saved world requires this updated build. Player state and
+all nine selected slots round-trip through the existing persistence path.
 
 ## Validation
 
 The game-sized tile was inspected as a repeated 4-by-4 panel with nearest
 sampling. The repository's `stb_image` decoder was used to check the export's
 dimensions, RGBA channels, full opacity, and exact match to the stone palette.
-No in-game cobblestone integration or gameplay testing is claimed by this draft.
+CPU checks cover slot mapping, solid edits at a negative chunk corner, greedy
+meshes and mixed material boundaries, save/reload, and legacy-version rejection
+of the new ID. The graphical tests compare all six cobblestone faces with an
+independent 2D texture reference and verify 18,432 shader samples use layer 7
+without an alternate. HUD checks cover the fourth icon, label, and cleanup
+after a failed icon load. The actual application harness selects, places,
+breaks, saves, and reloads cobblestone using temporary worlds.
+
+The following checks passed on Ubuntu/WSL (GCC, Clang, and Mesa) and native
+Windows (MinGW64 and Intel graphics):
+
+```sh
+make -j4 all test test-gl
+make -j4 CC=clang CFLAGS='-O2 -g -Werror' all test test-gl
+make CC=clang test-sanitize
+make test-build
+```
+
+```powershell
+.\build.cmd -Test
+.\build.cmd -Configuration Debug -Test
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File tests\test_build.ps1
+```
+
+All 36 independent terrain face comparisons matched, and the HUD capture shows
+the fourth slot selected with its cobblestone icon and label. Read-only code
+review found no actionable issues. Physical interactive playtesting remains
+unverified.

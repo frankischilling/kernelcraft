@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-#define SAVE_VERSION 2
+#define SAVE_VERSION 3
 #define HEADER_BYTES 72
 _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128, "Save format requires IEEE binary32 floats");
 
@@ -191,7 +191,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     return result(SAVE_INVALID, error, capacity, "Unrecognized world save header");
   }
   uint32_t version = get32(header + 8);
-  if ((version != 1 && version != SAVE_VERSION) || get32(header + 12) != WORLD_GENERATOR_VERSION) {
+  if ((version < 1 || version > SAVE_VERSION) || get32(header + 12) != WORLD_GENERATOR_VERSION) {
     fclose(file);
     return result(SAVE_UNSUPPORTED, error, capacity, "Unsupported save or generator version");
   }
@@ -216,7 +216,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
   }
   bool valid = get32(header + 68) == checksum(header, blocks);
   for (size_t i = 0; valid && i < WORLD_BLOCK_COUNT; i++)
-    valid = blockIDValid(blocks[i]);
+    valid = blockIDValid(blocks[i]) && (version >= 3 || blocks[i] <= BLOCK_STONE);
   uint32_t selected = get32(header + 60);
   // Version 1 stored block IDs 1..3, matching the first three numbered slots.
   uint32_t lastSlot = version == 1 ? 3 : HOTBAR_SLOT_COUNT;

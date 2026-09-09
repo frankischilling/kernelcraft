@@ -258,7 +258,7 @@ try {
         Build-Executable $shaderSources $shaderTest $libraries
 
         $hudTest = Join-Path $outputDirectory 'test-hud.exe'
-        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText') + $libraries)
+        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTexture') + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw')

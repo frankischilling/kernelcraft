@@ -66,7 +66,7 @@ const float* getCubeFaceVertices(int face) {
 }
 
 bool blockIDValid(int id) {
-  return id >= BLOCK_AIR && id <= BLOCK_STONE;
+  return id >= BLOCK_AIR && id <= BLOCK_COBBLESTONE;
 }
 
 bool blockIsSolid(int id) {

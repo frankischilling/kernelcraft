@@ -11,6 +11,10 @@ static int referenceTerrainLayer(int material, Vec3i block, uint32_t seed) {
   return material == 1 && roll < 25 ? 4 : material == 2 && roll < 10 ? 5 : material == 3 && roll < 2 ? 6 : material;
 }
 
+static int referenceTerrainMaterial(int id, int face) {
+  return id == BLOCK_COBBLESTONE ? 7 : id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
+}
+
 static void clearTerrainFixture(void) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -22,7 +26,7 @@ static void clearTerrainFixture(void) {
 static bool testTerrainVariants(GLuint shader) {
   const uint32_t seeds[] = {0, UINT32_MAX, 0};
   uint64_t fingerprints[3] = {0};
-  size_t totals[4] = {0}, variants[4] = {0};
+  size_t totals[8] = {0}, variants[8] = {0};
   unsigned char* pixels = malloc(960 * 540 * 3);
   unsigned char* rebuilt = malloc(960 * 540 * 3);
   bool success = pixels && rebuilt;
@@ -32,7 +36,7 @@ static bool testTerrainVariants(GLuint shader) {
       break;
     }
     uint64_t fingerprint = UINT64_C(14695981039346656037);
-    for (int id = BLOCK_GRASS; success && id <= BLOCK_STONE; id++)
+    for (int id = BLOCK_GRASS; success && id <= BLOCK_COBBLESTONE; id++)
       for (int face = 0; success && face < 6; face++) {
         clearTerrainFixture();
         Vec3 n = vec3FaceMap[face], u = n.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
@@ -46,20 +50,26 @@ static bool testTerrainVariants(GLuint shader) {
         }
         GLint layers = 0;
         glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_DEPTH, &layers);
-        if (layers != 7) {
-          fprintf(stderr, "Expected seven terrain texture layers, got %d\n", layers);
+        if (layers != 8) {
+          fprintf(stderr, "Expected eight terrain texture layers, got %d\n", layers);
           success = false;
           break;
         }
         // Replace only the in-memory fixture tiles with distinct RGB bit masks.
         // The real shader, array binding, greedy meshes, and culling still run.
-        unsigned char colors[7 * 4];
+        unsigned char colors[8 * 4];
         for (int layer = 0; layer < 7; layer++) {
           for (int channel = 0; channel < 3; channel++)
             colors[layer * 4 + channel] = ((layer + 1) & (1 << channel)) ? 255 : 0;
           colors[layer * 4 + 3] = 255;
         }
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 1, 1, 7, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors);
+        // An eighth binary RGB mask would be black and could hide missing faces.
+        // Orange stays distinct from the seven masks under the Phong lighting.
+        colors[28] = 255;
+        colors[29] = 64;
+        colors[30] = 0;
+        colors[31] = 255;
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 1, 1, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors);
         Vec3 center = {-0.5f + 0.5f * (n.x - u.x - v.x), 24.5f + 0.5f * (n.y - u.y - v.y), 0.5f + 0.5f * (n.z - u.z - v.z)};
         Camera camera = {.position = {center.x + 26 * n.x, center.y + 26 * n.y, center.z + 26 * n.z}, .front = {-n.x, -n.y, -n.z}, .up = v};
         Mat4 view, projection, combined;
@@ -85,7 +95,9 @@ static bool testTerrainVariants(GLuint shader) {
             }
             const unsigned char* rgb = pixels + (y * 960 + x) * 3;
             int actual = (rgb[0] > 20 ? 1 : 0) + (rgb[1] > 20 ? 2 : 0) + (rgb[2] > 20 ? 4 : 0) - 1;
-            int material = id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
+            if (rgb[1] > 5 && rgb[0] > 2 * rgb[1] && rgb[2] == 0)
+              actual = 7;
+            int material = referenceTerrainMaterial(id, face);
             int expected = referenceTerrainLayer(material, block, seeds[seed]);
             if (actual != expected) {
               fprintf(stderr, "Terrain variant seed %u face %d block (%d,%d,%d): layer %d, expected %d\n", seeds[seed], face, block.x, block.y, block.z, actual, expected);
@@ -93,7 +105,7 @@ static bool testTerrainVariants(GLuint shader) {
               break;
             }
             totals[material]++;
-            variants[material] += actual >= 4;
+            variants[material] += actual != material;
             fingerprint = (fingerprint ^ (unsigned)actual) * UINT64_C(1099511628211);
           }
         // Rebuilding after an edit must leave the remaining tile choices stable.
@@ -114,6 +126,8 @@ static bool testTerrainVariants(GLuint shader) {
     printf("Terrain material %d: %zu/%zu variant tiles\n", material, variants[material], totals[material]);
     success &= totals[material] > 1000 && variants[material] * 100 >= totals[material] * low[material] && variants[material] * 100 <= totals[material] * high[material];
   }
+  printf("Terrain cobblestone: %zu/%zu variant tiles\n", variants[7], totals[7]);
+  success &= totals[7] == 3 * 6 * 32 * 32 && variants[7] == 0;
   success &= fingerprints[0] == fingerprints[2] && fingerprints[0] != fingerprints[1];
   free(pixels);
   free(rebuilt);
