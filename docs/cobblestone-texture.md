@@ -1,5 +1,8 @@
 # Cobblestone block and texture
 
+This records the cobblestone milestone merged in PR #37. For the current
+hotbar and save version, see [building materials](building-materials.md).
+
 The approved [source image](../art/cobblestone-source.png) is exported as
 [cobblestone.png](../src/assets/textures/cobblestone.png), a 16-by-16, opaque RGBA
 tile. It uses the same three colors as `stone.png`: `#6E7071`, `#646464`, and
@@ -9,7 +12,7 @@ from the existing cracked stone tile.
 Press **4** to select cobblestone, then right-click a block face to place it.
 Left-click breaks it using the existing block-editing controls. The fourth
 hotbar slot shows its flat texture icon and the name "Cobblestone"; slots 5–9
-remain empty. This implementation is on the branch in PR #37 until merged.
+remain empty. These were the slot assignments at that milestone.
 
 Cobblestone is solid block ID 4. Every face uses texture-array layer 7, appended
 after the existing seven layers. Greedy meshes merge adjacent cobblestone faces

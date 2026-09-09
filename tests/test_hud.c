@@ -12,15 +12,16 @@
 static int failures, labels;
 static bool sawSaveFailure, sawModeBlocked, sawFPS, sawDebugHint;
 static const char* expectedMovement;
-static bool sawMovement, sawCobblestone;
+static bool sawMovement, sawMaterial;
+static const char* expectedMaterial;
 static const char* expectedWireframe;
 static bool sawWireframe;
-static bool failCobblestone;
-static GLuint partialTextures[3];
+static const char* failTexture;
+static GLuint partialTextures[6];
 static int partialCount;
 static float rectangles[32][4];
 static float materialX[9];
-static GLuint iconTextures[4];
+static GLuint iconTextures[6];
 #define CHECK(c)                                                                                                                                                                   \
   do {                                                                                                                                                                             \
     if (!(c)) {                                                                                                                                                                    \
@@ -31,10 +32,10 @@ static GLuint iconTextures[4];
 
 GLuint __real_loadTexture(const char* path);
 GLuint __wrap_loadTexture(const char* path) {
-  if (failCobblestone && !strcmp(path, "assets/textures/cobblestone.png"))
+  if (failTexture && !strcmp(path, failTexture))
     return 0;
   GLuint texture = __real_loadTexture(path);
-  if (failCobblestone && partialCount < 3)
+  if (failTexture && partialCount < 6)
     partialTextures[partialCount++] = texture;
   return texture;
 }
@@ -46,12 +47,12 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawModeBlocked |= strstr(text, "No safe walk position") != NULL;
   sawFPS |= strstr(text, "FPS:") != NULL;
   sawDebugHint |= strstr(text, "F3:") != NULL;
-  sawCobblestone |= !strcmp(text, "Cobblestone");
+  sawMaterial |= expectedMaterial && !strcmp(text, expectedMaterial);
   sawMovement |= expectedMovement && strstr(text, expectedMovement) != NULL;
   sawWireframe |= expectedWireframe && strstr(text, expectedWireframe) != NULL;
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
-  if (text[0] >= '1' && text[0] <= '4' && text[1] == '\0') {
+  if (text[0] >= '1' && text[0] <= '6' && text[1] == '\0') {
     GLint texture;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
     int slot = text[0] - '1';
@@ -153,14 +154,17 @@ int main(int argc, char** argv) {
   glActiveTexture(GL_TEXTURE0);
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBeforeDraw);
   CHECK(textureBeforeDraw == (GLint)sentinel);
-  const char* paths[] = {"assets/textures/grass-side.png", "assets/textures/dirt.png", "assets/textures/stone.png", "assets/textures/cobblestone.png"};
-  unsigned char* reference[4];
-  for (int slot = 0; slot < 4; slot++) {
+  const char* paths[] = {"assets/textures/grass-side.png",  "assets/textures/dirt.png",       "assets/textures/stone.png",
+                         "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
+  unsigned char* reference[6];
+  for (int slot = 0; slot < 6; slot++) {
     int width, height, channels;
     reference[slot] = stbi_load(paths[slot], &width, &height, &channels, 4);
     CHECK(reference[slot] && width == 16 && height == 16);
     if (!reference[slot] || width != 16 || height != 16)
       return 1;
+    for (int pixel = 0; pixel < 16 * 16; pixel++)
+      CHECK(reference[slot][pixel * 4 + 3] == 255);
   }
   const int sizes[][2] = {{320, 240}, {240, 320}, {640, 360}, {1280, 720}, {1920, 1080}, {192, 120}, {640, 120}, {1280, 120}, {96, 120}, {64, 64}, {1, 1}, {0, 0}};
   for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
@@ -280,9 +284,9 @@ int main(int argc, char** argv) {
           if (slot != selected)
             CHECK(gold[slot] == 0);
         if (width >= 640 && height >= 180) {
-          for (int slot = 0; slot < 4; slot++)
+          for (int slot = 0; slot < 6; slot++)
             CHECK(hasIcon(pixels, width, height, slot, reference[slot]));
-          for (int slot = 4; slot < 9; slot++) {
+          for (int slot = 6; slot < 9; slot++) {
             const unsigned char* empty = pixels + ((size_t)40 * width + (int)materialX[slot]) * 3;
             CHECK(abs((int)empty[0] - 31) <= 1 && abs((int)empty[1] - 31) <= 1 && abs((int)empty[2] - 31) <= 1);
           }
@@ -313,31 +317,38 @@ int main(int argc, char** argv) {
     HUDDraw(0, &data);
     CHECK(sawMovement && glGetError() == GL_NO_ERROR);
   }
-  labels = 0;
-  sawCobblestone = false;
-  data.selectedSlot = 3;
-  HUDDraw(0, &data);
-  CHECK(sawCobblestone);
+  const char* names[] = {"Cobblestone", "Oak planks", "Stone bricks"};
+  for (int material = 0; material < 3; material++) {
+    labels = 0;
+    sawMaterial = false;
+    expectedMaterial = names[material];
+    data.selectedSlot = material + 3;
+    HUDDraw(0, &data);
+    CHECK(sawMaterial);
+  }
   HUDCleanup();
-  for (int slot = 0; slot < 4; slot++)
+  for (int slot = 0; slot < 6; slot++)
     CHECK(iconTextures[slot] && !glIsTexture(iconTextures[slot]));
   HUDCleanup();
-  failCobblestone = true;
-  CHECK(!HUDInit("kernelcraft", "missing cobblestone"));
-  CHECK(partialCount == 3);
-  for (int slot = 0; slot < partialCount; slot++)
-    CHECK(partialTextures[slot] && !glIsTexture(partialTextures[slot]));
-  HUDCleanup();
-  failCobblestone = false;
+  for (int failedSlot = 3; failedSlot < 6; failedSlot++) {
+    partialCount = 0;
+    failTexture = paths[failedSlot];
+    CHECK(!HUDInit("kernelcraft", "missing material icon"));
+    CHECK(partialCount == failedSlot);
+    for (int slot = 0; slot < partialCount; slot++)
+      CHECK(partialTextures[slot] && !glIsTexture(partialTextures[slot]));
+    HUDCleanup();
+  }
+  failTexture = NULL;
   memset(iconTextures, 0, sizeof(iconTextures));
-  CHECK(HUDInit("kernelcraft", "recovered cobblestone"));
+  CHECK(HUDInit("kernelcraft", "recovered material icons"));
   labels = 0;
   HUDDraw(0, &data);
   HUDCleanup();
-  for (int slot = 0; slot < 4; slot++)
+  for (int slot = 0; slot < 6; slot++)
     CHECK(iconTextures[slot] && !glIsTexture(iconTextures[slot]));
   glDeleteTextures(1, &sentinel);
-  for (int slot = 0; slot < 4; slot++)
+  for (int slot = 0; slot < 6; slot++)
     stbi_image_free(reference[slot]);
   CHECK(glGetError() == GL_NO_ERROR);
   glfwDestroyWindow(window);

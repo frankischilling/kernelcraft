@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-#define SAVE_VERSION 3
+#define SAVE_VERSION 4
 #define HEADER_BYTES 72
 _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128, "Save format requires IEEE binary32 floats");
 
@@ -215,8 +215,9 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     return result(readError ? SAVE_IO_ERROR : SAVE_INVALID, error, capacity, "Save payload is unreadable, truncated, or has trailing data");
   }
   bool valid = get32(header + 68) == checksum(header, blocks);
+  int lastBlock = version < 3 ? BLOCK_STONE : version == 3 ? BLOCK_COBBLESTONE : BLOCK_STONE_BRICKS;
   for (size_t i = 0; valid && i < WORLD_BLOCK_COUNT; i++)
-    valid = blockIDValid(blocks[i]) && (version >= 3 || blocks[i] <= BLOCK_STONE);
+    valid = blockIDValid(blocks[i]) && blocks[i] <= lastBlock;
   uint32_t selected = get32(header + 60);
   // Version 1 stored block IDs 1..3, matching the first three numbered slots.
   uint32_t lastSlot = version == 1 ? 3 : HOTBAR_SLOT_COUNT;

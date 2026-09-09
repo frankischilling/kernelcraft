@@ -165,7 +165,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     drawLabel(&numbers, number, x + (slotWidth - textWidth(&numbers, number)) / 2, height - 14, slotWidth - 4);
   }
   float baseline = height - barHeight - 22;
-  const char* names[] = {"Empty", "Grass", "Dirt", "Stone", "Cobblestone"};
+  const char* names[] = {"Empty", "Grass", "Dirt", "Stone", "Cobblestone", "Oak planks", "Stone bricks"};
   const char* selectedName = names[hotbarBlock(data->selectedSlot)];
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
@@ -269,7 +269,8 @@ bool HUDInit(const char* buildName, const char* buildVersion) {
   entryFPS.text[0] = '\0';
   entryCubeCount.text[0] = '\0';
   snprintf(entryBuildInfo.text, sizeof(entryBuildInfo.text), "%s %s", buildName, buildVersion);
-  const char* paths[] = {"assets/textures/grass-side.png", "assets/textures/dirt.png", "assets/textures/stone.png", "assets/textures/cobblestone.png"};
+  const char* paths[] = {"assets/textures/grass-side.png",  "assets/textures/dirt.png",       "assets/textures/stone.png",
+                         "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
   GLint activeTexture;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
   glPushAttrib(GL_TEXTURE_BIT);

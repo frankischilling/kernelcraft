@@ -139,17 +139,19 @@ static GLuint referenceProgram(void) {
 }
 
 static int repeatedTextureBlock(int pattern, int x, int y, int z) {
-  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_COBBLESTONE};
+  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_COBBLESTONE, BLOCK_OAK_PLANKS, BLOCK_STONE_BRICKS};
   if (pattern < 3)
     return materials[pattern];
   if (pattern == 4)
     return BLOCK_COBBLESTONE;
-  // Preserve the original mixed fixture, and add a mix including cobblestone.
-  return materials[(x + y + z) % (pattern == 3 ? 3 : 4)];
+  if (pattern == 6 || pattern == 7)
+    return materials[pattern - 2];
+  // Keep the older mixed fixtures and add a mix of all six materials.
+  return materials[(x + y + z) % (pattern == 3 ? 3 : pattern == 5 ? 4 : 6)];
 }
 
 /* Compare the running renderer with independent unit-cube submissions. Six
- * views exercise every face of grass, dirt, stone, cobblestone, and mixed prisms. */
+ * views exercise every face of all six block materials and mixed prisms. */
 static bool testRepeatedTextures(GLuint shader, int pattern) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -162,16 +164,17 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
         setBlock(&(Vec3i){x, y, z}, repeatedTextureBlock(pattern, x, y, z));
   if (!initWorld(shader))
     return false;
-  GLuint textures[] = {loadTexture("assets/textures/stone.png"),      loadTexture("assets/textures/dirt.png"),       loadTexture("assets/textures/grass-top.png"),
-                       loadTexture("assets/textures/grass-side.png"), loadTexture("assets/textures/dirt-rocks.png"), loadTexture("assets/textures/grass-top-leaves.png"),
-                       loadTexture("assets/textures/grass-bug.png"),  loadTexture("assets/textures/cobblestone.png")};
+  GLuint textures[] = {loadTexture("assets/textures/stone.png"),       loadTexture("assets/textures/dirt.png"),        loadTexture("assets/textures/grass-top.png"),
+                       loadTexture("assets/textures/grass-side.png"),  loadTexture("assets/textures/dirt-rocks.png"),  loadTexture("assets/textures/grass-top-leaves.png"),
+                       loadTexture("assets/textures/grass-bug.png"),   loadTexture("assets/textures/cobblestone.png"), loadTexture("assets/textures/oak-planks.png"),
+                       loadTexture("assets/textures/stone-bricks.png")};
   GLuint referenceShader = referenceProgram();
   GLuint vao = 0, vbo = 0;
   size_t bytes = 960 * 540 * 3;
   unsigned char* merged = malloc(bytes);
   unsigned char* reference = malloc(bytes);
   bool success = merged && reference && referenceShader;
-  for (int layer = 0; layer < 8; layer++)
+  for (int layer = 0; layer < 10; layer++)
     success &= textures[layer] != 0;
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
@@ -192,7 +195,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
     mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult result = renderWorld(&camera, view, projection, false);
-    if (!result.success || ((pattern < 3 || pattern == 4) && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
+    if (!result.success || ((pattern < 3 || pattern == 4 || pattern == 6 || pattern == 7) && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
       success = false;
       break;
     }
@@ -250,7 +253,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   glBindVertexArray(0);
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
-  glDeleteTextures(8, textures);
+  glDeleteTextures(10, textures);
   glUseProgram(0);
   glDeleteProgram(referenceShader);
   return success;
@@ -800,7 +803,7 @@ int main(int argc, char** argv) {
     return 20;
   if (!testTerrainVariants(shader))
     return 21;
-  for (int pattern = 0; pattern < 6; pattern++)
+  for (int pattern = 0; pattern < 9; pattern++)
     if (!testRepeatedTextures(shader, pattern)) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
       return 14;
