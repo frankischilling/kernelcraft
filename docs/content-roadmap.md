@@ -14,7 +14,7 @@ explorable Cube World-inspired direction through coherent content sets.
 - [ ] Packed mud and dried clay: building materials with cracked surface patterns.
 - [ ] Snow layers and snow blocks: define thin-layer collision and accumulation.
 - [ ] Ice and packed ice: blue-white textures, transparency, and slipperiness rules.
-- [ ] Cobblestone and mossy cobblestone: broken rock faces with restrained moss coverage.
+- [ ] Cobblestone and mossy cobblestone: broken rock faces with restrained moss coverage. A [cobblestone texture draft](cobblestone-texture.md) is available; block integration and mossy artwork remain planned.
 - [ ] Granite, limestone, slate, basalt, marble, and sandstone: distinct palettes and grain sizes.
 - [ ] Polished stone variants: smoother surfaces that still repeat cleanly across greedy quads.
 - [ ] Obsidian and volcanic rock: dark glassy fractures and cooling lava patterns.
