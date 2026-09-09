@@ -19,7 +19,7 @@ typedef struct {
   float fps;
   int visibleBlocks;
   Ray selection;
-  int selectedBlock;
+  int selectedSlot;
   bool captured;
   bool flying, grounded, modeBlocked;
   int simulationSteps;
@@ -28,6 +28,8 @@ typedef struct {
   bool showDebug;
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);
-void HUDInit(char* buildName, char* buildVersion);
+// Initialization and cleanup require the current rendering context.
+bool HUDInit(const char* buildName, const char* buildVersion);
+void HUDCleanup(void);
 
 #endif // HUD_H

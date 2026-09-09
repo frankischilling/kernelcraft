@@ -7,7 +7,7 @@
 typedef struct {
   Vec3 feet;
   float yaw, pitch;
-  int selectedBlock;
+  int selectedSlot; // Zero-based hotbar slot, including empty slots.
 } SavedPlayer;
 
 typedef enum { SAVE_OK, SAVE_NOT_FOUND, SAVE_INVALID, SAVE_UNSUPPORTED, SAVE_IO_ERROR, SAVE_NO_MEMORY } SaveResult;

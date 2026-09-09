@@ -4,6 +4,7 @@
 #include "save.h"
 #include "world.h"
 #include "player.h"
+#include "hotbar.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -19,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2
 #define HEADER_BYTES 72
 _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128, "Save format requires IEEE binary32 floats");
 
@@ -57,7 +58,7 @@ static uint32_t checksum(const uint8_t* header, const uint8_t* blocks) {
 static bool validPlayer(const SavedPlayer* player, const uint8_t* blocks) {
   Vec3i first, last;
   if (!player || !isfinite(player->yaw) || player->yaw < 0 || player->yaw >= 360 || !isfinite(player->pitch) || player->pitch < -89 || player->pitch > 89 ||
-      !blockIsSolid(player->selectedBlock) || !playerCellRange(player->feet, &first, &last))
+      player->selectedSlot < 0 || player->selectedSlot >= HOTBAR_SLOT_COUNT || !playerCellRange(player->feet, &first, &last))
     return false;
   for (int x = first.x; x <= last.x; x++)
     for (int y = first.y; y <= last.y; y++)
@@ -142,7 +143,7 @@ SaveResult saveWorld(const char* path, const SavedPlayer* player, char* error, s
   putFloat(header + 48, player->feet.z);
   putFloat(header + 52, player->yaw);
   putFloat(header + 56, player->pitch);
-  put32(header + 60, (uint32_t)player->selectedBlock);
+  put32(header + 60, (uint32_t)player->selectedSlot + 1);
   put32(header + 68, checksum(header, blocks));
   char temporary[4160];
   FILE* file = createTemporary(path, temporary, sizeof(temporary));
@@ -189,7 +190,8 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     fclose(file);
     return result(SAVE_INVALID, error, capacity, "Unrecognized world save header");
   }
-  if (get32(header + 8) != SAVE_VERSION || get32(header + 12) != WORLD_GENERATOR_VERSION) {
+  uint32_t version = get32(header + 8);
+  if ((version != 1 && version != SAVE_VERSION) || get32(header + 12) != WORLD_GENERATOR_VERSION) {
     fclose(file);
     return result(SAVE_UNSUPPORTED, error, capacity, "Unsupported save or generator version");
   }
@@ -216,10 +218,12 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
   for (size_t i = 0; valid && i < WORLD_BLOCK_COUNT; i++)
     valid = blockIDValid(blocks[i]);
   uint32_t selected = get32(header + 60);
+  // Version 1 stored block IDs 1..3, matching the first three numbered slots.
+  uint32_t lastSlot = version == 1 ? 3 : HOTBAR_SLOT_COUNT;
   SavedPlayer loaded = {.feet = {getFloat(header + 40), getFloat(header + 44), getFloat(header + 48)},
                         .yaw = getFloat(header + 52),
                         .pitch = getFloat(header + 56),
-                        .selectedBlock = selected <= BLOCK_STONE ? (int)selected : -1};
+                        .selectedSlot = selected >= 1 && selected <= lastSlot ? (int)selected - 1 : -1};
   if (!valid || !validPlayer(&loaded, blocks)) {
     free(blocks);
     return result(SAVE_INVALID, error, capacity, "Save checksum, block IDs, or player state is invalid");

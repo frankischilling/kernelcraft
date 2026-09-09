@@ -103,7 +103,8 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(id(removed) == BLOCK_AIR && id(placed) == BLOCK_STONE && id(exitEdit) == BLOCK_DIRT);
     CHECK(!memcmp(&input->player.position, &feet, sizeof(feet)));
     CHECK(input->player.velocity.x == 0 && input->player.velocity.y == 0 && input->player.velocity.z == 0);
-    CHECK(input->camera->yaw == 90 && input->camera->pitch == 0 && selectedBlock() == BLOCK_STONE);
+    CHECK(input->camera->yaw == 90 && input->camera->pitch == 0 && selectedBlock() == BLOCK_AIR);
+    CHECK(selectedHotbarSlot() == 8);
   }
   if (frame == 1 && saving()) {
     CHECK(!input->saveRequested);
@@ -115,10 +116,15 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     } else {
       CHECK(file);
       CHECK(fseek(file, 0, SEEK_END) == 0 && ftell(file) == 72 + 4194304);
+      unsigned char selection[4];
+      CHECK(fseek(file, 60, SEEK_SET) == 0 && fread(selection, 1, 4, file) == 4);
+      CHECK(selection[0] == 3 && !selection[1] && !selection[2] && !selection[3]);
       CHECK(fclose(file) == 0);
     }
     // A second edit after F5 must be included by the normal-exit save.
     CHECK(setBlock(&exitEdit, BLOCK_DIRT));
+    key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
+    CHECK(selectedHotbarSlot() == 8 && selectedBlock() == BLOCK_AIR);
   }
   return frame >= 2;
 }

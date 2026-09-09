@@ -1,7 +1,11 @@
 # Seeded worlds and persistence
 
-PR #13 is merged. The current continuation is [greedy meshing](greedy-meshing.md)
-in draft PR #15. The record below describes the persistence increment.
+PR #13 is merged. The record below describes the original version 1 persistence
+increment. The [nine-slot hotbar](textured-hotbar.md) adds version 2: header
+offset 60 stores a one-based slot number from 1 through 9. Version 1 saves still
+load, mapping block IDs 1–3 to the same numbered slots. Other fields, checksum,
+payload order, and replacement behavior are unchanged. New saves use version 2
+and require an updated build to reopen.
 
 Base: `6171a9a2769d7ce36eba1c3fd2e37c6cf644d707`, merged main after PR #12.
 The only open PR was #12; it was reviewed, freshly tested with

@@ -43,11 +43,14 @@ view jump. The automated fixture covers iconification with positive framebuffer
 dimensions independently of focus loss, plus zero-size pauses. Toggle F3 while captured and released;
 check that labels and material slots fit small landscape/portrait windows, save
 errors stay readable, and the aiming area remains clear.
-Select each material with 1/2/3, break and place blocks at chunk seams, and check
+Select all nine hotbar slots with 1–9. Grass, dirt, and stone occupy slots 1–3;
+empty slots 4–9 should break blocks without placing anything. Check the flat
+icons and selected border in small landscape, portrait, and wide/short windows.
+Break and place blocks at chunk seams, and check
 that the outline follows the next target. Try placement near the camera and
 while the mouse is released. Use a new explicit `--world` path for manual tests.
 Save with F5, close, reopen without `--seed`, and verify edits, feet, view, and
-selected material. Report the
+selected slot, including an empty slot. Report the
 platform, driver, and what you observed. Walk into walls and corners, jump under
 a low ceiling, cross negative-coordinate chunk seams, and break the supporting
 block. Check that holding Space does not repeat jumps and that walking speed

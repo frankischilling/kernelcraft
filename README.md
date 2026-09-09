@@ -63,8 +63,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Walking with gravity, grounded jumps, solid-block collision, and safe spawning.
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
-  - Block placement and destruction, a target outline, crosshair, and three-slot material selector.
-  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected material.
+  - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
+  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected hotbar slot.
 
 ## Getting Started
 
@@ -143,7 +143,7 @@ while the mouse is captured or released, without resuming movement.
 The HUD fits its text and material slots to the framebuffer. Small windows use
 smaller bitmap text and shorten long labels; diagnostics occupy available space
 above the aiming area. More diagnostic rows appear in taller windows. Save
-status remains visible with diagnostics hidden. Below 96 pixels wide or 120
+status remains visible with diagnostics hidden. Below 192 pixels wide or 120
 high, the hotbar is hidden; control hints also disappear when space is too short.
 This does not establish physical high-DPI scaling behavior.
 
@@ -152,8 +152,11 @@ press Escape after returning to resume. Minimized windows pause rendering and
 input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Left click destroys
-the target; right click places on its face. Keys 1/2/3 select grass, dirt, and
-stone. Each press edits once within six world units; a gold outline marks the
+the target; right click places on its face. Keys 1–9 select the corresponding
+hotbar slot. Slots 1–3 contain grass, dirt, and stone as flat texture icons;
+slots 4–9 are empty. Empty slots can break blocks but cannot place them. A gold
+border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
+Each press edits once within six world units; a gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
 visible under low ceilings when the outline is off-screen. See the
 [selection highlighting checks](docs/selection-highlight.md). Placement rejects occupied/out-of-world cells and body overlap
@@ -207,6 +210,9 @@ without replacing the file. `--no-save` makes a temporary session (optionally
 with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
+Version 1 saves still load with their previous material selected. New saves use
+version 2 to preserve any selected hotbar slot, including empty slots; older
+builds cannot load version 2 saves.
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
 sessions writing the same world. Saving is synchronous and may pause a frame;
