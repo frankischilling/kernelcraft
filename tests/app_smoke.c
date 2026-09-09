@@ -13,6 +13,8 @@ static int cursorMode = GLFW_CURSOR_NORMAL;
 static int focused = GLFW_TRUE;
 static bool iconified;
 static int pressedKey = -1;
+static bool shiftHeld, sideHeld, backHeld, zeroFramebuffer;
+static double eventSeconds = -1;
 static int frame = -1;
 static int swaps, waits;
 static bool sawCompactHUD, sawDebugHUD;
@@ -203,6 +205,197 @@ static void testSavedInput(GLFWwindow* window) {
   key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
   CHECK(!input->saveRequested);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+  *camera = originalCamera;
+  *input = originalInput;
+}
+
+static void testCrouchControl(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  Camera originalCamera = *camera;
+  InputState originalInput = *input;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  glfwSetMouseButtonCallback(window, click);
+  for (int z = -42; z <= -32; z++) {
+    CHECK(setBlock(&(Vec3i){-41, 39, z}, BLOCK_STONE));
+    for (int y = 40; y <= 44; y++)
+      CHECK(setBlock(&(Vec3i){-41, y, z}, BLOCK_AIR));
+  }
+  CHECK(playerSetPosition(&input->player, (Vec3){-40.5f, 40, -40.5f}));
+  input->flying = false;
+  camera->yaw = 90;
+  camera->pitch = 0;
+  updateCameraVectors(camera);
+  pressedKey = GLFW_KEY_LEFT_SHIFT;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(fabsf(camera->position.y - input->player.position.y - 0.9f) < 0.00001f);
+  // Placement uses the crouched head instead of a stale standing exclusion box.
+  CHECK(setBlock(&(Vec3i){-41, 42, -41}, BLOCK_STONE));
+  camera->front = (Vec3){0, 1, 0};
+  click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+  CHECK(getBlock(&(Vec3i){-41, 41, -41})->id == BLOCK_GRASS);
+  camera->front = (Vec3){0, -1, 0};
+  click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+  CHECK(getBlock(&(Vec3i){-41, 40, -41})->id == BLOCK_AIR);
+  SavedPlayer saved;
+  Vec3 liveFeet = input->player.position;
+  CHECK(snapshotPlayer(input, &saved));
+  CHECK(saved.feet.x == -40.5f && saved.feet.y == 43 && saved.feet.z == -40.5f);
+  CHECK(input->player.position.y == liveFeet.y && input->player.crouched);
+  Camera restoredCamera = *camera;
+  InputState restored;
+  CHECK(initSavedInputs(&restored, &restoredCamera, &saved));
+  CHECK(!restored.player.crouched && !restored.player.running && restored.player.position.y == 43);
+  // Released Shift cannot force a stand, including after capture/focus changes.
+  pressedKey = -1;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(input->player.crouched && input->player.position.y == 40);
+  for (int pause = 0; pause < 4; pause++) {
+    if (pause == 0)
+      setCursorCaptured(window, false);
+    if (pause == 1) {
+      focused = GLFW_FALSE;
+      windowFocusCallback(window, focused);
+    }
+    iconified = pause == 2;
+    zeroFramebuffer = pause == 3;
+    float eye = camera->position.y;
+    processInput(window, input, 10);
+    CHECK(input->player.crouched && input->simulationSteps == 0 && camera->position.y == eye);
+    focused = GLFW_TRUE;
+    iconified = zeroFramebuffer = false;
+    setCursorCaptured(window, true);
+    processInput(window, input, PLAYER_STEP_SECONDS);
+    CHECK(input->player.crouched && input->player.position.y == 40);
+  }
+  updateCameraVectors(camera);
+  pressedKey = GLFW_KEY_W;
+  for (int i = 0; i < 100; i++)
+    processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(!input->player.crouched && input->player.position.z > -39.7f);
+  CHECK(fabsf(camera->position.y - 41.62f) < 0.00001f);
+  pressedKey = GLFW_KEY_RIGHT_SHIFT;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(input->player.crouched); // Both Shift keys crouch when walking.
+  Vec3 eye = camera->position;
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->flying && camera->position.y == eye.y && !input->runInput.running);
+  pressedKey = GLFW_KEY_LEFT_SHIFT;
+  processInput(window, input, 0.01);
+  CHECK(fabsf(camera->position.y - eye.y + 0.1f) < 0.00001f);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(!input->flying && !input->player.crouched && playerCanOccupy(input->player.position));
+  pressedKey = -1;
+  *camera = originalCamera;
+  *input = originalInput;
+}
+
+static void startRunning(GLFWwindow* window, GLFWkeyfun key) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  playerResetRunInput(&input->runInput);
+  pressedKey = GLFW_KEY_W;
+  eventSeconds = 10;
+  key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+  eventSeconds = 10.1;
+  key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+  eventSeconds = 10.25;
+  key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+  CHECK(input->runInput.running);
+}
+
+static void testRunningControls(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  Camera originalCamera = *camera;
+  InputState originalInput = *input;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  input->flying = false;
+  camera->yaw = 90;
+  camera->pitch = 89;
+  updateCameraVectors(camera);
+  CHECK(playerSetPosition(&input->player, (Vec3){-30.5f, 40, -30.5f}));
+  startRunning(window, key);
+  processInput(window, input, 1.0 / 30);
+  CHECK(input->player.running && fabsf(input->player.position.z + 30.5f - 7.0f / 30) < 0.00001f);
+  Vec3 before = input->player.position;
+  sideHeld = true;
+  processInput(window, input, 1.0 / 30);
+  CHECK(fabsf(hypotf(input->player.position.x - before.x, input->player.position.z - before.z) - 7.0f / 30) < 0.00001f);
+  sideHeld = false;
+  key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+  CHECK(!input->runInput.running && !input->player.running);
+  // Expired taps and key repeats cannot create a run.
+  key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+  key(window, GLFW_KEY_W, 0, GLFW_REPEAT, 0);
+  CHECK(!input->runInput.running);
+  key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+  eventSeconds += 0.251;
+  key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+  CHECK(!input->runInput.running);
+  // S or crouch cancels even if the key is pressed and released between frames.
+  const int cancelKeys[] = {GLFW_KEY_S, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT};
+  for (int i = 0; i < 3; i++) {
+    startRunning(window, key);
+    key(window, cancelKeys[i], 0, GLFW_PRESS, 0);
+    key(window, cancelKeys[i], 0, GLFW_RELEASE, 0);
+    CHECK(!input->runInput.running && !input->runInput.tapPending);
+    processInput(window, input, PLAYER_STEP_SECONDS);
+    CHECK(!input->player.running);
+  }
+  // Held S/Shift also cancels when event delivery was absent.
+  startRunning(window, key);
+  backHeld = true;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(!input->player.running && !input->runInput.tapPending);
+  backHeld = false;
+  startRunning(window, key);
+  shiftHeld = true;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  CHECK(input->player.crouched && !input->player.running && !input->runInput.tapPending);
+  shiftHeld = false;
+  processInput(window, input, PLAYER_STEP_SECONDS);
+  // Every pause path resets an active run and the pending first tap.
+  for (int pending = 0; pending < 2; pending++)
+    for (int pause = 0; pause < 4; pause++) {
+      startRunning(window, key);
+      if (pending) {
+        playerResetRunInput(&input->runInput);
+        key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+        key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+        CHECK(input->runInput.tapPending);
+      }
+      before = input->player.position;
+      if (pause == 0)
+        key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+      if (pause == 1) {
+        focused = GLFW_FALSE;
+        windowFocusCallback(window, focused);
+      }
+      iconified = pause == 2;
+      zeroFramebuffer = pause == 3;
+      processInput(window, input, 10);
+      CHECK(!input->player.running && !input->runInput.running && !input->runInput.tapPending);
+      CHECK(input->player.position.x == before.x && input->player.position.y == before.y && input->player.position.z == before.z);
+      focused = GLFW_TRUE;
+      iconified = zeroFramebuffer = false;
+      setCursorCaptured(window, true);
+      processInput(window, input, PLAYER_STEP_SECONDS);
+      CHECK(!input->player.running);
+      key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+      key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+      CHECK(!input->runInput.running); // A fresh first tap after resume stays walking.
+    }
+  startRunning(window, key);
+  key(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->flying && !input->runInput.running && !input->runInput.tapPending && !input->player.running);
+  key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+  key(window, GLFW_KEY_W, 0, GLFW_PRESS, 0);
+  CHECK(!input->runInput.tapPending);
+  pressedKey = -1;
+  eventSeconds = -1;
   *camera = originalCamera;
   *input = originalInput;
 }
@@ -399,6 +592,45 @@ static void walkingFrame(GLFWwindow* window) {
   }
 }
 
+static Vec3 beforeMovementFrame;
+static void movementFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  Camera* camera = input->camera;
+  GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+  glfwSetKeyCallback(window, key);
+  if (frame == 50) {
+    CHECK(setBlock(&(Vec3i){-31, 39, -31}, BLOCK_STONE));
+    CHECK(playerSetPosition(&input->player, (Vec3){-30.5f, 40, -30.5f}));
+    camera->yaw = 90;
+    camera->pitch = 0;
+    updateCameraVectors(camera);
+    pressedKey = GLFW_KEY_LEFT_SHIFT;
+  }
+  if (frame == 51) {
+    CHECK(input->player.crouched && fabsf(camera->position.y - 40.9f) < 0.00001f);
+    pressedKey = -1;
+  }
+  if (frame == 52) {
+    CHECK(!input->player.crouched && fabsf(camera->position.y - 41.62f) < 0.00001f);
+    startRunning(window, key);
+    eventSeconds = -1;
+    beforeMovementFrame = input->player.position;
+  }
+  if (frame == 53) {
+    CHECK(input->player.running && fabsf(input->player.position.z - beforeMovementFrame.z - 7.0f / 30) < 0.00001f);
+    beforeMovementFrame = input->player.position;
+    sideHeld = true;
+  }
+  if (frame == 54) {
+    CHECK(fabsf(hypotf(input->player.position.x - beforeMovementFrame.x, input->player.position.z - beforeMovementFrame.z) - 7.0f / 30) < 0.00001f);
+    sideHeld = false;
+    pressedKey = -1;
+    key(window, GLFW_KEY_W, 0, GLFW_RELEASE, 0);
+  }
+  if (frame == 55)
+    CHECK(!input->player.running && input->player.velocity.x == 0 && input->player.velocity.z == 0);
+}
+
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
 GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share) {
   (void)width;
@@ -413,6 +645,8 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     testInput(window);
     testIconifiedInput(window);
     testSavedInput(window);
+    testCrouchControl(window);
+    testRunningControls(window);
     testWalkingControls(window);
     testEditing(window);
     InputState* input = glfwGetWindowUserPointer(window);
@@ -466,10 +700,14 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   }
   if (frame >= 4 && frame < 50)
     walkingFrame(window);
-  return frame >= 50;
+  if (frame >= 50)
+    movementFrame(window);
+  return frame >= 55;
 }
 
 double __wrap_glfwGetTime(void) {
+  if (eventSeconds >= 0)
+    return eventSeconds;
   return frame < 0 ? 0.0 : frame < 4 ? (double)(frame + 1) : 4.0 + (frame - 3) / 30.0;
 }
 
@@ -493,14 +731,14 @@ int __wrap_glfwGetWindowAttrib(GLFWwindow* window, int attrib) {
 
 int __wrap_glfwGetKey(GLFWwindow* window, int key) {
   (void)window;
-  return key == pressedKey ? GLFW_PRESS : GLFW_RELEASE;
+  return key == pressedKey || (shiftHeld && key == GLFW_KEY_LEFT_SHIFT) || (sideHeld && key == GLFW_KEY_D) || (backHeld && key == GLFW_KEY_S) ? GLFW_PRESS : GLFW_RELEASE;
 }
 
 void __wrap_glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height) {
   (void)window;
   int index = frame < 0 ? 0 : frame > 3 ? 3 : frame;
-  *width = sizes[index][0];
-  *height = sizes[index][1];
+  *width = zeroFramebuffer ? 0 : sizes[index][0];
+  *height = zeroFramebuffer ? 0 : sizes[index][1];
 }
 
 void __wrap_glfwWaitEvents(void) {
@@ -520,6 +758,7 @@ void __real_HUDDraw(GLuint program, DebugData* data);
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
   CHECK(data->showDebug == input->showDebug);
+  CHECK(data->crouched == input->player.crouched && data->running == input->player.running);
   sawCompactHUD |= !data->showDebug;
   sawDebugHUD |= data->showDebug;
   __real_HUDDraw(program, data);
@@ -545,11 +784,11 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   if (frame >= 4) {
     InputState* input = glfwGetWindowUserPointer(window);
     Vec3 eye = playerEyePosition(&input->player);
-    CHECK(frame < 50 && frame != 47 && !input->flying);
-    CHECK(playerCanOccupy(input->player.position));
+    CHECK(frame < 55 && frame != 47 && !input->flying);
+    CHECK(playerCanOccupyPosture(input->player.position, input->player.crouched));
     CHECK(input->camera->position.x == eye.x && input->camera->position.y == eye.y && input->camera->position.z == eye.z);
     CHECK(input->simulationSteps == (frame == 48 ? 0 : 4));
-    if ((frame == 18 || frame == 20) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
+    if ((frame == 18 || frame == 20 || frame == 50 || frame == 52) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
       unsigned char* pixels = malloc(1280 * 720 * 3);
       CHECK(pixels);
       glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
@@ -611,9 +850,9 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
     exit(EXIT_FAILURE);
   }
   if (frame >= 0) {
-    CHECK(swaps == 48 && waits == 2);
+    CHECK(swaps == 53 && waits == 2);
     CHECK(sawCompactHUD && sawDebugHUD);
-    puts("Application walking, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
+    puts("Application walking, crouching, running, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
   }
   __real_glfwDestroyWindow(window);
 }

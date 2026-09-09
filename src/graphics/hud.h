@@ -22,6 +22,7 @@ typedef struct {
   int selectedSlot;
   bool captured;
   bool flying, grounded, modeBlocked;
+  bool crouched, running;
   int simulationSteps;
   const char* saveStatus;
   const RenderResult* stats;

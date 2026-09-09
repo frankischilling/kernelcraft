@@ -55,7 +55,14 @@ platform, driver, and what you observed. Walk into walls and corners, jump under
 a low ceiling, cross negative-coordinate chunk seams, and break the supporting
 block. Check that holding Space does not repeat jumps and that walking speed
 stays constant when looking up. Use F to test flight and returning from inside
-terrain. Check pause/resume during a fall. Use `--no-save` for disposable sessions. Automated persistence fixtures use
+terrain. Hold either Shift key, enter a one-block-high passage, and release Shift;
+the player must stay crouched until the full standing body clears the ceiling.
+Try placing a ceiling above the crouched head and a block inside the body.
+Double-tap W to run, add A/D, and run into walls and corners. Check that W release,
+S, Shift, flight, capture release, focus loss, minimization, and a zero framebuffer
+cancel running and require a fresh double-tap. Save while crouched beneath a
+ceiling, then restart and check the safe standing position and preserved edits.
+Check pause/resume during a fall. Use `--no-save` for disposable sessions. Automated persistence fixtures use
 unique temporary directories and preserve any existing user saves. CPU tests
 cover malformed files and allocation/write/flush/sync/close/replace failures;
 two-process graphical fixtures cover actual edit callbacks, F5, normal-exit

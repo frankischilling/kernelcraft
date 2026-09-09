@@ -22,7 +22,7 @@ static void clearWorld(void) {
 }
 
 static void tick(Player* player, Vec3 wish, bool jump) {
-  CHECK(playerAdvance(player, wish, jump, PLAYER_STEP_SECONDS) == 1);
+  CHECK(playerAdvance(player, (PlayerMotion){.wish = wish, .jump = jump}, PLAYER_STEP_SECONDS) == 1);
   CHECK(playerCanOccupy(player->position));
 }
 
@@ -158,22 +158,22 @@ static void testTiming(void) {
   for (int i = 0; i < 120; i++)
     tick(&fine, (Vec3){1, 0, 0}, false);
   for (int i = 0; i < 30; i++)
-    CHECK(playerAdvance(&coarse, (Vec3){1, 0, 0}, false, 1.0 / 30) == 4);
+    CHECK(playerAdvance(&coarse, (PlayerMotion){.wish = {1, 0, 0}}, 1.0 / 30) == 4);
   for (int i = 0; i < 120; i++)
     tick(&diagonal, (Vec3){1, 0, 1}, false);
   CHECK(fabsf(fine.position.x - (-5.5f)) < 0.0001f && fine.position.x == coarse.position.x);
   Vec3 start = {-10, 0, -10};
   CHECK(fabsf(vec3_distance(&diagonal.position, &start) - 4.5f) < 0.0001f);
   CHECK(playerSetPosition(&fine, (Vec3){0, 0, 0}));
-  CHECK(playerAdvance(&fine, (Vec3){1, 0, 0}, false, 1000) == PLAYER_MAX_STEPS);
+  CHECK(playerAdvance(&fine, (PlayerMotion){.wish = {1, 0, 0}}, 1000) == PLAYER_MAX_STEPS);
   CHECK(fine.position.x <= 0.30001f && fine.accumulator < PLAYER_STEP_SECONDS);
-  CHECK(playerAdvance(&fine, (Vec3){0}, true, PLAYER_STEP_SECONDS / 2) == 0);
-  CHECK(playerAdvance(&fine, (Vec3){0}, false, PLAYER_STEP_SECONDS / 2) == 1);
+  CHECK(playerAdvance(&fine, (PlayerMotion){.jump = true}, PLAYER_STEP_SECONDS / 2) == 0);
+  CHECK(playerAdvance(&fine, (PlayerMotion){0}, PLAYER_STEP_SECONDS / 2) == 1);
   CHECK(fine.velocity.y > 0); // Preserve a press until the next simulation tick.
   Vec3 saved = fine.position;
-  CHECK(playerAdvance(&fine, (Vec3){0}, false, NAN) == 0);
-  CHECK(playerAdvance(&fine, (Vec3){0}, false, -1) == 0);
-  CHECK(playerAdvance(&fine, (Vec3){NAN, 0, 0}, false, 1) == 0);
+  CHECK(playerAdvance(&fine, (PlayerMotion){0}, NAN) == 0);
+  CHECK(playerAdvance(&fine, (PlayerMotion){0}, -1) == 0);
+  CHECK(playerAdvance(&fine, (PlayerMotion){.wish = {NAN, 0, 0}}, 1) == 0);
   CHECK(fine.position.x == saved.x && fine.position.y == saved.y && fine.position.z == saved.z);
   playerResetTiming(&fine);
   CHECK(fine.accumulator == 0 && !fine.jumpPending);
@@ -202,6 +202,112 @@ static void testFastFallAndAirborneJump(void) {
   CHECK(player.position.y == 2); // Airborne press cannot launch on landing.
 }
 
+static void motionTick(Player* player, PlayerMotion motion) {
+  CHECK(playerAdvance(player, motion, PLAYER_STEP_SECONDS) == 1);
+  CHECK(playerCanOccupyPosture(player->position, player->crouched));
+}
+
+static void testCrouchClearance(void) {
+  clearWorld();
+  Player player;
+  CHECK(playerSetPosition(&player, (Vec3){-0.5f, 0, -0.5f}));
+  PlayerMotion crouch = {.crouch = true};
+  CHECK(playerAdvance(&player, crouch, PLAYER_STEP_SECONDS / 2) == 0);
+  CHECK(!player.crouched); // Body and eye change together on a simulation tick.
+  CHECK(playerAdvance(&player, crouch, PLAYER_STEP_SECONDS / 2) == 1);
+  CHECK(player.crouched && player.position.y == 0 && fabsf(playerEyePosition(&player).y - 0.9f) < 0.00001f);
+  CHECK(setBlock(&(Vec3i){-1, 1, -1}, BLOCK_STONE));
+  CHECK(!playerCanOccupy(player.position));
+  for (int i = 0; i < 120; i++) {
+    motionTick(&player, (PlayerMotion){.jump = i == 0, .run = true});
+    CHECK(player.crouched && !player.running && player.position.y == 0);
+  }
+  // The whole body must clear the ceiling, including a negative-coordinate seam.
+  for (int i = 0; i < 70; i++) {
+    motionTick(&player, (PlayerMotion){.wish = {1, 0, 0}});
+    if (player.position.x < PLAYER_RADIUS)
+      CHECK(player.crouched);
+  }
+  CHECK(!player.crouched && player.position.x > PLAYER_RADIUS);
+  CHECK(fabsf(playerEyePosition(&player).y - 1.62f) < 0.00001f);
+  // Crouching at the world top does not allow standing through the boundary.
+  CHECK(playerSetPosition(&player, (Vec3){0.5f, 62, 0.5f}));
+  motionTick(&player, crouch);
+  player.position.y = 63;
+  motionTick(&player, (PlayerMotion){.jump = true});
+  CHECK(player.crouched && player.position.y + 1.0f <= 64);
+}
+
+static void testMovementSpeeds(void) {
+  clearWorld();
+  const float speeds[] = {4.5f, 1.5f, 7.0f};
+  for (int mode = 0; mode < 3; mode++) {
+    Player straight, diagonal, coarse;
+    CHECK(playerSetPosition(&straight, (Vec3){-10, 0, -10}));
+    coarse = diagonal = straight;
+    PlayerMotion motion = {.wish = {1, 0, 0}, .crouch = mode == 1, .run = mode != 0};
+    for (int i = 0; i < 120; i++)
+      motionTick(&straight, motion);
+    for (int i = 0; i < 30; i++)
+      CHECK(playerAdvance(&coarse, motion, 1.0 / 30) == 4);
+    motion.wish.z = 1;
+    for (int i = 0; i < 120; i++)
+      motionTick(&diagonal, motion);
+    CHECK(fabsf(straight.position.x + 10 - speeds[mode]) < 0.0002f);
+    CHECK(straight.position.x == coarse.position.x);
+    CHECK(fabsf(hypotf(diagonal.position.x + 10, diagonal.position.z + 10) - speeds[mode]) < 0.0002f);
+    CHECK(straight.running == (mode == 2));
+    motion.jump = true;
+    motionTick(&straight, motion);
+    CHECK(straight.velocity.y > 0 && !straight.grounded);
+    playerResetTiming(&straight);
+    CHECK(!straight.running && !straight.jumpPending && straight.accumulator == 0);
+  }
+  // Running uses the same swept collision against thin walls and finite bounds.
+  for (int side = -1; side <= 1; side += 2) {
+    clearWorld();
+    for (int y = 0; y < 3; y++)
+      CHECK(setBlock(&(Vec3i){-16, y, 0}, BLOCK_STONE));
+    Player player;
+    CHECK(playerSetPosition(&player, (Vec3){side > 0 ? -18 : -13, 0, 0.5f}));
+    for (int i = 0; i < 10; i++)
+      CHECK(playerAdvance(&player, (PlayerMotion){.wish = {side, 0, 0}, .run = true}, 1000) == 8);
+    CHECK(fabsf(player.position.x - (side > 0 ? -16.3f : -14.7f)) < 0.00001f);
+    CHECK(playerCanOccupy(player.position));
+  }
+}
+
+static void testRunTaps(void) {
+  const double times[] = {0.0, nextafter(0.25, 0.0), 0.25, nextafter(0.25, INFINITY), 1.0};
+  for (int i = 0; i < 5; i++) {
+    PlayerRunInput input = {0};
+    playerForwardEvent(&input, true, 0);
+    CHECK(!input.running);
+    playerForwardEvent(&input, false, 0);
+    playerForwardEvent(&input, true, times[i]);
+    CHECK(input.running == (i < 3));
+    playerForwardEvent(&input, false, times[i]);
+    CHECK(!input.running);
+  }
+  PlayerRunInput input = {0};
+  playerForwardEvent(&input, true, 0);
+  playerForwardEvent(&input, true, 0.1);
+  CHECK(!input.running); // A duplicate press without release cannot run.
+  playerForwardEvent(&input, false, 0.1);
+  playerForwardEvent(&input, true, 0.2);
+  CHECK(input.running);
+  playerResetRunInput(&input);
+  playerForwardEvent(&input, true, 0.21);
+  CHECK(!input.running);
+  playerForwardEvent(&input, false, 0.21);
+  playerForwardEvent(&input, true, NAN);
+  CHECK(!input.running && !input.tapPending);
+  playerForwardEvent(&input, true, 1);
+  playerForwardEvent(&input, false, 1);
+  playerForwardEvent(&input, true, 0.5);
+  CHECK(!input.running); // A backwards clock must not complete a tap.
+}
+
 int main(void) {
   CHECK(initChunks());
   testSpawn();
@@ -210,6 +316,9 @@ int main(void) {
   testContactRounding();
   testTiming();
   testFastFallAndAirborneJump();
+  testCrouchClearance();
+  testMovementSpeeds();
+  testRunTaps();
   cleanupChunks();
   Player player;
   CHECK(!playerFindSpawn(&player, (Vec3){0}) && !playerCanOccupy((Vec3){0}));

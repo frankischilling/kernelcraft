@@ -158,6 +158,19 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 8, baseline, width - 16);
+  baseline -= state->fontHeight + 6;
+  if (!data->flying && baseline - state->fontHeight >= height * 0.5f + 14)
+    drawLabel(state, "Shift: crouch | Double-tap W: run", 8, baseline, width - 16);
+}
+
+static const char* movementStatus(const DebugData* data) {
+  if (data->flying)
+    return "Debug flight";
+  if (data->crouched)
+    return data->grounded ? "Crouching: grounded" : "Crouching: airborne";
+  if (data->running)
+    return data->grounded ? "Running: grounded" : "Running: airborne";
+  return data->grounded ? "Walking: grounded" : "Walking: airborne";
 }
 
 void HUDDraw(GLuint shaderProgram, DebugData* data) {
@@ -187,7 +200,7 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   if (data->saveStatus)
     drawTopLabel(&state, entrySave.text, &baseline);
   char mode[80];
-  const char* status = data->modeBlocked ? "No safe walk position" : data->flying ? "Debug flight" : data->grounded ? "Walking: grounded" : "Walking: airborne";
+  const char* status = data->modeBlocked ? "No safe walk position" : movementStatus(data);
   snprintf(mode, sizeof(mode), "%s | F3: %s", status, data->showDebug ? "hide debug" : "debug");
   drawTopLabel(&state, mode, &baseline);
   if (data->showDebug) {
@@ -210,11 +223,7 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
 }
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
-  snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d",
-           data->flying     ? "Debug flight"
-           : data->grounded ? "Walking: grounded"
-                            : "Walking: airborne",
-           data->simulationSteps);
+  snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d", movementStatus(data), data->simulationSteps);
   snprintf(entryFPS.text, sizeof(entryFPS.text), "FPS: %.1f", data->fps);
   snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(data->camera->position.x, data->camera->position.z));
   snprintf(entryCubeCount.text, sizeof(entryCubeCount.text), "Surface blocks: %d", data->visibleBlocks);

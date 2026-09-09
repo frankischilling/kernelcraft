@@ -102,7 +102,7 @@ static void testTiesAndInvalidInput(void) {
 static bool editFromEye(Vec3 eye, Vec3 direction, int material, bool place) {
   Vec3 feet = eye;
   feet.y -= PLAYER_EYE_HEIGHT;
-  return editTarget(eye, direction, feet, material, place);
+  return editTarget(eye, direction, feet, false, material, place);
 }
 
 static void testPlacement(void) {

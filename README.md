@@ -133,6 +133,20 @@ while grounded. Diagonal movement has the same speed, and looking up/down does
 not change walking speed. Solid blocks and the finite world's boundaries stop
 the player. Jump to climb a one-block step; automatic stepping is not implemented.
 
+Hold either Shift key while walking to crouch at 1.5 units/second. The body
+becomes one block high, with the eye 0.9 blocks above the feet, so it fits
+one-block-high passages. Releasing Shift stands up only when the full body
+fits; move out from under a ceiling to stand. Body and eye height change together
+on a physics tick, without an animated transition. Crouching still allows a
+grounded jump and falling from ledges.
+
+Double-tap W within 0.25 seconds (press to press, including the endpoint) to run
+at 7 units/second while holding W. Running keeps the same collision and diagonal
+speed limits and continues through a jump. Releasing W after starting a run,
+pressing S or either Shift key, toggling flight, or pausing cancels the run and
+tap history. Key repeats do not count as taps. After cancellation, start a fresh
+double-tap to run again. See [crouch and running checks](docs/crouch-running.md).
+
 F toggles debug flight, where W/A/S/D follows the camera and Space/Left Shift
 moves up/down through terrain. Returning to walking keeps the current body
 position if clear, or finds a standing surface near that column. The HUD shows
@@ -160,8 +174,8 @@ Each press edits once within six world units; a gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
 visible under low ceilings when the outline is off-screen. See the
 [selection highlighting checks](docs/selection-highlight.md). Placement rejects occupied/out-of-world cells and body overlap
-in both modes. The body is 0.6 units wide and 1.8 high, with the eye 1.62 above
-its feet; one block is one unit.
+in both modes, using the shorter body when crouched. The standing body is 0.6
+units wide and 1.8 high, with the eye 1.62 above its feet; one block is one unit.
 
 Physics advances at 120 Hz with at most eight steps per rendered frame; excess
 elapsed time after a stall is discarded. Debug flight uses a 0.1-second frame
@@ -199,9 +213,12 @@ outside generated build directories if you use clean commands.
 
 F5 saves while the mouse is captured. Closing normally also saves, and the next
 launch loads that file. The HUD shows the seed and last save result; detailed
-errors include the path in the console. Restarts use walking mode with zero
-velocity. Saving in debug flight records a clear position near the camera, or a
-safe surface nearby, for the next walking session.
+errors include the path in the console. Restarts use standing walking mode with
+zero velocity and no pending run taps. Saving in debug flight records a clear
+position near the camera, or a safe surface nearby, for the next walking session.
+Crouched saves keep the current feet if standing there is clear; under a low
+ceiling they record a safe standing surface near that column. Taking the snapshot
+does not move the live player. Crouch and run state do not change the save format.
 
 Seed 0 preserves the original terrain. Seeds accept decimal integers from 0 to
 4294967295 and apply only to a new file; omit `--seed` when reopening a world.
@@ -264,8 +281,8 @@ power-loss durability is not guaranteed. See the [format and validation record](
   - [x] Implement solid-voxel player collision and finite movement bounds
   - [x] Add player physics (gravity, grounded jumping, safe spawn)
   - [x] Add DDA selection, placement-face results, target outline, crosshair, and material selection
-  - [ ] Hold Shift to crouch in walking mode
-  - [ ] Double-tap W to run
+  - [x] Hold Shift to crouch in walking mode
+  - [x] Double-tap W to run
   - [ ] Make block-breaking time depend on the block and whether the player uses a hand or a suitable tool
 
 ### Phase 2: Graphics and Performance

@@ -37,6 +37,16 @@ try {
     $env:KERNELCRAFT_TEST_RESTART = 'load'
     Invoke-Expected 0 @('--world', 'world with spaces.kcw')
     if ((Get-FileHash -LiteralPath $env:KERNELCRAFT_TEST_WORLD).Hash -ne $originalHash) { throw 'Restart changed the saved world' }
+    $standardWorld = $env:KERNELCRAFT_TEST_WORLD
+    $env:KERNELCRAFT_TEST_WORLD = Join-Path $fixture 'crouched.kcw'
+    $env:KERNELCRAFT_TEST_RESTART = 'crouch-save'
+    Invoke-Expected 0 @('--world', 'crouched.kcw', '--seed', '42')
+    $crouchedHash = (Get-FileHash -LiteralPath $env:KERNELCRAFT_TEST_WORLD).Hash
+    $env:KERNELCRAFT_TEST_RESTART = 'crouch-load'
+    Invoke-Expected 0 @('--world', 'crouched.kcw')
+    if ((Get-FileHash -LiteralPath $env:KERNELCRAFT_TEST_WORLD).Hash -ne $crouchedHash) { throw 'Restart changed the crouched save' }
+    $env:KERNELCRAFT_TEST_WORLD = $standardWorld
+    $env:KERNELCRAFT_TEST_RESTART = 'load'
     Invoke-Expected 1 @('--world', 'world with spaces.kcw', '--seed', '7') 'existing save'
     if ((Get-FileHash -LiteralPath $env:KERNELCRAFT_TEST_WORLD).Hash -ne $originalHash) { throw 'Rejected seed changed the save' }
     $env:KERNELCRAFT_TEST_RESTART = 'fail'

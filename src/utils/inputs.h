@@ -18,6 +18,7 @@
 typedef struct {
   Camera* camera;
   Player player;
+  PlayerRunInput runInput;
   bool flying;
   bool jumpRequested;
   bool saveRequested;
@@ -30,7 +31,8 @@ bool initInputs(InputState* input, Camera* camera);
 // The caller supplies state already validated by loadWorld.
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved);
 bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
-// Discard simulation backlog, queued jumps, and the cached mouse position.
+// Discard simulation backlog, queued jumps, run/tap state, and cached mouse position.
+// Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 void mouseCallback(GLFWwindow* window, double xpos, double ypos);

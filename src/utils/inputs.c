@@ -42,6 +42,7 @@ static void resetInputTiming(InputState* input) {
   if (!input)
     return;
   playerResetTiming(&input->player);
+  playerResetRunInput(&input->runInput);
   input->jumpRequested = false;
   input->simulationSteps = 0;
 }
@@ -98,7 +99,7 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
     return false;
   Player standing = {0};
   Vec3 feet = inputBodyFeet(input);
-  if (!playerSetPosition(&standing, feet) && (!input->flying || !playerFindSpawn(&standing, feet)))
+  if (!playerSetPosition(&standing, feet) && ((!input->flying && !input->player.crouched) || !playerFindSpawn(&standing, feet)))
     return false;
   float yaw = fmodf(input->camera->yaw, 360.0f);
   if (yaw < 0)
@@ -113,13 +114,25 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   (void)scancode;
   (void)mods;
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (input && !input->flying && acceptsEditing(window)) {
+    bool crouchHeld = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    if ((action == GLFW_PRESS && (key == GLFW_KEY_S || key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT)) || crouchHeld || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
+        input->player.crouched) {
+      playerResetRunInput(&input->runInput);
+      input->player.running = false;
+    } else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_RELEASE)) {
+      playerForwardEvent(&input->runInput, action == GLFW_PRESS, glfwGetTime());
+      if (action == GLFW_RELEASE)
+        input->player.running = false;
+    }
+  }
   if (action != GLFW_PRESS)
     return;
   if (key == GLFW_KEY_ESCAPE && acceptsWindowInput(window)) {
     setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
     return;
   }
-  InputState* input = glfwGetWindowUserPointer(window);
   // Diagnostics remain accessible while the cursor is released. They never
   // resume movement or alter the world, and repeats are rejected above.
   if (input && key == GLFW_KEY_F3 && acceptsWindowInput(window)) {
@@ -159,7 +172,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   Camera* camera = input->camera;
   Vec3 feet = inputBodyFeet(input);
   if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT)
-    editTarget(camera->position, camera->front, feet, selectedBlock(), button == GLFW_MOUSE_BUTTON_RIGHT);
+    editTarget(camera->position, camera->front, feet, !input->flying && input->player.crouched, selectedBlock(), button == GLFW_MOUSE_BUTTON_RIGHT);
 }
 
 void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
@@ -180,7 +193,13 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     int lateral = (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) - (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS);
     wish.x = forward.x * longitudinal - forward.z * lateral;
     wish.z = forward.z * longitudinal + forward.x * lateral;
-    input->simulationSteps = playerAdvance(&input->player, wish, input->jumpRequested, deltaTime);
+    bool crouch = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    if (crouch || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || input->player.crouched)
+      playerResetRunInput(&input->runInput);
+    else if (glfwGetKey(window, GLFW_KEY_W) != GLFW_PRESS)
+      playerForwardEvent(&input->runInput, false, glfwGetTime());
+    PlayerMotion motion = {.wish = wish, .jump = input->jumpRequested, .crouch = crouch, .run = input->runInput.running && longitudinal > 0};
+    input->simulationSteps = playerAdvance(&input->player, motion, deltaTime);
     input->jumpRequested = false;
     camera->position = playerEyePosition(&input->player);
     return;

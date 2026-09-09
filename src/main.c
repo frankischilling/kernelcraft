@@ -266,6 +266,8 @@ int main(int argc, char** argv) {
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
                       .flying = input.flying,
                       .grounded = input.player.grounded,
+                      .crouched = input.player.crouched,
+                      .running = input.player.running,
                       .modeBlocked = input.modeBlocked,
                       .simulationSteps = input.simulationSteps,
                       .saveStatus = saveStatus,
