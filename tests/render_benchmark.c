@@ -60,6 +60,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
+#include "occlusion_render_checks.h"
 
 static bool testWireframe(GLuint shader) {
   clearTerrainFixture();
@@ -631,8 +632,8 @@ int main(int argc, char** argv) {
   __glewBufferSubData = countSubData;
   __glewBufferData = countData;
   __glewGetUniformLocation = countLookup;
-  const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
-  for (int scenario = 0; scenario < 4; scenario++) {
+  const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f, 0.0f};
+  for (int scenario = 0; scenario < 5; scenario++) {
     Camera camera;
     initCamera(&camera);
     camera.pitch = pitches[scenario];
@@ -642,6 +643,7 @@ int main(int argc, char** argv) {
       camera.position.y = 32.0f;
     updateCameraVectors(&camera);
     RenderResult result = {0};
+    unsigned long expectedDraws = 0;
     double elapsed = 0;
     for (int frame = -10; frame < 60; frame++) {
       if (frame == 0) {
@@ -649,6 +651,8 @@ int main(int argc, char** argv) {
         start = glfwGetTime();
       }
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      if (scenario == 4)
+        camera.position.x = (frame + 10) * 0.01f;
       Mat4 view, projection;
       Vec3 target;
       vec3_add(&target, &camera.position, &camera.front);
@@ -661,6 +665,10 @@ int main(int argc, char** argv) {
       result = renderWorld(&camera, view, projection, false);
       if (!result.success || result.chunksRebuilt || result.chunksConsidered != CHUNKS_PER_AXIS * CHUNKS_PER_AXIS)
         return 7;
+      if (frame >= 0)
+        expectedDraws += (unsigned long)result.terrainDrawCalls + 1;
+      if (scenario == 4 && result.chunksOccluded)
+        return 25;
 #endif
       DebugData data = {&camera, 60.0f, result.surfaceBlocks};
 #ifndef KERNELCRAFT_BASELINE
@@ -678,8 +686,9 @@ int main(int argc, char** argv) {
     printf("pitch=%5.1f frame_ms=%.3f terrain_grid_draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu surface_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60,
            draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
 #ifndef KERNELCRAFT_BASELINE
-    printf("submitted_quads=%zu submitted_triangles=%zu chunks_rendered=%d\n", result.submittedQuads, result.submittedTriangles, result.chunksRendered);
-    if (result.terrainDrawCalls != result.chunksRendered || draws != 60 * (unsigned long)(result.chunksRendered + 1)) {
+    printf("submitted_quads=%zu submitted_triangles=%zu chunks_rendered=%d occluded=%d queries=%d moving=%d\n", result.submittedQuads, result.submittedTriangles,
+           result.chunksRendered, result.chunksOccluded, result.occlusionQueries, scenario == 4);
+    if (result.terrainDrawCalls != result.chunksRendered || draws != expectedDraws) {
       fprintf(stderr, "Expected one terrain draw per visible chunk plus the grid\n");
       return 15;
     }
@@ -803,6 +812,8 @@ int main(int argc, char** argv) {
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
   if (!testWireframe(shader))
     return 22;
+  if (!testOcclusion(shader))
+    return 24;
   if (!testFarTerrain(shader))
     return 20;
   if (!testTerrainLighting(shader))

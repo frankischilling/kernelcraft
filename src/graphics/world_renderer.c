@@ -4,6 +4,7 @@
 #include "../world/world.h"
 #include "texture.h"
 #include <GLFW/glfw3.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,6 +12,8 @@
 
 typedef struct {
   GLuint vao, vbo, ebo;
+  GLuint query;
+  bool queryPending, queryValid, visibilityKnown, visible;
   size_t indexCount;
   Vec3 center, dimensions;
   int surfaceBlocks;
@@ -20,7 +23,52 @@ static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
+static Mat4 lastView, lastProjection;
+static Vec3 lastPosition;
+static GLint lastViewport[4], lastFramebuffer;
+static bool visibilityValid;
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
+
+typedef struct {
+  RenderChunk* chunk;
+  float distanceSquared;
+} ChunkCandidate;
+
+static void updateVisibility(const Camera* camera, const Mat4 view, const Mat4 projection, bool invalidate) {
+  GLint viewport[4], framebuffer;
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+  invalidate |= !visibilityValid || memcmp(lastView, view, sizeof(Mat4)) || memcmp(lastProjection, projection, sizeof(Mat4)) || memcmp(lastViewport, viewport, sizeof(viewport)) ||
+                lastFramebuffer != framebuffer || lastPosition.x != camera->position.x || lastPosition.y != camera->position.y || lastPosition.z != camera->position.z;
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      RenderChunk* chunk = &renderChunks[x][z];
+      if (invalidate) {
+        chunk->visibilityKnown = false;
+        // A pending query still owns its GL object, but its answer is stale.
+        chunk->queryValid = false;
+      }
+      if (!chunk->queryPending)
+        continue;
+      GLuint available = GL_FALSE;
+      glGetQueryObjectuiv(chunk->query, GL_QUERY_RESULT_AVAILABLE, &available);
+      if (!available)
+        continue; // Never wait for the GPU; unknown chunks remain drawable.
+      if (chunk->queryValid) {
+        GLuint samples;
+        glGetQueryObjectuiv(chunk->query, GL_QUERY_RESULT, &samples);
+        chunk->visible = samples != 0;
+        chunk->visibilityKnown = true;
+      }
+      chunk->queryPending = false;
+    }
+  memcpy(lastView, view, sizeof(Mat4));
+  memcpy(lastProjection, projection, sizeof(Mat4));
+  memcpy(lastViewport, viewport, sizeof(viewport));
+  lastFramebuffer = framebuffer;
+  lastPosition = camera->position;
+  visibilityValid = true;
+}
 
 static void initGrid(void) {
   float vertices[GRID_VERTICES * 3];
@@ -47,6 +95,7 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
       glGenVertexArrays(1, &render->vao);
       glGenBuffers(1, &render->vbo);
       glGenBuffers(1, &render->ebo);
+      glGenQueries(1, &render->query);
     }
     glBindVertexArray(render->vao);
     glBindBuffer(GL_ARRAY_BUFFER, render->vbo);
@@ -158,6 +207,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   mat4_multiply(viewProjection, projection, view);
   Frustum frustum;
   frustum_update(&frustum, projection, view);
+  updateVisibility(camera, view, projection, wireframe || result.chunksRebuilt != 0);
+  // Wireframe must never supply visibility evidence for the next solid frame.
+  if (wireframe)
+    visibilityValid = false;
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
@@ -174,6 +227,8 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
   const float radius = CHUNK_SIZE * CUBE_SIZE * RENDER_RADIUS_CHUNKS;
+  ChunkCandidate candidates[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+  int candidateCount = 0;
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       RenderChunk* chunk = &renderChunks[x][z];
@@ -187,13 +242,42 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
         continue;
       if (!frustum_block_visible(&frustum, &chunk->center, &chunk->dimensions, camera))
         continue;
-      result.surfaceBlocks += chunk->surfaceBlocks;
-      result.chunksRendered++;
-      glBindVertexArray(chunk->vao);
-      result.terrainDrawCalls++;
-      result.submittedQuads += chunk->indexCount / 6;
-      result.submittedTriangles += chunk->indexCount / 3;
-      glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
+      // Near boxes first so their opaque surfaces can hide farther geometry.
+      Vec3 offset;
+      vec3_subtract(&offset, &chunk->center, &camera->position);
+      dx = fmaxf(0, fabsf(offset.x) - chunk->dimensions.x * 0.5f);
+      float dy = fmaxf(0, fabsf(offset.y) - chunk->dimensions.y * 0.5f);
+      dz = fmaxf(0, fabsf(offset.z) - chunk->dimensions.z * 0.5f);
+      float distance = dx * dx + dy * dy + dz * dz;
+      int index = candidateCount++;
+      while (index > 0 && candidates[index - 1].distanceSquared > distance) {
+        candidates[index] = candidates[index - 1];
+        index--;
+      }
+      candidates[index] = (ChunkCandidate){chunk, distance};
+    }
+  }
+  for (int i = 0; i < candidateCount; i++) {
+    RenderChunk* chunk = candidates[i].chunk;
+    if (!wireframe && chunk->visibilityKnown && !chunk->visible) {
+      result.chunksOccluded++;
+      continue;
+    }
+    bool query = !wireframe && !chunk->visibilityKnown && !chunk->queryPending;
+    if (query) {
+      glBeginQuery(GL_ANY_SAMPLES_PASSED, chunk->query);
+      result.occlusionQueries++;
+    }
+    result.surfaceBlocks += chunk->surfaceBlocks;
+    result.chunksRendered++;
+    glBindVertexArray(chunk->vao);
+    result.terrainDrawCalls++;
+    result.submittedQuads += chunk->indexCount / 6;
+    result.submittedTriangles += chunk->indexCount / 3;
+    glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
+    if (query) {
+      glEndQuery(GL_ANY_SAMPLES_PASSED);
+      chunk->queryPending = chunk->queryValid = true;
     }
   }
   glBindVertexArray(0);
@@ -209,6 +293,7 @@ void cleanupWorld(void) {
       glDeleteVertexArrays(1, &chunk->vao);
       glDeleteBuffers(1, &chunk->vbo);
       glDeleteBuffers(1, &chunk->ebo);
+      glDeleteQueries(1, &chunk->query);
     }
   }
   memset(renderChunks, 0, sizeof(renderChunks));
@@ -218,4 +303,5 @@ void cleanupWorld(void) {
   glDeleteTextures(1, &textureArray);
   textureArray = 0;
   program = 0;
+  visibilityValid = false;
 }

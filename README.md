@@ -52,6 +52,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **Rendering**:
   - Basic rendering of cubes with lighting effects using shaders.
   - Frustum culling for optimization.
+  - Asynchronous GPU occlusion queries skip fully hidden chunks while the view is unchanged.
   - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics.
 
 - **World Generation**:
@@ -218,6 +219,13 @@ Chunks outside the camera view are still culled. The world remains 256 by 256
 blocks; the larger view draws more terrain and can increase frame time. See
 [terrain variants and distance checks](docs/terrain-variants.md).
 
+Solid rendering also skips chunks proven hidden by opaque terrain. Visibility
+queries never block rendering. Camera movement, projection/viewport changes,
+and edits discard old results, so newly exposed geometry draws immediately;
+the savings apply after the view settles. Wireframe bypasses occlusion. F3
+shows hidden chunks and new queries. See [occlusion culling](docs/occlusion-culling.md)
+for the conservative visibility policy, measurements, and graphical regressions.
+
 Run the built executable with a save path and a seed for a new world:
 
 ```sh
@@ -277,7 +285,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Basic render distance
   - [x] Implement frustum culling for basic optimization
   - [x] Remove faces between solid blocks, including chunk seams
-  - [ ] Implement true occlusion culling
+  - [x] Implement true occlusion culling for unchanged views using asynchronous GPU queries
   - [x] Implement chunk-based rendering system
   - [x] Add basic shaders for lighting
   - [ ] Implement shadows
