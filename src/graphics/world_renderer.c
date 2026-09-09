@@ -19,7 +19,7 @@ typedef struct {
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
-static GLint viewProjectionLocation, viewPositionLocation, gridLocation;
+static GLint viewProjectionLocation, gridLocation;
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
 
 static void initGrid(void) {
@@ -113,13 +113,16 @@ bool initWorld(GLuint shaderProgram) {
     goto failure;
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
-  viewPositionLocation = glGetUniformLocation(program, "viewPos");
   gridLocation = glGetUniformLocation(program, "drawGrid");
   glUniform1i(glGetUniformLocation(program, "texture1"), 0);
   glUniform1ui(glGetUniformLocation(program, "worldSeed"), worldSeed());
   glUniform1f(glGetUniformLocation(program, "blockSize"), CUBE_SIZE);
-  glUniform3f(glGetUniformLocation(program, "lightPos"), 5.0f, 50.0f, 5.0f);
-  glUniform3f(glGetUniformLocation(program, "lightColor"), 1.0f, 1.0f, 1.0f);
+  // Fixed lighting keeps the same face readable throughout the finite world.
+  // The fill and diffuse intensities leave headroom for bright texture detail.
+  glUniform3f(glGetUniformLocation(program, "lightDirection"), 0.45f, 0.8f, 0.35f);
+  glUniform3f(glGetUniformLocation(program, "lightColor"), 0.62f, 0.60f, 0.56f);
+  glUniform3f(glGetUniformLocation(program, "skyColor"), 0.36f, 0.39f, 0.44f);
+  glUniform3f(glGetUniformLocation(program, "groundColor"), 0.18f, 0.16f, 0.14f);
 
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -158,7 +161,6 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
-  glUniform3f(viewPositionLocation, camera->position.x, camera->position.y, camera->position.z);
   glUniform1i(gridLocation, 1);
   glBindVertexArray(gridVAO);
   glDrawArrays(GL_LINES, 0, GRID_VERTICES);

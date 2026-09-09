@@ -1,6 +1,6 @@
 /**
  * @file graphics/fragment_shader.glsl
- * @brief Fragment shader implementing Phong lighting model with ambient, diffuse and specular components
+ * @brief Matte terrain lighting with directional diffuse and hemispheric fill.
  * @author frankischilling
  * @date 2024-11-20
  */
@@ -14,9 +14,10 @@ in vec3 Normal;   // Surface normal at fragment
 in vec2 TexCoord; // Texture coordinates
 flat in float Material;
 
-uniform vec3 lightPos;    // Position of the light source
-uniform vec3 viewPos;     // Camera position for specular calculation
-uniform vec3 lightColor;  // Color of the light source
+uniform vec3 lightDirection; // World-space direction toward the fixed key light
+uniform vec3 lightColor;     // Linear diffuse intensity
+uniform vec3 skyColor;       // Linear upper-hemisphere fill
+uniform vec3 groundColor;    // Linear lower-hemisphere fill
 uniform sampler2DArray texture1; // One independent repeating tile per layer
 uniform bool drawGrid;
 uniform uint worldSeed;
@@ -42,29 +43,27 @@ float terrainLayer(vec3 normal) {
     return Material;
 }
 
+vec3 srgbToLinear(vec3 color) {
+    return mix(pow((color + 0.055) / 1.055, vec3(2.4)), color / 12.92,
+               lessThanEqual(color, vec3(0.04045)));
+}
+
+vec3 linearToSrgb(vec3 color) {
+    return mix(1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055, 12.92 * color,
+               lessThanEqual(color, vec3(0.0031308)));
+}
+
 void main() {
     if (drawGrid) {
         FragColor = vec4(0.3, 0.3, 0.3, 1.0);
         return;
     }
-    // Calculate ambient lighting component
-    float ambientStrength = 0.2;
-    vec3 ambient = ambientStrength * lightColor;
-
-    // Calculate diffuse lighting component
     vec3 norm = normalize(Normal);
-    vec3 lightDir = normalize(lightPos - FragPos);
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-
-    // Calculate specular lighting component
-    float specularStrength = 0.5;
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
-
-    // Combine all lighting components and apply texture color
-    vec3 result = (ambient + diffuse + specular) * texture(texture1, vec3(TexCoord, terrainLayer(norm))).rgb;
-    FragColor = vec4(result, 1.0);
+    vec3 ambient = mix(groundColor, skyColor, norm.y * 0.5 + 0.5);
+    vec3 diffuse = max(dot(norm, normalize(lightDirection)), 0.0) * lightColor;
+    // RGBA8 tiles contain sRGB colors. Shade in linear light, then encode for
+    // the existing display framebuffer. HUD and selection keep their own path;
+    // GL_FRAMEBUFFER_SRGB stays disabled so output is encoded exactly once.
+    vec3 albedo = srgbToLinear(texture(texture1, vec3(TexCoord, terrainLayer(norm))).rgb);
+    FragColor = vec4(linearToSrgb(albedo * (ambient + diffuse)), 1.0);
 }

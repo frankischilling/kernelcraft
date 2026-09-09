@@ -330,7 +330,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
   - [ ] Add support for transparency and alpha blending
   - [ ] Add support for skyboxes and clouds 
-  - [ ] Improve terrain and block lighting
+  - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
   - [ ] Add day/night cycle
     - [ ] Within the system implement tick based time

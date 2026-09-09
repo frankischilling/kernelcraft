@@ -64,7 +64,7 @@ static bool testTerrainVariants(GLuint shader) {
           colors[layer * 4 + 3] = 255;
         }
         // An eighth binary RGB mask would be black and could hide missing faces.
-        // Orange stays distinct from the seven masks under the Phong lighting.
+        // Orange stays distinct from the seven masks under terrain lighting.
         colors[28] = 255;
         colors[29] = 64;
         colors[30] = 0;
