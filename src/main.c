@@ -251,7 +251,7 @@ int main(int argc, char** argv) {
     vec3_add(&target, &camera.position, &camera.front);
     mat4_lookAt(view, &camera.position, &target, &camera.up);
     mat4_perspective(projection, camera.fov, (float)width / height, 0.1f, 1000.0f);
-    RenderResult result = renderWorld(&camera, view, projection);
+    RenderResult result = renderWorld(&camera, view, projection, input.wireframe);
 
     if (!result.success) {
       exitStatus = EXIT_FAILURE;
@@ -274,6 +274,7 @@ int main(int argc, char** argv) {
                       .simulationSteps = input.simulationSteps,
                       .saveStatus = saveStatus,
                       .showDebug = input.showDebug,
+                      .wireframe = input.wireframe,
                       .stats = &result};
     HUDDraw(shaderProgram, &data);
 

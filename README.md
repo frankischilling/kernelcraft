@@ -157,6 +157,14 @@ movement mode and grounded/airborne state. F3 toggles detailed diagnostics,
 including FPS, coordinates, simulation steps, and mesh statistics. It works
 while the mouse is captured or released, without resuming movement.
 
+F4 toggles terrain wireframe, showing the edges and diagonals of the submitted
+mesh triangles with their existing materials. Unfilled faces reveal edges behind
+them; selection still targets the nearest solid block. The HUD, hotbar, breaking
+bar, and target overlay retain their normal appearance. F4 also works with the
+cursor released, ignores key repeats and inactive windows, and keeps the chosen
+mode through pauses and flight changes. Every launch starts with solid terrain.
+See [wireframe controls and checks](docs/wireframe.md).
+
 The HUD fits its text and material slots to the framebuffer. Small windows use
 smaller bitmap text and shorten long labels; diagnostics occupy available space
 above the aiming area. More diagnostic rows appear in taller windows. Save
@@ -271,7 +279,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Add basic shaders for lighting
   - [ ] Implement shadows
   - [ ] Implement basic post-processing effects
-  - [ ] Add a wireframe toggle (solid rendering is implemented)
+  - [x] Toggle terrain wireframe with F4 while keeping the HUD filled
   - [x] Toggle F3 diagnostics for FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
   - [x] Show completed simulation steps per frame and movement state
   - [x] Optimize render batching and draw calls

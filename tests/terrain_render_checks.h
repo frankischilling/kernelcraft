@@ -77,7 +77,7 @@ static bool testTerrainVariants(GLuint shader) {
         mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
         mat4_multiply(combined, projection, view);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        if (!renderWorld(&camera, view, projection).success) {
+        if (!renderWorld(&camera, view, projection, false).success) {
           success = false;
           break;
         }
@@ -113,7 +113,7 @@ static bool testTerrainVariants(GLuint shader) {
           setBlock(&(Vec3i){-1, 24, 0}, BLOCK_AIR);
           setBlock(&(Vec3i){-1, 24, 0}, id);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          success = renderWorld(&camera, view, projection).success;
+          success = renderWorld(&camera, view, projection, false).success;
           glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, rebuilt);
           success &= memcmp(pixels, rebuilt, 960 * 540 * 3) == 0;
         }
@@ -149,7 +149,7 @@ static bool testFarTerrain(GLuint shader) {
     mat4_lookAt(view, &camera.position, &target, &camera.up);
     mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderResult result = renderWorld(&camera, view, projection);
+    RenderResult result = renderWorld(&camera, view, projection, false);
     unsigned char rgb[3];
     glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, rgb);
     bool expected = abs(distances[i]) < 96;
@@ -158,6 +158,15 @@ static bool testFarTerrain(GLuint shader) {
       fprintf(stderr, "Terrain at %d blocks: visible=%d, chunks=%d, expected=%d\n", distances[i], visible, result.chunksRendered, expected);
       return false;
     }
+    RenderResult wireframe = renderWorld(&camera, view, projection, true);
+    if (!wireframe.success || wireframe.chunksRendered != result.chunksRendered || wireframe.submittedTriangles != result.submittedTriangles || wireframe.chunksRebuilt)
+      return false;
+    // Turning away must cull the same distant block in wireframe as in solid.
+    Vec3 away = {camera.position.x - camera.front.x, camera.position.y, camera.position.z};
+    mat4_lookAt(view, &camera.position, &away, &camera.up);
+    wireframe = renderWorld(&camera, view, projection, true);
+    if (!wireframe.success || wireframe.chunksRendered)
+      return false;
     setBlock(&block, BLOCK_AIR);
   }
   puts("Terrain render radius: 64/80 blocks visible, 112 blocks culled in both directions");

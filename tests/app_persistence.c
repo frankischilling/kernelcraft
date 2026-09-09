@@ -79,7 +79,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   GLFWmousebuttonfun mouse = glfwSetMouseButtonCallback(window, NULL);
   glfwSetMouseButtonCallback(window, mouse);
   CHECK(key && mouse && worldSeed() == 42);
+  if (frame == 0)
+    CHECK(!input->wireframe);
   if (frame == 0 && saving()) {
+    key(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+    CHECK(input->wireframe);
     for (int x = -2; x <= 1; x++)
       for (int z = 0; z <= 4; z++) {
         CHECK(setBlock(&(Vec3i){x, 39, z}, BLOCK_STONE));
@@ -136,6 +140,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(selectedHotbarSlot() == 8);
   }
   if (frame == 1 && saving()) {
+    CHECK(input->wireframe);
     CHECK(!input->saveRequested);
     const char* path = getenv("KERNELCRAFT_TEST_WORLD");
     CHECK(path);
