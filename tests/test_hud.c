@@ -11,6 +11,8 @@
 
 static int failures, labels;
 static bool sawSaveFailure, sawModeBlocked, sawFPS, sawDebugHint;
+static const char* expectedMovement;
+static bool sawMovement;
 static float rectangles[32][4];
 static float materialX[9];
 static GLuint iconTextures[3];
@@ -29,6 +31,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawModeBlocked |= strstr(text, "No safe walk position") != NULL;
   sawFPS |= strstr(text, "FPS:") != NULL;
   sawDebugHint |= strstr(text, "F3:") != NULL;
+  sawMovement |= expectedMovement && strstr(text, expectedMovement) != NULL;
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
   if (text[0] >= '1' && text[0] <= '3' && text[1] == '\0') {
@@ -258,6 +261,23 @@ int main(int argc, char** argv) {
       free(pixels);
       CHECK(glGetError() == GL_NO_ERROR);
     }
+  }
+  glfwSetWindowSize(window, 640, 480);
+  glfwPollEvents();
+  glfwSwapBuffers(window);
+  glViewport(0, 0, 640, 480);
+  const char* states[] = {"Crouching: grounded", "Crouching: airborne", "Running: grounded", "Running: airborne", "Debug flight"};
+  data.modeBlocked = false;
+  for (int mode = 0; mode < 5; mode++) {
+    labels = 0;
+    sawMovement = false;
+    expectedMovement = states[mode];
+    data.crouched = mode < 2;
+    data.running = mode >= 2;
+    data.grounded = mode % 2 == 0;
+    data.flying = mode == 4;
+    HUDDraw(0, &data);
+    CHECK(sawMovement && glGetError() == GL_NO_ERROR);
   }
   HUDCleanup();
   for (int slot = 0; slot < 3; slot++)

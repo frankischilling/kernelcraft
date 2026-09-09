@@ -22,6 +22,7 @@ void initCamera(Camera* camera) {
   camera->pitch = 0.0f;
   camera->speed = 10.0f;
   camera->sensitivity = 0.05f;
+  camera->fov = CAMERA_BASE_FOV;
 
   updateCameraVectors(camera);
 }
@@ -34,4 +35,12 @@ void updateCameraVectors(Camera* camera) {
 
   // Normalize the front vector
   vec3_normalize(&camera->front, &camera->front);
+}
+
+void updateCameraFov(Camera* camera, bool running, double seconds) {
+  if (!isfinite(seconds) || seconds <= 0)
+    return;
+  float target = running ? CAMERA_RUN_FOV : CAMERA_BASE_FOV;
+  double blend = -expm1(-CAMERA_FOV_RESPONSE * fmin(seconds, 0.1));
+  camera->fov += (float)((target - camera->fov) * blend);
 }

@@ -5,18 +5,18 @@ static bool finitePosition(Vec3 position) {
   return isfinite(position.x) && isfinite(position.y) && isfinite(position.z);
 }
 
-static void bodyBounds(Vec3 feet, double min[3], double max[3]) {
+static void bodyBounds(Vec3 feet, bool crouched, double min[3], double max[3]) {
   min[0] = (double)feet.x - PLAYER_RADIUS;
   min[1] = feet.y;
   min[2] = (double)feet.z - PLAYER_RADIUS;
   max[0] = (double)feet.x + PLAYER_RADIUS;
-  max[1] = (double)feet.y + PLAYER_HEIGHT;
+  max[1] = (double)feet.y + (crouched ? PLAYER_CROUCH_HEIGHT : PLAYER_HEIGHT);
   max[2] = (double)feet.z + PLAYER_RADIUS;
 }
 
-bool playerOverlapsBlock(Vec3 feet, Vec3i cell) {
+bool playerOverlapsBlock(Vec3 feet, Vec3i cell, bool crouched) {
   double min[3], max[3];
-  bodyBounds(feet, min, max);
+  bodyBounds(feet, crouched, min, max);
   const int coordinates[3] = {cell.x, cell.y, cell.z};
   for (int axis = 0; axis < 3; axis++)
     if (coordinates[axis] * (double)CUBE_SIZE >= max[axis] || (coordinates[axis] + 1.0) * CUBE_SIZE <= min[axis])
@@ -24,11 +24,11 @@ bool playerOverlapsBlock(Vec3 feet, Vec3i cell) {
   return finitePosition(feet);
 }
 
-bool playerCellRange(Vec3 feet, Vec3i* firstCell, Vec3i* lastCell) {
+static bool bodyCellRange(Vec3 feet, bool crouched, Vec3i* firstCell, Vec3i* lastCell) {
   if (!firstCell || !lastCell || !finitePosition(feet))
     return false;
   double min[3], max[3];
-  bodyBounds(feet, min, max);
+  bodyBounds(feet, crouched, min, max);
   const double lo[3] = {-WORLD_SIZE * CUBE_SIZE / 2, 0, -WORLD_SIZE * CUBE_SIZE / 2};
   const double hi[3] = {WORLD_SIZE * CUBE_SIZE / 2, CHUNK_HEIGHT * CUBE_SIZE, WORLD_SIZE * CUBE_SIZE / 2};
   int first[3], last[3];
@@ -43,9 +43,17 @@ bool playerCellRange(Vec3 feet, Vec3i* firstCell, Vec3i* lastCell) {
   return true;
 }
 
+bool playerCellRange(Vec3 feet, Vec3i* firstCell, Vec3i* lastCell) {
+  return bodyCellRange(feet, false, firstCell, lastCell);
+}
+
 bool playerCanOccupy(Vec3 feet) {
+  return playerCanOccupyPosture(feet, false);
+}
+
+bool playerCanOccupyPosture(Vec3 feet, bool crouched) {
   Vec3i firstCell, lastCell;
-  if (!playerCellRange(feet, &firstCell, &lastCell))
+  if (!bodyCellRange(feet, crouched, &firstCell, &lastCell))
     return false;
   int first[3] = {firstCell.x, firstCell.y, firstCell.z};
   int last[3] = {lastCell.x, lastCell.y, lastCell.z};
@@ -59,11 +67,11 @@ bool playerCanOccupy(Vec3 feet) {
   return true;
 }
 
-static double clipAxis(Vec3 feet, int axis, double displacement) {
+static double clipAxis(Vec3 feet, bool crouched, int axis, double displacement) {
   if (displacement == 0)
     return 0;
   double min[3], max[3];
-  bodyBounds(feet, min, max);
+  bodyBounds(feet, crouched, min, max);
   const double lo[3] = {-WORLD_SIZE * CUBE_SIZE / 2, 0, -WORLD_SIZE * CUBE_SIZE / 2};
   const double hi[3] = {WORLD_SIZE * CUBE_SIZE / 2, CHUNK_HEIGHT * CUBE_SIZE, WORLD_SIZE * CUBE_SIZE / 2};
   double allowed = displacement > 0 ? fmin(displacement, hi[axis] - max[axis]) : fmax(displacement, lo[axis] - min[axis]);
@@ -91,14 +99,14 @@ static double clipAxis(Vec3 feet, int axis, double displacement) {
   return allowed;
 }
 
-static bool supported(Vec3 feet) {
-  return clipAxis(feet, 1, -0.0001) > -0.0001;
+static bool supported(Vec3 feet, bool crouched) {
+  return clipAxis(feet, crouched, 1, -0.0001) > -0.0001;
 }
 
 bool playerSetPosition(Player* player, Vec3 feet) {
   if (!player || !playerCanOccupy(feet))
     return false;
-  *player = (Player){.position = feet, .grounded = supported(feet)};
+  *player = (Player){.position = feet, .grounded = supported(feet, false)};
   return true;
 }
 
@@ -140,39 +148,61 @@ bool playerFindSpawn(Player* player, Vec3 preferred) {
 }
 
 Vec3 playerEyePosition(const Player* player) {
-  return (Vec3){player->position.x, player->position.y + PLAYER_EYE_HEIGHT, player->position.z};
+  return (Vec3){player->position.x, player->position.y + (player->crouched ? PLAYER_CROUCH_EYE_HEIGHT : PLAYER_EYE_HEIGHT), player->position.z};
 }
 
-static bool moveAxis(Player* player, int axis, double displacement) {
-  double allowed = clipAxis(player->position, axis, displacement);
+static bool moveAxis(Player* player, int axis, double displacement, bool guardLedge) {
+  double allowed = clipAxis(player->position, player->crouched, axis, displacement);
   float* coordinate = axis == 0 ? &player->position.x : axis == 1 ? &player->position.y : &player->position.z;
+  float start = *coordinate;
   double exact = *coordinate + allowed;
   float rounded = (float)exact;
   bool blocked = allowed != displacement;
   *coordinate = rounded;
   // Even an unclipped endpoint just before a face can round into the obstacle.
   // Round back only at contact, avoiding a bias on ordinary free movement.
-  if (((displacement > 0 && rounded > exact) || (displacement < 0 && rounded < exact)) && (blocked || !playerCanOccupy(player->position))) {
+  if (((displacement > 0 && rounded > exact) || (displacement < 0 && rounded < exact)) && (blocked || !playerCanOccupyPosture(player->position, player->crouched))) {
     *coordinate = nextafterf(rounded, displacement > 0 ? -INFINITY : INFINITY);
+    blocked = true;
+  }
+  if (guardLedge && !supported(player->position, player->crouched)) {
+    float safe = start, unsafe = *coordinate;
+    // Each crouch step is at most 0.0125 units, smaller than a block gap.
+    // Keep the last supported float so rounding cannot push feet off an edge.
+    for (int i = 0; i < 16; i++) {
+      *coordinate = safe + (unsafe - safe) * 0.5f;
+      if (supported(player->position, player->crouched))
+        safe = *coordinate;
+      else
+        unsafe = *coordinate;
+    }
+    *coordinate = safe;
     blocked = true;
   }
   return blocked;
 }
 
-static void playerStep(Player* player, Vec3 wish, bool jump) {
-  player->grounded = supported(player->position);
-  if (jump && player->grounded) {
+static void playerStep(Player* player, PlayerMotion motion) {
+  if (motion.crouch)
+    player->crouched = true;
+  else if (player->crouched && playerCanOccupy(player->position))
+    player->crouched = false;
+  player->running = motion.run && !player->crouched && (motion.wish.x != 0 || motion.wish.z != 0);
+  float speed = player->crouched ? PLAYER_CROUCH_SPEED : player->running ? PLAYER_RUN_SPEED : PLAYER_WALK_SPEED;
+  player->grounded = supported(player->position, player->crouched);
+  if (motion.jump && player->grounded) {
     player->velocity.y = PLAYER_JUMP_SPEED;
     player->grounded = false;
   }
-  player->velocity.x = wish.x * PLAYER_WALK_SPEED;
-  player->velocity.z = wish.z * PLAYER_WALK_SPEED;
+  player->velocity.x = motion.wish.x * speed;
+  player->velocity.z = motion.wish.z * speed;
   player->velocity.y = fmaxf(-PLAYER_TERMINAL_SPEED, player->velocity.y - PLAYER_GRAVITY * PLAYER_STEP_SECONDS);
-  if (moveAxis(player, 0, player->velocity.x * PLAYER_STEP_SECONDS))
+  bool guardLedge = player->crouched && player->grounded;
+  if (moveAxis(player, 0, player->velocity.x * PLAYER_STEP_SECONDS, guardLedge))
     player->velocity.x = 0;
-  if (moveAxis(player, 2, player->velocity.z * PLAYER_STEP_SECONDS))
+  if (moveAxis(player, 2, player->velocity.z * PLAYER_STEP_SECONDS, guardLedge))
     player->velocity.z = 0;
-  if (moveAxis(player, 1, player->velocity.y * PLAYER_STEP_SECONDS)) {
+  if (moveAxis(player, 1, player->velocity.y * PLAYER_STEP_SECONDS, false)) {
     player->grounded = player->velocity.y < 0;
     player->velocity.y = 0;
   } else {
@@ -180,16 +210,16 @@ static void playerStep(Player* player, Vec3 wish, bool jump) {
   }
 }
 
-int playerAdvance(Player* player, Vec3 wish, bool jump, double frameSeconds) {
-  if (!player || !isfinite(frameSeconds) || frameSeconds <= 0 || !finitePosition(wish) || !finitePosition(player->velocity) || !isfinite(player->accumulator) ||
-      player->accumulator < 0 || player->accumulator >= PLAYER_STEP_SECONDS || !playerCanOccupy(player->position))
+int playerAdvance(Player* player, PlayerMotion motion, double frameSeconds) {
+  if (!player || !isfinite(frameSeconds) || frameSeconds <= 0 || !finitePosition(motion.wish) || !finitePosition(player->velocity) || !isfinite(player->accumulator) ||
+      player->accumulator < 0 || player->accumulator >= PLAYER_STEP_SECONDS || !playerCanOccupyPosture(player->position, player->crouched))
     return 0;
-  double length = hypot((double)wish.x, (double)wish.z);
+  double length = hypot((double)motion.wish.x, (double)motion.wish.z);
   if (length > 1) {
-    wish.x = (float)(wish.x / length);
-    wish.z = (float)(wish.z / length);
+    motion.wish.x = (float)(motion.wish.x / length);
+    motion.wish.z = (float)(motion.wish.z / length);
   }
-  player->jumpPending |= jump;
+  player->jumpPending |= motion.jump;
   player->accumulator += fmin(frameSeconds, PLAYER_MAX_STEPS * PLAYER_STEP_SECONDS);
   // The small tolerance prevents double rounding from losing a whole step.
   int steps = (int)floor((player->accumulator + 1e-12) / PLAYER_STEP_SECONDS);
@@ -197,7 +227,8 @@ int playerAdvance(Player* player, Vec3 wish, bool jump, double frameSeconds) {
     steps = PLAYER_MAX_STEPS;
   player->accumulator = fmax(0, player->accumulator - steps * PLAYER_STEP_SECONDS);
   for (int step = 0; step < steps; step++) {
-    playerStep(player, wish, player->jumpPending);
+    motion.jump = player->jumpPending;
+    playerStep(player, motion);
     player->jumpPending = false;
   }
   return steps;
@@ -206,4 +237,28 @@ int playerAdvance(Player* player, Vec3 wish, bool jump, double frameSeconds) {
 void playerResetTiming(Player* player) {
   player->accumulator = 0;
   player->jumpPending = false;
+  player->running = false;
+}
+
+void playerResetRunInput(PlayerRunInput* input) {
+  *input = (PlayerRunInput){0};
+}
+
+void playerForwardEvent(PlayerRunInput* input, bool pressed, double seconds) {
+  if (!isfinite(seconds) || seconds < 0) {
+    playerResetRunInput(input);
+    return;
+  }
+  if (!pressed) {
+    input->forwardDown = false;
+    input->running = false;
+    return; // Retain the first tap across its release.
+  }
+  if (input->forwardDown)
+    return;
+  input->forwardDown = true;
+  double elapsed = seconds - input->firstPress;
+  input->running = input->tapPending && elapsed >= 0 && elapsed <= PLAYER_RUN_TAP_SECONDS;
+  input->tapPending = !input->running;
+  input->firstPress = seconds;
 }

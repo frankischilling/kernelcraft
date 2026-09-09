@@ -10,6 +10,10 @@ test -f "$KERNELCRAFT_TEST_WORLD"
 cp "$KERNELCRAFT_TEST_WORLD" original.kcw
 KERNELCRAFT_TEST_RESTART=load "$binary" --world 'world with spaces.kcw'
 cmp original.kcw "$KERNELCRAFT_TEST_WORLD"
+KERNELCRAFT_TEST_WORLD="$fixture/crouched.kcw" KERNELCRAFT_TEST_RESTART=crouch-save "$binary" --world crouched.kcw --seed 42
+cp crouched.kcw original-crouched.kcw
+KERNELCRAFT_TEST_RESTART=crouch-load "$binary" --world crouched.kcw
+cmp original-crouched.kcw crouched.kcw
 status=0
 KERNELCRAFT_TEST_WORLD="$fixture/missing/world.kcw" KERNELCRAFT_TEST_RESTART=fail "$binary" --world missing/world.kcw --seed 42 >error.log 2>&1 || status=$?
 test "$status" -eq 1

@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
     Vec3 target;
     vec3_add(&target, &camera.position, &camera.front);
     mat4_lookAt(view, &camera.position, &target, &camera.up);
-    mat4_perspective(projection, 70.0f, (float)width / height, 0.1f, 1000.0f);
+    mat4_perspective(projection, camera.fov, (float)width / height, 0.1f, 1000.0f);
     RenderResult result = renderWorld(&camera, view, projection);
 
     if (!result.success) {
@@ -266,6 +266,8 @@ int main(int argc, char** argv) {
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
                       .flying = input.flying,
                       .grounded = input.player.grounded,
+                      .crouched = input.player.crouched,
+                      .running = input.player.running,
                       .modeBlocked = input.modeBlocked,
                       .simulationSteps = input.simulationSteps,
                       .saveStatus = saveStatus,

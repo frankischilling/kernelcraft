@@ -20,6 +20,10 @@ static int frame = -1, swaps, cursorMode = GLFW_CURSOR_NORMAL;
 static bool failureShown;
 static const Vec3 feet = {-0.5f, 40, 0.5f};
 static const Vec3i removed = {-1, 41, 2}, placed = {-1, 41, 3}, exitEdit = {0, 42, 4};
+static bool crouchScenario(void) {
+  const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
+  return phase && !strncmp(phase, "crouch-", 7);
+}
 static bool failing(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   return phase && !strcmp(phase, "fail");
@@ -27,7 +31,7 @@ static bool failing(void) {
 static bool saving(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   CHECK(phase);
-  return !strcmp(phase, "save") || failing();
+  return !strcmp(phase, "save") || !strcmp(phase, "crouch-save") || failing();
 }
 static int id(Vec3i cell) {
   const Block* block = getBlock(&cell);
@@ -69,7 +73,7 @@ double __wrap_glfwGetTime(void) {
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   frame++;
   InputState* input = glfwGetWindowUserPointer(window);
-  CHECK(input && !input->flying && playerCanOccupy(input->player.position));
+  CHECK(input && !input->flying && playerCanOccupyPosture(input->player.position, input->player.crouched));
   GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
   glfwSetKeyCallback(window, key);
   GLFWmousebuttonfun mouse = glfwSetMouseButtonCallback(window, NULL);
@@ -95,15 +99,28 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(id(placed) == BLOCK_STONE);
     CHECK(getChunk(&(Vec2i){7, 8})->dirty && getChunk(&(Vec2i){8, 8})->dirty);
+    if (crouchScenario()) {
+      CHECK(playerAdvance(&input->player, (PlayerMotion){.crouch = true}, PLAYER_STEP_SECONDS) == 1);
+      CHECK(setBlock(&(Vec3i){-1, 41, 0}, BLOCK_STONE));
+      input->camera->position = playerEyePosition(&input->player);
+      input->camera->pitch = -35;
+      updateCameraVectors(input->camera);
+    }
     key(window, GLFW_KEY_F5, 0, GLFW_REPEAT, 0);
     CHECK(!input->saveRequested);
     key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
     CHECK(input->saveRequested);
   } else if (frame == 0) {
     CHECK(id(removed) == BLOCK_AIR && id(placed) == BLOCK_STONE && id(exitEdit) == BLOCK_DIRT);
-    CHECK(!memcmp(&input->player.position, &feet, sizeof(feet)));
+    Vec3 expectedFeet = feet;
+    if (crouchScenario()) {
+      expectedFeet.y = 42;
+      CHECK(id((Vec3i){-1, 41, 0}) == BLOCK_STONE);
+    }
+    CHECK(!memcmp(&input->player.position, &expectedFeet, sizeof(feet)));
+    CHECK(!input->player.crouched && !input->player.running && !input->runInput.tapPending);
     CHECK(input->player.velocity.x == 0 && input->player.velocity.y == 0 && input->player.velocity.z == 0);
-    CHECK(input->camera->yaw == 90 && input->camera->pitch == 0 && selectedBlock() == BLOCK_AIR);
+    CHECK(input->camera->yaw == 90 && input->camera->pitch == (crouchScenario() ? -35 : 0) && selectedBlock() == BLOCK_AIR);
     CHECK(selectedHotbarSlot() == 8);
   }
   if (frame == 1 && saving()) {
@@ -119,6 +136,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       unsigned char selection[4];
       CHECK(fseek(file, 60, SEEK_SET) == 0 && fread(selection, 1, 4, file) == 4);
       CHECK(selection[0] == 3 && !selection[1] && !selection[2] && !selection[3]);
+      if (crouchScenario()) {
+        float savedY;
+        CHECK(fseek(file, 44, SEEK_SET) == 0 && fread(&savedY, sizeof(savedY), 1, file) == 1);
+        CHECK(savedY == 42 && input->player.position.y == 40 && input->player.crouched);
+      }
       CHECK(fclose(file) == 0);
     }
     // A second edit after F5 must be included by the normal-exit save.
@@ -143,9 +165,11 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   CHECK(glGetError() == GL_NO_ERROR);
   CHECK(!getChunk(&(Vec2i){7, 8})->dirty && !getChunk(&(Vec2i){8, 8})->dirty);
   unsigned char pixel[4] = {0};
-  // The placed stone remains visible off the crosshair after restart.
+  // The crouch-save camera is below its roof; the restarted camera is above it.
+  // The standard fixture also verifies the placed stone off the crosshair.
   glReadPixels(320 + 16, 240 + 16, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
-  CHECK(pixel[0] || pixel[1] || pixel[2]);
+  if (!crouchScenario() || !saving())
+    CHECK(pixel[0] || pixel[1] || pixel[2]);
   swaps++;
   __real_glfwSwapBuffers(window);
 }

@@ -1,5 +1,9 @@
 # Player movement increment
 
+This is the historical walking and collision checkpoint. The later
+[crouch and running increment](crouch-running.md) documents those controls;
+the current README describes persistence and the rest of the merged foundation.
+
 Base: `afa6dd0711c712928e4ea8e484f600b200e125ca`, merged `main` after PRs #10
 and #11. The checkout was clean, repository access was ADMIN, and issue #9 was
 the only open issue. No open PRs or applicable AGENTS.md files were present.
