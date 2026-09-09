@@ -17,7 +17,9 @@ typedef struct {
 
 // These functions require a current GL context. The caller owns the shader.
 bool initWorld(GLuint shaderProgram);
-RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection);
+// Wireframe draws the same submitted triangles as edges. Polygon modes are
+// restored before returning, so selection and HUD drawing remain independent.
+RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection, bool wireframe);
 void cleanupWorld(void);
 
 #endif

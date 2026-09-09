@@ -150,6 +150,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     input->showDebug = !input->showDebug;
     return;
   }
+  if (input && key == GLFW_KEY_F4 && acceptsWindowInput(window)) {
+    input->wireframe = !input->wireframe;
+    return;
+  }
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9) {
     if (selectedSlot != key - GLFW_KEY_1)
       cancelBreaking(input);

@@ -190,10 +190,12 @@ static void testSavedInput(GLFWwindow* window) {
   camera->position = playerEyePosition(&input->player);
   camera->yaw = -810;
   CHECK(snapshotPlayer(input, &saved) && saved.yaw == 270 && saved.feet.y == 40);
+  input->wireframe = true;
   Camera restoredCamera = *camera;
   InputState restored;
   CHECK(initSavedInputs(&restored, &restoredCamera, &saved));
   CHECK(!restored.flying && restored.player.velocity.y == 0 && restored.player.position.y == 40);
+  CHECK(!restored.wireframe && input->wireframe);
   input->flying = true;
   camera->position.x = 500;
   Vec3 before = camera->position;
@@ -209,6 +211,48 @@ static void testSavedInput(GLFWwindow* window) {
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   *camera = originalCamera;
   *input = originalInput;
+}
+
+static void testWireframeInput(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  CHECK(!input->wireframe);
+  Camera camera = *input->camera;
+  Player player = input->player;
+  int slot = selectedHotbarSlot();
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(input->wireframe);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_REPEAT, 0);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_RELEASE, 0);
+  CHECK(input->wireframe);
+  setCursorCaptured(window, false);
+  CHECK(input->wireframe);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(!input->wireframe && cursorMode == GLFW_CURSOR_NORMAL);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(input->wireframe && cursorMode == GLFW_CURSOR_NORMAL);
+  for (int state = 0; state < 3; state++) {
+    focused = state == 0 ? GLFW_FALSE : GLFW_TRUE;
+    iconified = state == 1;
+    zeroFramebuffer = state == 2;
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+    CHECK(input->wireframe);
+  }
+  focused = GLFW_TRUE;
+  iconified = zeroFramebuffer = false;
+  setCursorCaptured(window, true);
+  CHECK(input->wireframe);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(!input->wireframe && !input->saveRequested && selectedHotbarSlot() == slot);
+  CHECK(input->camera->position.x == camera.position.x && input->camera->position.y == camera.position.y && input->camera->position.z == camera.position.z);
+  CHECK(input->player.position.x == player.position.x && input->player.position.y == player.position.y && input->player.position.z == player.position.z);
+  bool flying = input->flying;
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  keyCallback(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->wireframe && input->flying != flying);
+  keyCallback(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
+  CHECK(input->wireframe && input->flying == flying);
+  keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(!input->wireframe);
 }
 
 static void testCrouchControl(GLFWwindow* window) {
@@ -775,6 +819,8 @@ static void breakingFrame(GLFWwindow* window) {
     updateCameraVectors(input->camera);
     CHECK(setBlock(&heldTarget, BLOCK_DIRT));
     mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+    CHECK(input->wireframe && input->breakHeld);
   }
   if (frame < 70)
     CHECK(getBlock(&heldTarget)->id == BLOCK_DIRT);
@@ -782,6 +828,28 @@ static void breakingFrame(GLFWwindow* window) {
     CHECK(getBlock(&heldTarget)->id == BLOCK_AIR);
     CHECK(!input->breaking.active);
     mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+  }
+}
+
+static void wireframeFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (frame == 70) {
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+    CHECK(!input->wireframe);
+    input->flying = true;
+    input->camera->position = (Vec3){0, 52, -72};
+    input->camera->yaw = 90;
+    input->camera->pitch = 0;
+    updateCameraVectors(input->camera);
+    for (int x = -4; x < 4; x++)
+      for (int y = 48; y < 56; y++)
+        CHECK(setBlock(&(Vec3i){x, y, -64}, BLOCK_STONE));
+  }
+  if (frame == 71 || frame == 73)
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  if (frame == 72) {
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_REPEAT, 0);
+    keyCallback(window, GLFW_KEY_F4, 0, GLFW_RELEASE, 0);
   }
 }
 
@@ -798,6 +866,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testCameraCue();
     testInput(window);
+    testWireframeInput(window);
     testIconifiedInput(window);
     testSavedInput(window);
     testCrouchControl(window);
@@ -859,9 +928,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     walkingFrame(window);
   if (frame >= 50 && frame <= 55)
     movementFrame(window);
-  if (frame >= 55)
+  if (frame >= 55 && frame <= 70)
     breakingFrame(window);
-  return frame >= 70;
+  if (frame >= 70)
+    wireframeFrame(window);
+  return frame >= 74;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -909,6 +980,9 @@ void __wrap_glfwWaitEvents(void) {
   bool debug = input->showDebug;
   key(glfwGetCurrentContext(), GLFW_KEY_F3, 0, GLFW_PRESS, 0);
   CHECK(input->showDebug == debug);
+  bool wireframe = input->wireframe;
+  key(glfwGetCurrentContext(), GLFW_KEY_F4, 0, GLFW_PRESS, 0);
+  CHECK(input->wireframe == wireframe);
   CHECK(selectedBlock() == BLOCK_GRASS);
   waits++;
 }
@@ -917,9 +991,37 @@ void __real_HUDDraw(GLuint program, DebugData* data);
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
   CHECK(data->showDebug == input->showDebug);
+  CHECK(data->wireframe == input->wireframe);
   CHECK(data->crouched == input->player.crouched && data->running == input->player.running);
   sawCompactHUD |= !data->showDebug;
   sawDebugHUD |= data->showDebug;
+  if (frame == 60) {
+    // This selected face interior is away from mesh diagonals and the outline.
+    // The gold tint must still fill it when the terrain itself is unfilled.
+    unsigned char tint[3];
+    glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, tint);
+    CHECK(input->wireframe && tint[0] > 30 && tint[0] < 60 && tint[1] > 25 && tint[1] < 50 && tint[2] < 15);
+  }
+  if (frame >= 70) {
+    static RenderResult solidStats;
+    CHECK(input->wireframe == (frame == 71 || frame == 72));
+    // The wall is eight units away, beyond selection reach. Unfilled terrain
+    // must expose its interior without a face tint or HUD covering the probe.
+    unsigned char pixels[96 * 96 * 3];
+    glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    int lit = 0;
+    for (size_t i = 0; i < sizeof(pixels); i += 3)
+      lit += pixels[i] || pixels[i + 1] || pixels[i + 2];
+    bool wireframe = frame == 71 || frame == 72;
+    printf("Application terrain frame %d: %d/9216 lit pixels\n", frame, lit);
+    CHECK(wireframe ? lit > 50 && lit < 1500 : lit > 9000);
+    if (frame == 70)
+      solidStats = *data->stats;
+    else {
+      CHECK(data->stats->chunksRebuilt == 0);
+      CHECK(data->stats->terrainDrawCalls == solidStats.terrainDrawCalls && data->stats->submittedTriangles == solidStats.submittedTriangles);
+    }
+  }
   __real_HUDDraw(program, data);
 }
 
@@ -940,6 +1042,22 @@ static void captureFrame(int width, int height, const unsigned char* pixels) {
 
 void __real_glfwSwapBuffers(GLFWwindow* window);
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
+  if (frame >= 70) {
+    CHECK(frame < 74 && glGetError() == GL_NO_ERROR);
+    unsigned char crosshair[3];
+    glReadPixels(644, 360, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, crosshair);
+    CHECK(crosshair[0] > 240 && crosshair[1] > 240 && crosshair[2] > 240);
+    if (getenv("KERNELCRAFT_TEST_CAPTURE")) {
+      unsigned char* pixels = malloc(1280 * 720 * 3);
+      CHECK(pixels);
+      glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      captureFrame(1280, 720, pixels);
+      free(pixels);
+    }
+    swaps++;
+    __real_glfwSwapBuffers(window);
+    return;
+  }
   if (frame >= 4) {
     InputState* input = glfwGetWindowUserPointer(window);
     Vec3 eye = playerEyePosition(&input->player);
@@ -970,7 +1088,7 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
         CHECK(matrix[5] > previousProjectionScale && matrix[5] < 1.429f);
       previousProjectionScale = matrix[5];
     }
-    if ((frame == 18 || frame == 20 || frame == 50 || frame == 52) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
+    if ((frame == 18 || frame == 20 || frame == 50 || frame == 52 || frame == 60) && getenv("KERNELCRAFT_TEST_CAPTURE")) {
       unsigned char* pixels = malloc(1280 * 720 * 3);
       CHECK(pixels);
       glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
@@ -1032,9 +1150,9 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
     exit(EXIT_FAILURE);
   }
   if (frame >= 0) {
-    CHECK(swaps == 68 && waits == 2);
+    CHECK(swaps == 72 && waits == 2);
     CHECK(sawCompactHUD && sawDebugHUD);
-    puts("Application walking, crouching, running, jumping, flight, editing, selection pixels, pause, framebuffer, and shutdown tests passed");
+    puts("Application walking, crouching, running, jumping, flight, editing, wireframe, selection pixels, pause, framebuffer, and shutdown tests passed");
   }
   __real_glfwDestroyWindow(window);
 }

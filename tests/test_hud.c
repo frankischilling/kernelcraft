@@ -13,6 +13,8 @@ static int failures, labels;
 static bool sawSaveFailure, sawModeBlocked, sawFPS, sawDebugHint;
 static const char* expectedMovement;
 static bool sawMovement, sawCobblestone;
+static const char* expectedWireframe;
+static bool sawWireframe;
 static bool failCobblestone;
 static GLuint partialTextures[3];
 static int partialCount;
@@ -46,6 +48,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawDebugHint |= strstr(text, "F3:") != NULL;
   sawCobblestone |= !strcmp(text, "Cobblestone");
   sawMovement |= expectedMovement && strstr(text, expectedMovement) != NULL;
+  sawWireframe |= expectedWireframe && strstr(text, expectedWireframe) != NULL;
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
   if (text[0] >= '1' && text[0] <= '4' && text[1] == '\0') {
@@ -176,6 +179,9 @@ int main(int argc, char** argv) {
         materialX[slot] = -1;
       sawSaveFailure = sawModeBlocked = sawFPS = sawDebugHint = false;
       data.showDebug = debug;
+      data.wireframe = debug != 0;
+      expectedWireframe = debug ? "F4: wireframe on" : "F4: wireframe off";
+      sawWireframe = false;
       data.captured = debug == 0;
       data.breakingProgress = width >= 192 && height >= 180 ? 0.5f : 0;
       data.selectedSlot = ((int)i * 2 + debug) % 9;
@@ -231,6 +237,8 @@ int main(int argc, char** argv) {
         CHECK(labels >= 5 && sawSaveFailure && sawModeBlocked && sawDebugHint);
         CHECK(sawFPS == (bool)debug);
       }
+      if (width >= 1280 && height >= 240)
+        CHECK(sawWireframe);
       if (!width || !height) {
         CHECK(labels == 0);
         CHECK(glGetError() == GL_NO_ERROR);

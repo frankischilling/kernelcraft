@@ -80,3 +80,11 @@ a fresh press. Repeat in walking and debug flight, including empty hotbar slots.
 The CPU edit tests cover timing, frame stalls, target resets, and seam invalidation;
 the application harness checks held breaking in the game loop and rendered HUD.
 See [timed hand breaking](docs/timed-block-breaking.md).
+
+Use F4 to inspect terrain triangle edges, then toggle back to filled faces.
+Check the hotbar, selection overlay, and breaking bar in both modes. Toggle
+while breaking a block, release capture, resize, and minimize/restore; the
+chosen view should survive pauses without resuming movement. F4 ignores key
+repeats and inactive windows. Save with wireframe enabled and restart: terrain
+should start filled while world edits and the selected slot are restored.
+See [wireframe checks](docs/wireframe.md) for automated coverage and limits.

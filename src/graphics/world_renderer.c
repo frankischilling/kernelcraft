@@ -145,7 +145,7 @@ failure:
   return false;
 }
 
-RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection) {
+RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection, bool wireframe) {
   RenderResult result = {0};
   if (!program || !updateDirtyChunks(&result))
     return result;
@@ -162,6 +162,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   glBindVertexArray(gridVAO);
   glDrawArrays(GL_LINES, 0, GRID_VERTICES);
   glUniform1i(gridLocation, 0);
+
+  GLint polygonMode[2];
+  glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+  glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
   // Free flight can place the camera inside terrain, so retain both sides.
   glActiveTexture(GL_TEXTURE0);
@@ -190,6 +194,8 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
     }
   }
   glBindVertexArray(0);
+  glPolygonMode(GL_FRONT, (GLenum)polygonMode[0]);
+  glPolygonMode(GL_BACK, (GLenum)polygonMode[1]);
   return result;
 }
 

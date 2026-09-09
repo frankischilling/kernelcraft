@@ -216,9 +216,9 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   float baseline = 8 + state.fontHeight;
   if (data->saveStatus)
     drawTopLabel(&state, entrySave.text, &baseline);
-  char mode[80];
+  char mode[112];
   const char* status = data->modeBlocked ? "No safe walk position" : movementStatus(data);
-  snprintf(mode, sizeof(mode), "%s | F3: %s", status, data->showDebug ? "hide debug" : "debug");
+  snprintf(mode, sizeof(mode), "%s | F3: %s | F4: wireframe %s", status, data->showDebug ? "hide debug" : "debug", data->wireframe ? "on" : "off");
   drawTopLabel(&state, mode, &baseline);
   if (data->showDebug) {
     drawTopLabel(&state, entryFPS.text, &baseline);

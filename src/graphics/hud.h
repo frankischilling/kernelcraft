@@ -28,6 +28,7 @@ typedef struct {
   const char* saveStatus;
   const RenderResult* stats;
   bool showDebug;
+  bool wireframe;
 } DebugData;
 void HUDDraw(GLuint shaderProgram, DebugData* data);
 // Initialization and cleanup require the current rendering context.

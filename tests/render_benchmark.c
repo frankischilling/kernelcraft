@@ -59,6 +59,60 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
+
+static bool testWireframe(GLuint shader) {
+  clearTerrainFixture();
+  for (int x = 1; x < 5; x++)
+    for (int y = 20; y < 24; y++)
+      setBlock(&(Vec3i){x, y, 1}, BLOCK_STONE);
+  if (!initWorld(shader))
+    return false;
+  Camera camera = {.position = {3, 22, 9}, .up = {0, 1, 0}};
+  Vec3 target = {3, 22, 2};
+  Mat4 view, projection;
+  mat4_lookAt(view, &camera.position, &target, &camera.up);
+  mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
+  unsigned char pixels[3][96 * 96 * 3];
+  bool success = true;
+  for (int pass = 0; pass < 3; pass++) {
+    // The caller can have different front/back modes. Neither should leak into
+    // terrain rendering, and both must survive the call.
+    glPolygonMode(GL_FRONT, GL_POINT);
+    glPolygonMode(GL_BACK, GL_LINE);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    draws = uploads = lookups = 0;
+    RenderResult result = renderWorld(&camera, view, projection, pass == 1);
+    GLint modes[2];
+    glGetIntegerv(GL_POLYGON_MODE, modes);
+    success &= modes[0] == GL_POINT && modes[1] == GL_LINE;
+    success &= result.success && result.submittedQuads == 6 && result.submittedTriangles == 12 && result.terrainDrawCalls == 1;
+    success &= result.chunksRebuilt == 0 && draws == 2 && uploads == 0 && lookups == 0;
+    glReadPixels(432, 222, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, pixels[pass]);
+    int lit = 0;
+    for (size_t i = 0; i < sizeof(pixels[pass]); i += 3)
+      lit += pixels[pass][i] || pixels[pass][i + 1] || pixels[pass][i + 2];
+    // This interior excludes the prism's border. Only triangle diagonals can
+    // illuminate it in wireframe; filled faces cover the entire probe.
+    success &= pass == 1 ? lit > 50 && lit < 1500 : lit == 96 * 96;
+    printf("Terrain wireframe pass %d: %d/9216 lit pixels\n", pass, lit);
+  }
+  success &= memcmp(pixels[0], pixels[2], sizeof(pixels[0])) == 0;
+  // A negative-coordinate seam edit must still invalidate both neighboring
+  // chunks and upload their replacement meshes while wireframe is active.
+  setBlock(&(Vec3i){-1, 20, 1}, BLOCK_STONE);
+  setBlock(&(Vec3i){0, 20, 1}, BLOCK_STONE);
+  RenderResult edited = renderWorld(&camera, view, projection, true);
+  success &= edited.success && edited.chunksRebuilt == 2;
+  uploads = 0;
+  setBlock(&(Vec3i){-1, 20, 1}, BLOCK_AIR);
+  edited = renderWorld(&camera, view, projection, true);
+  success &= edited.success && edited.chunksRebuilt == 2 && uploads == 2;
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  if (!success)
+    fprintf(stderr, "Terrain wireframe pixels, geometry, seam updates, or polygon state differ\n");
+  return success && glGetError() == GL_NO_ERROR;
+}
+
 // Independent sampler2D reference for the original Phong shader by
 // frankischilling (2024-11-20). Keep this separate from the array shader so
 // incorrect layer selection cannot change both sides of the pixel comparison.
@@ -137,7 +191,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
     mat4_lookAt(view, &camera.position, &center, &camera.up);
     mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderResult result = renderWorld(&camera, view, projection);
+    RenderResult result = renderWorld(&camera, view, projection, false);
     if (!result.success || ((pattern < 3 || pattern == 4) && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
       success = false;
       break;
@@ -256,7 +310,7 @@ static bool testSelectionVisibility(GLuint shader) {
       mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
       mat4_multiply(combined, projection, view);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      RenderResult result = renderWorld(&camera, view, projection);
+      RenderResult result = renderWorld(&camera, view, projection, false);
       Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
       if (!result.success || !hit.hit || hit.blockCoords.x != selected.x || hit.blockCoords.y != selected.y || hit.blockCoords.z != selected.z) {
         fprintf(stderr, "Selection fixture missed face %d at angle %.0f\n", face, angles[angle]);
@@ -327,7 +381,7 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
         mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
         mat4_multiply(combined, projection, view);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        RenderResult result = renderWorld(&camera, view, projection);
+        RenderResult result = renderWorld(&camera, view, projection, false);
         Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
         if (!result.success || !hit.hit || hit.blockCoords.x != selected.x || hit.blockCoords.y != selected.y || hit.blockCoords.z != selected.z) {
           fprintf(stderr, "Neighbor selection fixture missed layout %d face %d view %d\n", layout, face, angle);
@@ -393,7 +447,7 @@ static bool testCloseSelection(GLuint shader) {
     mat4_lookAt(view, &camera.position, &center, &camera.up);
     mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderResult result = renderWorld(&camera, view, projection);
+    RenderResult result = renderWorld(&camera, view, projection, false);
     Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
     unsigned char before[64 * 64 * 3], after[sizeof(before)];
     glReadPixels(448, 238, 64, 64, GL_RGB, GL_UNSIGNED_BYTE, before);
@@ -418,7 +472,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
   mat4_lookAt(view, &camera.position, &target, &camera.up);
   mat4_perspective(projection, 70, 960.0f / 540, 0.1f, 1000);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  if (!renderWorld(&camera, view, projection).success)
+  if (!renderWorld(&camera, view, projection, false).success)
     return false;
   Ray hit = rayCast(camera.position, camera.front, EDIT_REACH);
   if (!hit.hit || hit.blockCoords.x != -1 || hit.normal.z != 1)
@@ -477,7 +531,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
   // Even a stale selection must not draw through a nearer voxel.
   setBlock(&(Vec3i){-1, 20, 2}, BLOCK_STONE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  if (!renderWorld(&camera, view, projection).success)
+  if (!renderWorld(&camera, view, projection, false).success)
     return false;
   size_t bytes = 960 * 540 * 3;
   unsigned char* before = malloc(bytes);
@@ -503,7 +557,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
       vec3_subtract(&camera.front, &target, &camera.position);
       mat4_lookAt(view, &camera.position, &target, &camera.up);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      if (!renderWorld(&camera, view, projection).success) {
+      if (!renderWorld(&camera, view, projection, false).success) {
         occluded = false;
         break;
       }
@@ -597,7 +651,7 @@ int main(int argc, char** argv) {
       renderChunkGrid(shader, &camera);
       result = renderWorld(shader, &camera);
 #else
-      result = renderWorld(&camera, view, projection);
+      result = renderWorld(&camera, view, projection, false);
       if (!result.success || result.chunksRebuilt || result.chunksConsidered != CHUNKS_PER_AXIS * CHUNKS_PER_AXIS)
         return 7;
 #endif
@@ -687,7 +741,7 @@ int main(int argc, char** argv) {
   mat4_lookAt(view, &inside.position, &target, &inside.up);
   mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  RenderResult insideResult = renderWorld(&inside, view, projection);
+  RenderResult insideResult = renderWorld(&inside, view, projection, false);
   unsigned char centerPixel[4] = {0};
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
   if (insideResult.surfaceBlocks != 1 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0)) {
@@ -703,23 +757,23 @@ int main(int argc, char** argv) {
   target = (Vec3){0, 20.5f, 1.5f};
   mat4_lookAt(view, &editCamera.position, &target, &editCamera.up);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  RenderResult edited = renderWorld(&editCamera, view, projection);
+  RenderResult edited = renderWorld(&editCamera, view, projection, false);
   if (!edited.success || edited.submittedQuads != 10 || edited.chunksRebuilt != 3)
     return 7;
   uploads = 0;
   setBlock(&left, BLOCK_AIR);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  edited = renderWorld(&editCamera, view, projection);
+  edited = renderWorld(&editCamera, view, projection, false);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
   if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedQuads != 6 || uploads != 2 || (centerPixel[0] == 0 && centerPixel[1] == 0 && centerPixel[2] == 0))
     return 8;
   uploads = 0;
-  edited = renderWorld(&editCamera, view, projection);
+  edited = renderWorld(&editCamera, view, projection, false);
   if (!edited.success || edited.chunksRebuilt || uploads)
     return 9;
   setBlock(&right, BLOCK_AIR);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  edited = renderWorld(&editCamera, view, projection);
+  edited = renderWorld(&editCamera, view, projection, false);
   glReadPixels(480, 270, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel);
   if (!edited.success || edited.chunksRebuilt != 2 || edited.submittedQuads || edited.terrainDrawCalls || centerPixel[0] || centerPixel[1] || centerPixel[2])
     return 10;
@@ -729,17 +783,19 @@ int main(int argc, char** argv) {
     setBlock(&right, BLOCK_STONE);
     failUpload = failedBuffer;
     draws = 0;
-    edited = renderWorld(&editCamera, view, projection);
+    edited = renderWorld(&editCamera, view, projection, false);
     if (edited.success || draws || !getChunk(&(Vec2i){8, 8})->dirty)
       return 11;
     cleanupWorld();
     if (glGetError() != GL_NO_ERROR || !initWorld(shader))
       return 12;
     setBlock(&right, BLOCK_AIR);
-    if (!renderWorld(&editCamera, view, projection).success)
+    if (!renderWorld(&editCamera, view, projection, false).success)
       return 13;
   }
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
+  if (!testWireframe(shader))
+    return 22;
   if (!testFarTerrain(shader))
     return 20;
   if (!testTerrainVariants(shader))
