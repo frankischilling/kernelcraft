@@ -269,6 +269,7 @@ static void UpdateEntries(DebugData* data) {
 }
 
 void HUDCleanup(void) {
+  cleanupText();
   glDeleteTextures(HOTBAR_SLOT_COUNT, itemTextures);
   memset(itemTextures, 0, sizeof(itemTextures));
 }
@@ -295,6 +296,8 @@ bool HUDInit(const char* buildName, const char* buildVersion) {
     }
   }
 
+  if (ready)
+    ready = initText();
   if (!ready)
     HUDCleanup();
   glPopAttrib();

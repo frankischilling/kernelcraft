@@ -10,6 +10,7 @@
 #include <string.h>
 
 static int failures, labels;
+static unsigned bitmapStrings;
 static bool sawSaveFailure, sawModeBlocked, sawFPS, sawDebugHint;
 static const char* expectedMovement;
 static bool sawMovement, sawMaterial;
@@ -22,6 +23,19 @@ static int partialCount;
 static float rectangles[32][4];
 static float materialX[9];
 static GLuint iconTextures[6];
+static GLuint failedFontTexture, failedFontFramebuffer;
+static PFNGLCHECKFRAMEBUFFERSTATUSPROC realCheckFramebufferStatus;
+
+static GLenum GLAPIENTRY failFontFramebuffer(GLenum target) {
+  (void)target;
+  GLint texture, framebuffer;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+  failedFontTexture = (GLuint)texture;
+  failedFontFramebuffer = (GLuint)framebuffer;
+  return GL_FRAMEBUFFER_UNSUPPORTED;
+}
+
 #define CHECK(c)                                                                                                                                                                   \
   do {                                                                                                                                                                             \
     if (!(c)) {                                                                                                                                                                    \
@@ -31,6 +45,22 @@ static GLuint iconTextures[6];
   } while (0)
 
 GLuint __real_loadTexture(const char* path);
+
+#ifdef _WIN32
+extern void(FGAPIENTRY* __real___imp_glutBitmapString)(void* font, const unsigned char* string);
+#define __real_glutBitmapString (*__real___imp_glutBitmapString)
+#else
+void FGAPIENTRY __real_glutBitmapString(void* font, const unsigned char* string);
+#endif
+
+void FGAPIENTRY __wrap_glutBitmapString(void* font, const unsigned char* string) {
+  bitmapStrings++;
+  __real_glutBitmapString(font, string);
+}
+
+#ifdef _WIN32
+void(FGAPIENTRY* __wrap___imp_glutBitmapString)(void* font, const unsigned char* string) = __wrap_glutBitmapString;
+#endif
 
 GLuint __wrap_loadTexture(const char* path) {
   if (failTexture && !strcmp(path, failTexture))
@@ -123,6 +153,78 @@ static bool hasIcon(const unsigned char* pixels, int width, int height, int slot
   return false;
 }
 
+static void testTextPixels(void) {
+  enum { WIDTH = 640, HEIGHT = 480, BYTES = WIDTH * HEIGHT * 3 };
+
+  unsigned char* reference = malloc(BYTES);
+  unsigned char* actual = malloc(BYTES);
+  CHECK(reference && actual);
+  if (!reference || !actual) {
+    free(reference);
+    free(actual);
+    return;
+  }
+
+  glPushAttrib(GL_ALL_ATTRIB_BITS);
+  glViewport(0, 0, WIDTH, HEIGHT);
+  TextState state;
+  beginText(&state);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glDisable(GL_CULL_FACE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glClearColor(0.15f, 0.25f, 0.35f, 1);
+  glColor4f(0.7f, 0.8f, 0.9f, 1);
+  void* fonts[] = {GLUT_BITMAP_HELVETICA_10, GLUT_BITMAP_HELVETICA_12, GLUT_BITMAP_HELVETICA_18};
+  char glyphs[512];
+  size_t length = 0, count = 0;
+  for (int character = 1; character < 256; character++) {
+    if (character == '\n')
+      continue;
+    glyphs[length++] = (char)character;
+    if (++count % 16 == 0)
+      glyphs[length++] = '\n';
+  }
+
+  glyphs[length] = '\0';
+  const char* strings[] = {"F3: FPS 123.4 | Chunks: 42/256 | Hidden: 0", "gjpqy _.,:;![]() ...", "First line\nSecond line", "", glyphs};
+  const float positions[][2] = {{8, 40}, {8.5f, 40.5f}, {-8, 80}, {630, 100}, {-800, 20}, {12, 478}, {12, -1}};
+  for (size_t font = 0; font < sizeof(fonts) / sizeof(fonts[0]); font++) {
+    state.font = fonts[font];
+    state.fontHeight = glutBitmapHeight(state.font);
+    for (size_t string = 0; string < sizeof(strings) / sizeof(strings[0]); string++) {
+      for (size_t position = 0; position < sizeof(positions) / sizeof(positions[0]); position++) {
+        float x = positions[position][0], y = positions[position][1];
+        CHECK(textWidth(&state, strings[string]) == glutBitmapLength(state.font, (const unsigned char*)strings[string]));
+        glClear(GL_COLOR_BUFFER_BIT);
+        float referenceX = x < 0 ? x + WIDTH - glutBitmapLength(state.font, (const unsigned char*)strings[string]) : x;
+        glRasterPos2f(referenceX, HEIGHT - y);
+        __real_glutBitmapString(state.font, (const unsigned char*)strings[string]);
+        glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, reference);
+        glClear(GL_COLOR_BUFFER_BIT);
+        __real_renderText(&state, strings[string], x, y);
+        glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, actual);
+        if (memcmp(reference, actual, BYTES)) {
+          if (position == 0) {
+            capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 0, reference);
+            capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 1, actual);
+          }
+          fprintf(stderr, "Text pixels differ: font=%zu string=%zu position=%zu\n", font, string, position);
+          failures++;
+        }
+      }
+    }
+  }
+
+  endText(&state);
+  glPopAttrib();
+  free(reference);
+  free(actual);
+}
+
 int main(int argc, char** argv) {
   glutInit(&argc, argv);
   if (!glfwInit())
@@ -155,6 +257,7 @@ int main(int argc, char** argv) {
   glBindTexture(GL_TEXTURE_2D, sentinel);
   glActiveTexture(GL_TEXTURE1);
   CHECK(HUDInit("kernelcraft", "HUD test"));
+  testTextPixels();
   GLint activeBeforeDraw, textureBeforeDraw;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeBeforeDraw);
   CHECK(activeBeforeDraw == GL_TEXTURE1);
@@ -218,7 +321,9 @@ int main(int argc, char** argv) {
       glMatrixMode(GL_PROJECTION);
       glLoadIdentity();
       glScalef(2, 3, 4);
+      unsigned bitmapStringsBefore = bitmapStrings;
       HUDDraw(0, &data);
+      CHECK(bitmapStrings == bitmapStringsBefore);
       GLint active, texture, environment, blendSource, blendDestination, blendEquation, polygonMode[2];
       glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
       CHECK(active == GL_TEXTURE1 && !glIsEnabled(GL_TEXTURE_2D));
@@ -357,6 +462,26 @@ int main(int argc, char** argv) {
     HUDCleanup();
   }
 
+  partialCount = 0;
+  failTexture = "font cache"; // Record all icons before font initialization fails.
+  realCheckFramebufferStatus = __glewCheckFramebufferStatus;
+  __glewCheckFramebufferStatus = failFontFramebuffer;
+  GLint viewportBefore[4], viewportAfter[4], activeBefore, activeAfter, framebufferBefore, framebufferAfter;
+  glGetIntegerv(GL_VIEWPORT, viewportBefore);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeBefore);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebufferBefore);
+  CHECK(!HUDInit("kernelcraft", "failed font cache"));
+  __glewCheckFramebufferStatus = realCheckFramebufferStatus;
+  glGetIntegerv(GL_VIEWPORT, viewportAfter);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeAfter);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebufferAfter);
+  CHECK(!memcmp(viewportBefore, viewportAfter, sizeof(viewportBefore)));
+  CHECK(activeBefore == activeAfter && framebufferBefore == framebufferAfter);
+  CHECK(partialCount == 6);
+  for (int slot = 0; slot < partialCount; slot++)
+    CHECK(!glIsTexture(partialTextures[slot]));
+  CHECK(failedFontTexture && !glIsTexture(failedFontTexture));
+  CHECK(failedFontFramebuffer && !glIsFramebuffer(failedFontFramebuffer));
   failTexture = NULL;
   memset(iconTextures, 0, sizeof(iconTextures));
   CHECK(HUDInit("kernelcraft", "recovered material icons"));

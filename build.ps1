@@ -258,7 +258,7 @@ try {
         Build-Executable $shaderSources $shaderTest $libraries
 
         $hudTest = Join-Path $outputDirectory 'test-hud.exe'
-        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTexture') + $libraries)
+        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTexture', '-Wl,--wrap=glutBitmapString', '-Wl,--wrap=__imp_glutBitmapString') + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw')
@@ -270,7 +270,7 @@ try {
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
-        $benchmarkFlags = @('-Wl,--wrap=glDrawArrays', '-Wl,--wrap=glDrawElements', '-Wl,--wrap=occlusionBoundsHidden', '-Wl,--wrap=meshVisibilityIntersects')
+        $benchmarkFlags = @('-Wl,--wrap=glDrawArrays', '-Wl,--wrap=glDrawElements', '-Wl,--wrap=occlusionBoundsHidden', '-Wl,--wrap=meshVisibilityIntersects', '-Wl,--wrap=renderText')
         Build-Executable (@((Join-Path $projectDirectory 'tests/render_benchmark.c')) + $commonSources) $renderTest ($benchmarkFlags + $libraries)
         $executables += $renderTest
     }

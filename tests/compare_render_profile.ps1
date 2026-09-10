@@ -30,11 +30,15 @@ $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
     directories = $roots
     pairs = $Pairs
     mode = if ($Pipelined) { 'pipelined' } else { 'serialized' }
+    debug = [bool]$env:KERNELCRAFT_PROFILE_DEBUG
+    skipText = [bool]$env:KERNELCRAFT_PROFILE_SKIP_TEXT
+    scene = $env:KERNELCRAFT_PROFILE_SCENE
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $outputRoot 'environment.json') -Encoding UTF8
 $columns = @('scenario', 'fps', 'frame_mean_ms', 'frame_median_ms', 'frame_p95_ms', 'frame_p99_ms', 'one_percent_low_fps',
     'cpu_submit_mean_ms', 'gpu_mean_ms', 'terrain_draws', 'triangles', 'surface_blocks', 'queries', 'rebuild_mean_ms',
     'chunks_rebuilt', 'upload_calls', 'upload_bytes', 'gpu_p99_ms')
 $results = @()
+$expectedScenes = if ($env:KERNELCRAFT_PROFILE_SCENE) { 1 } else { 9 }
 $previousProfile = $env:KERNELCRAFT_RENDER_PROFILE
 $previousCSV = $env:KERNELCRAFT_PROFILE_CSV
 $previousPipeline = $env:KERNELCRAFT_PROFILE_PIPELINED
@@ -54,7 +58,7 @@ try {
                 if ($LASTEXITCODE -ne 0) { throw "Profile failed; see $log" }
             } finally { Pop-Location }
             $lines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_RESULT ') })
-            if ($lines.Count -ne 9) { throw "Expected nine complete scenes in $log" }
+            if ($lines.Count -ne $expectedScenes) { throw "Expected $expectedScenes complete scenes in $log" }
             foreach ($line in $lines) {
                 $values = $line.Substring('PROFILE_RESULT '.Length).Split(',')
                 if ($values.Count -ne $columns.Count) { throw "Unexpected result schema in $log" }
