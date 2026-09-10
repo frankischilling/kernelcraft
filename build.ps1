@@ -225,7 +225,7 @@ try {
 
     if ($Test) {
         $worldTest = Join-Path $outputDirectory 'test-world.exe'
-        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/save.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
+        $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/save.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/mesh_visibility.c', 'src/world/occlusion.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
             ForEach-Object { Join-Path $projectDirectory $_ }
         Build-Executable $worldSources $worldTest @('-lm')
 
@@ -270,7 +270,7 @@ try {
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
-        $benchmarkFlags = @('-Wl,--wrap=glDrawArrays', '-Wl,--wrap=glDrawElements')
+        $benchmarkFlags = @('-Wl,--wrap=glDrawArrays', '-Wl,--wrap=glDrawElements', '-Wl,--wrap=occlusionBoundsHidden', '-Wl,--wrap=meshVisibilityIntersects')
         Build-Executable (@((Join-Path $projectDirectory 'tests/render_benchmark.c')) + $commonSources) $renderTest ($benchmarkFlags + $libraries)
         $executables += $renderTest
     }

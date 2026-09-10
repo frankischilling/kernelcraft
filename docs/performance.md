@@ -1,5 +1,10 @@
 # Rendering performance
 
+The discussion and timings below record earlier renderer checkpoints. See
+[current-view occlusion](occlusion-culling.md) and its
+[paired benchmark report](occlusion-benchmark.md) for the current visibility
+path, geometry counts, and performance limits.
+
 The renderer builds indexed meshes after terrain generation. Only faces next to air or the world boundary enter a mesh. Compatible coplanar faces now merge into greedy rectangles; see the [current measurements and validation](greedy-meshing.md). Shared chunk boundaries use neighboring block data, so they do not add hidden faces.
 
 Each chunk has four texture batches: stone, dirt, grass top, and grass side. Mesh vertices already contain world positions, normals, and face UVs scaled to repeat once per block. The renderer uploads them initially and after relevant edits, releasing each chunk's CPU staging buffers immediately. Frames select chunks by distance and occupied bounds, then draw their texture batches. Uniform locations are cached during initialization.

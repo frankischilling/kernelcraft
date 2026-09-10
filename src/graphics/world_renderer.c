@@ -1,6 +1,8 @@
 #include "world_renderer.h"
 #include "frustum.h"
 #include "../world/mesh.h"
+#include "../world/occlusion.h"
+#include "../world/mesh_visibility.h"
 #include "../world/world.h"
 #include "texture.h"
 #include <GLFW/glfw3.h>
@@ -14,6 +16,8 @@ typedef struct {
   size_t indexCount;
   Vec3 center, dimensions;
   int surfaceBlocks;
+  MeshOccluders occluders;
+  MeshVisibility visibility;
 } RenderChunk;
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
@@ -21,6 +25,20 @@ static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
+
+typedef struct {
+  RenderChunk* chunk;
+  float distanceSquared;
+  bool hidden;
+} ChunkCandidate;
+
+static OcclusionBuffer occlusion;
+static ChunkCandidate candidates[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+static int candidateCount, hiddenCount;
+static Mat4 cachedTransform;
+static Vec3 cachedPosition;
+static GLint cachedViewport[4];
+static bool visibilityValid, cachedWireframe;
 
 static void initGrid(void) {
   float vertices[GRID_VERTICES * 3];
@@ -42,6 +60,11 @@ static void initGrid(void) {
 }
 
 static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
+  MeshVisibility visibility;
+  if (!buildMeshVisibility(mesh, &visibility)) {
+    freeChunkMesh(mesh);
+    return false;
+  }
   if (mesh->indexCount) {
     if (!render->vao) {
       glGenVertexArrays(1, &render->vao);
@@ -63,6 +86,7 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     glEnableVertexAttribArray(3);
   }
   if (glGetError() != GL_NO_ERROR) {
+    freeMeshVisibility(&visibility);
     freeChunkMesh(mesh);
     return false;
   }
@@ -71,6 +95,9 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
   vec3_scale(&render->center, &render->center, 0.5f);
   vec3_subtract(&render->dimensions, &mesh->max, &mesh->min);
   render->indexCount = mesh->indexCount;
+  buildMeshOccluders(mesh, &render->occluders);
+  freeMeshVisibility(&render->visibility);
+  render->visibility = visibility;
   freeChunkMesh(mesh);
   chunk->dirty = false;
   return true;
@@ -149,6 +176,72 @@ failure:
   return false;
 }
 
+static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 projection, const Mat4 viewProjection, bool wireframe, bool rebuilt) {
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  if (visibilityValid && !rebuilt && wireframe == cachedWireframe && !memcmp(cachedTransform, viewProjection, sizeof(Mat4)) &&
+      !memcmp(cachedViewport, viewport, sizeof(viewport)) && camera->position.x == cachedPosition.x && camera->position.y == cachedPosition.y &&
+      camera->position.z == cachedPosition.z)
+    return;
+  memcpy(cachedTransform, viewProjection, sizeof(Mat4));
+  memcpy(cachedViewport, viewport, sizeof(viewport));
+  cachedPosition = camera->position;
+  cachedWireframe = wireframe;
+  visibilityValid = true;
+  candidateCount = hiddenCount = 0;
+  Frustum frustum;
+  frustum_update(&frustum, projection, view);
+  const float radius = CHUNK_SIZE * CUBE_SIZE * RENDER_RADIUS_CHUNKS;
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      RenderChunk* chunk = &renderChunks[x][z];
+      if (!chunk->surfaceBlocks)
+        continue;
+      // Use the chunk's horizontal center for the existing render-distance limit.
+      float dx = (x - CHUNKS_PER_AXIS / 2 + 0.5f) * CHUNK_SIZE * CUBE_SIZE - camera->position.x;
+      float dz = (z - CHUNKS_PER_AXIS / 2 + 0.5f) * CHUNK_SIZE * CUBE_SIZE - camera->position.z;
+      if (dx * dx + dz * dz > radius * radius)
+        continue;
+      if (!frustum_block_visible(&frustum, &chunk->center, &chunk->dimensions, camera))
+        continue;
+      if (!meshVisibilityIntersects(&chunk->visibility, frustum.planes))
+        continue;
+      Vec3 offset;
+      vec3_subtract(&offset, &chunk->center, &camera->position);
+      dx = fmaxf(0, fabsf(offset.x) - chunk->dimensions.x * 0.5f);
+      float dy = fmaxf(0, fabsf(offset.y) - chunk->dimensions.y * 0.5f);
+      dz = fmaxf(0, fabsf(offset.z) - chunk->dimensions.z * 0.5f);
+      float distance = dx * dx + dy * dy + dz * dz;
+      int index = candidateCount++;
+      while (index > 0 && candidates[index - 1].distanceSquared > distance) {
+        candidates[index] = candidates[index - 1];
+        index--;
+      }
+      candidates[index] = (ChunkCandidate){chunk, distance, false};
+    }
+  }
+  if (wireframe || candidateCount < 2)
+    return;
+  occlusionClear(&occlusion, viewProjection, viewport[2], viewport[3]);
+  for (int i = 0; i < candidateCount; i++) {
+    RenderChunk* chunk = candidates[i].chunk;
+    Vec3 half, min, max;
+    vec3_scale(&half, &chunk->dimensions, 0.5f);
+    vec3_subtract(&min, &chunk->center, &half);
+    vec3_add(&max, &chunk->center, &half);
+    if (occlusionBoundsHidden(&occlusion, min, max)) {
+      candidates[i].hidden = true;
+      hiddenCount++;
+      continue;
+    }
+    // Only retained chunks contribute occluders. All visibility work finishes
+    // before terrain submission so CPU rasterization does not interrupt draws.
+    if (i + 1 < candidateCount)
+      for (int quad = 0; quad < chunk->occluders.count; quad++)
+        occlusionRasterizeQuad(&occlusion, chunk->occluders.quads[quad].corners);
+  }
+}
+
 RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 projection, bool wireframe) {
   RenderResult result = {0};
   if (!program || !updateDirtyChunks(&result))
@@ -156,8 +249,9 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   result.success = true;
   Mat4 viewProjection;
   mat4_multiply(viewProjection, projection, view);
-  Frustum frustum;
-  frustum_update(&frustum, projection, view);
+  prepareVisibility(camera, view, projection, viewProjection, wireframe, result.chunksRebuilt != 0);
+  result.chunksConsidered = CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
+  result.chunksOccluded = hiddenCount;
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
@@ -173,28 +267,17 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   // Free flight can place the camera inside terrain, so retain both sides.
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
-  const float radius = CHUNK_SIZE * CUBE_SIZE * RENDER_RADIUS_CHUNKS;
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
-      RenderChunk* chunk = &renderChunks[x][z];
-      result.chunksConsidered++;
-      if (!chunk->surfaceBlocks)
-        continue;
-      // Use the chunk's horizontal center for the existing render-distance limit.
-      float dx = (x - CHUNKS_PER_AXIS / 2 + 0.5f) * CHUNK_SIZE * CUBE_SIZE - camera->position.x;
-      float dz = (z - CHUNKS_PER_AXIS / 2 + 0.5f) * CHUNK_SIZE * CUBE_SIZE - camera->position.z;
-      if (dx * dx + dz * dz > radius * radius)
-        continue;
-      if (!frustum_block_visible(&frustum, &chunk->center, &chunk->dimensions, camera))
-        continue;
-      result.surfaceBlocks += chunk->surfaceBlocks;
-      result.chunksRendered++;
-      glBindVertexArray(chunk->vao);
-      result.terrainDrawCalls++;
-      result.submittedQuads += chunk->indexCount / 6;
-      result.submittedTriangles += chunk->indexCount / 3;
-      glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
-    }
+  for (int i = 0; i < candidateCount; i++) {
+    if (candidates[i].hidden)
+      continue;
+    RenderChunk* chunk = candidates[i].chunk;
+    result.surfaceBlocks += chunk->surfaceBlocks;
+    result.chunksRendered++;
+    glBindVertexArray(chunk->vao);
+    result.terrainDrawCalls++;
+    result.submittedQuads += chunk->indexCount / 6;
+    result.submittedTriangles += chunk->indexCount / 3;
+    glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
   }
   glBindVertexArray(0);
   glPolygonMode(GL_FRONT, (GLenum)polygonMode[0]);
@@ -209,6 +292,7 @@ void cleanupWorld(void) {
       glDeleteVertexArrays(1, &chunk->vao);
       glDeleteBuffers(1, &chunk->vbo);
       glDeleteBuffers(1, &chunk->ebo);
+      freeMeshVisibility(&chunk->visibility);
     }
   }
   memset(renderChunks, 0, sizeof(renderChunks));
@@ -218,4 +302,6 @@ void cleanupWorld(void) {
   glDeleteTextures(1, &textureArray);
   textureArray = 0;
   program = 0;
+  visibilityValid = false;
+  candidateCount = hiddenCount = 0;
 }
