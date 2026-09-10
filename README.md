@@ -299,6 +299,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Deterministic terrain with selectable seeds
   - [ ] Add cave generation using 3D noise
   - [ ] Add trees
+    - [ ] leaves, more leave grass blocks under trees then normal   
   - [ ] Add more block types and textures, including wood, leaves, coal ore, and iron ore
   - [ ] Add more terrain features and biome types
   - [ ] Create water system with basic fluid physics
