@@ -1,13 +1,8 @@
 # kernelcraft
 
-![Screenshot](./img/game.png)
+![Screenshot](./img/update.png)
 
-Screenshot of version v0.0.2
-
-
-![Screenshot](./img/textures.png)
-
-Screenshot of version v0.0.4
+Screenshot of currentish build 
 
 ## Project Philosophy
 
