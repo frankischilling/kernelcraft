@@ -26,6 +26,7 @@ static void cancelBreaking(InputState* input) {
 
 bool initInputs(InputState* input, Camera* camera) {
   *input = (InputState){.camera = camera};
+  initDayNight(&input->clock);
   camera->fov = CAMERA_BASE_FOV;
   if (!playerFindSpawn(&input->player, camera->position))
     return false;
@@ -36,6 +37,7 @@ bool initInputs(InputState* input, Camera* camera) {
 
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved) {
   *input = (InputState){.camera = camera};
+  initDayNight(&input->clock);
   camera->fov = CAMERA_BASE_FOV;
   if (!saved || saved->selectedSlot < 0 || saved->selectedSlot >= HOTBAR_SLOT_COUNT || !playerSetPosition(&input->player, saved->feet))
     return false;
@@ -83,7 +85,8 @@ static bool acceptsWindowInput(GLFWwindow* window) {
 }
 
 static bool acceptsEditing(GLFWwindow* window) {
-  return acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+  InputState* input = glfwGetWindowUserPointer(window);
+  return input && !input->chat.open && acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
 }
 
 int selectedBlock(void) {
@@ -122,10 +125,37 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
   return true;
 }
 
+void characterCallback(GLFWwindow* window, unsigned int codepoint) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (input && acceptsWindowInput(window))
+    appendChatCharacter(&input->chat, codepoint);
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   (void)scancode;
   (void)mods;
   InputState* input = glfwGetWindowUserPointer(window);
+  if (input && acceptsWindowInput(window)) {
+    if (input->chat.open) {
+      if (key == GLFW_KEY_BACKSPACE && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        backspaceChat(&input->chat);
+      if (action == GLFW_PRESS && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_ESCAPE)) {
+        if (key == GLFW_KEY_ESCAPE)
+          cancelChat(&input->chat);
+        else
+          submitChat(&input->chat, &input->clock);
+        pauseInput(input);
+        advanceDayNight(&input->clock, 0, false);
+      }
+      return;
+    }
+    if (action == GLFW_PRESS && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
+      openChat(&input->chat);
+      pauseInput(input);
+      advanceDayNight(&input->clock, 0, false);
+      return;
+    }
+  }
   if (input && !input->flying && acceptsEditing(window)) {
     bool crouchHeld = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
     if ((action == GLFW_PRESS && (key == GLFW_KEY_S || key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT)) || crouchHeld || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||

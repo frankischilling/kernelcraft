@@ -228,6 +228,7 @@ try {
         $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/save.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/mesh_visibility.c', 'src/world/occlusion.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
             ForEach-Object { Join-Path $projectDirectory $_ }
         $worldSources += Join-Path $projectDirectory 'src/world/day_night.c'
+        $worldSources += Join-Path $projectDirectory 'src/world/chat.c'
         Build-Executable $worldSources $worldTest @('-lm')
 
         $editTest = Join-Path $outputDirectory 'test-edits.exe'

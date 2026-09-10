@@ -13,11 +13,14 @@
 #include "../world/player.h"
 #include "../world/edit.h"
 #include "../world/save.h"
+#include "../world/chat.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
 typedef struct {
   Camera* camera;
+  Chat chat;
+  DayNightClock clock;
   Player player;
   PlayerRunInput runInput;
   BlockBreaking breaking;
@@ -45,6 +48,7 @@ void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 void setCursorCaptured(GLFWwindow* window, bool captured);
 void windowFocusCallback(GLFWwindow* window, int focused);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void characterCallback(GLFWwindow* window, unsigned int codepoint);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 int selectedBlock(void);
 int selectedHotbarSlot(void);

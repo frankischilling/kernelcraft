@@ -32,7 +32,7 @@ static void UpdateEntries(DebugData* data);
 /* HUD positions use framebuffer pixels and top-origin text baselines. Reserve
  * a band around the crosshair; diagnostic rows may use only the upper half. */
 static void drawLabel(const TextState* state, const char* text, float x, float baseline, int availableWidth) {
-  char fitted[128];
+  char fitted[CHAT_MESSAGE_CAPACITY];
   if (availableWidth <= 0)
     return;
   size_t length = strlen(text);
@@ -176,14 +176,41 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
   baseline -= state->fontHeight + 6;
-  if (baseline - state->fontHeight >= height * 0.5f + 14)
-    drawLabel(state, data->captured ? "Hold left: break | Right: place | Esc" : "Esc: capture mouse to move and edit", 8, baseline, width - 16);
+  if (baseline - state->fontHeight >= height * 0.5f + 14) {
+    const char* hint = data->captured ? "Hold left: break | Right: place | Enter: chat" : "Esc: capture mouse | Enter: chat";
+    if (data->chat && data->chat->count)
+      hint = data->chat->messages[data->chat->count - 1];
+    drawLabel(state, hint, 8, baseline, width - 16);
+  }
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, data->flying ? "Fly: WASD + Space/Shift | F: walk" : "Walk: WASD | Space: jump | F: fly", 8, baseline, width - 16);
   baseline -= state->fontHeight + 6;
   if (!data->flying && baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, "Shift: crouch | Double-tap W: run", 8, baseline, width - 16);
+}
+
+static void drawChat(const TextState* state, const Chat* chat) {
+  int width = state->viewport[2], height = state->viewport[3];
+  if (width < 32 || height < state->fontHeight + 16)
+    return;
+  float baseline = height - 10;
+  char line[CHAT_INPUT_CAPACITY + 4];
+  const char* tail = chat->input;
+  do {
+    snprintf(line, sizeof(line), "> %s_", tail);
+    if (textWidth(state, line) <= width - 16 || !*tail)
+      break;
+    tail++;
+  } while (true);
+  drawLabel(state, line, 8, baseline, width - 16);
+  baseline -= state->fontHeight + 8;
+  for (size_t i = chat->count; i > 0 && baseline - state->fontHeight >= height * 0.5f + 14; i--) {
+    drawLabel(state, chat->messages[i - 1], 8, baseline, width - 16);
+    baseline -= state->fontHeight + 8;
+  }
+  if (baseline - state->fontHeight >= height * 0.5f + 14)
+    drawLabel(state, "Enter: send | Esc: cancel | /time set day|night|0..23999", 8, baseline, width - 16);
 }
 
 static const char* movementStatus(const DebugData* data) {
@@ -241,7 +268,10 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
       drawTopLabel(&state, entryLookingAtBlockCoords.text, &baseline);
   }
 
-  DrawControls(&state, data);
+  if (data->chat && data->chat->open)
+    drawChat(&state, data->chat);
+  else
+    DrawControls(&state, data);
   endText(&state);
   glPopAttrib();
   glActiveTexture((GLenum)activeTexture);

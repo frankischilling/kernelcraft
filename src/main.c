@@ -221,6 +221,7 @@ int main(int argc, char** argv) {
   glfwSetCursorPosCallback(window, mouseCallback);
   glfwSetWindowFocusCallback(window, windowFocusCallback);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetCharCallback(window, characterCallback);
   glfwSetMouseButtonCallback(window, mouseButtonCallback);
   setCursorCaptured(window, true);
   printf("World seed: %u\n", (unsigned)worldSeed());
@@ -231,8 +232,6 @@ int main(int argc, char** argv) {
   lastTime = lastFrame;
 
   int exitStatus = EXIT_SUCCESS;
-  DayNightClock clock;
-  initDayNight(&clock);
   while (!glfwWindowShouldClose(window)) {
     double currentFrame = glfwGetTime();
     double deltaTime = currentFrame - lastFrame;
@@ -249,7 +248,7 @@ int main(int argc, char** argv) {
     glfwGetFramebufferSize(window, &width, &height);
     // Iconification is independent of framebuffer size on some window systems.
     if (width <= 0 || height <= 0 || glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
-      advanceDayNight(&clock, 0, false);
+      advanceDayNight(&input.clock, 0, false);
       pauseInput(&input);
       glfwWaitEvents();
       lastFrame = glfwGetTime();
@@ -257,9 +256,9 @@ int main(int argc, char** argv) {
     }
 
     processInput(window, &input, deltaTime);
-    bool active = glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
-    advanceDayNight(&clock, deltaTime, active);
-    DayNightState daylight = sampleDayNight(dayNightPhase(&clock));
+    bool active = !input.chat.open && glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    advanceDayNight(&input.clock, deltaTime, active);
+    DayNightState daylight = sampleDayNight(dayNightPhase(&input.clock));
     processBlockBreaking(window, &input, deltaTime);
     if (input.saveRequested) {
       input.saveRequested = false;
@@ -302,6 +301,7 @@ int main(int argc, char** argv) {
                       .showDebug = input.showDebug,
                       .wireframe = input.wireframe,
                       .stats = &result};
+    data.chat = &input.chat;
     HUDDraw(shaderProgram, &data);
 
     glfwSwapBuffers(window);

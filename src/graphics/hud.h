@@ -11,6 +11,7 @@
 #include "camera.h"
 #include "world_renderer.h"
 #include "../utils/raycast.h"
+#include "../world/chat.h"
 
 typedef struct {
   char text[64];
@@ -31,6 +32,7 @@ typedef struct {
   const RenderResult* stats;
   bool showDebug;
   bool wireframe;
+  const Chat* chat;
 } DebugData;
 
 void HUDDraw(GLuint shaderProgram, DebugData* data);

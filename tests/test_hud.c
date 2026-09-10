@@ -17,6 +17,7 @@ static bool sawMovement, sawMaterial;
 static const char* expectedMaterial;
 static const char* expectedWireframe;
 static bool sawWireframe;
+static bool chatLayout, sawChatPrompt, sawChatMessage, sawChatTail;
 static const char* failTexture;
 static GLuint partialTextures[6];
 static int partialCount;
@@ -82,6 +83,9 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawMaterial |= expectedMaterial && !strcmp(text, expectedMaterial);
   sawMovement |= expectedMovement && strstr(text, expectedMovement) != NULL;
   sawWireframe |= expectedWireframe && strstr(text, expectedWireframe) != NULL;
+  sawChatPrompt |= strncmp(text, "> ", 2) == 0;
+  sawChatMessage |= strstr(text, "[Local]") != NULL;
+  sawChatTail |= strstr(text, "z_") != NULL;
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
   if (text[0] >= '1' && text[0] <= '6' && text[1] == '\0') {
@@ -98,7 +102,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   CHECK(x >= 0 && x + width <= state->viewport[2]);
   CHECK(top >= 0 && bottom <= state->viewport[3]);
   float cx = state->viewport[2] * 0.5f, cy = state->viewport[3] * 0.5f;
-  CHECK(x + width <= cx - 12 || x >= cx + 12 || bottom <= cy - 12 || top >= cy + 12);
+  CHECK(chatLayout || x + width <= cx - 12 || x >= cx + 12 || bottom <= cy - 12 || top >= cy + 12);
   for (int i = 0; i < labels; i++)
     CHECK(x + width <= rectangles[i][0] || x >= rectangles[i][2] || bottom <= rectangles[i][1] || top >= rectangles[i][3]);
   CHECK(labels < 32);
@@ -447,6 +451,51 @@ int main(int argc, char** argv) {
     HUDDraw(0, &data);
     CHECK(sawMaterial);
   }
+
+  Chat chat = {0};
+  DayNightClock clock;
+  initDayNight(&clock);
+  for (int i = 0; i < 8; i++) {
+    openChat(&chat);
+    for (const char* p = "hello local world"; *p; p++)
+      appendChatCharacter(&chat, (unsigned char)*p);
+    submitChat(&chat, &clock);
+  }
+  openChat(&chat);
+  for (int i = 0; i < CHAT_INPUT_CAPACITY - 2; i++)
+    appendChatCharacter(&chat, 'i');
+  appendChatCharacter(&chat, 'z');
+  data.chat = &chat;
+  chatLayout = true;
+  const int chatSizes[][2] = {{1920, 1080}, {640, 480}, {240, 320}, {192, 120}, {64, 64}, {1, 1}};
+  for (size_t i = 0; i < sizeof(chatSizes) / sizeof(chatSizes[0]); i++) {
+    glfwSetWindowSize(window, chatSizes[i][0], chatSizes[i][1]);
+    glfwPollEvents();
+    glfwSwapBuffers(window);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height);
+    labels = 0;
+    sawChatPrompt = sawChatMessage = sawChatTail = false;
+    glClear(GL_COLOR_BUFFER_BIT);
+    HUDDraw(0, &data);
+    if (width >= 32 && height >= 64)
+      CHECK(sawChatPrompt && sawChatTail);
+    if (width >= 240 && height >= 320)
+      CHECK(sawChatMessage);
+    CHECK(glGetError() == GL_NO_ERROR);
+  }
+  cancelChat(&chat);
+  glfwSetWindowSize(window, 640, 480);
+  glfwPollEvents();
+  glfwSwapBuffers(window);
+  glViewport(0, 0, 640, 480);
+  labels = 0;
+  sawChatMessage = false;
+  HUDDraw(0, &data);
+  CHECK(sawChatMessage);
+  data.chat = NULL;
+  chatLayout = false;
 
   HUDCleanup();
   for (int slot = 0; slot < 6; slot++)

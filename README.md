@@ -62,6 +62,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Walking with gravity, grounded jumps, solid-block collision, and safe spawning.
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
+  - Enter opens local chat with `/time set day`, `/time set night`, and numeric time commands.
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
   - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected hotbar slot.
 
@@ -163,6 +164,20 @@ bar, and target overlay retain their normal appearance. F4 also works with the
 cursor released, ignores key repeats and inactive windows, and keeps the chosen
 mode through pauses and flight changes. Every launch starts with solid terrain.
 See [wireframe controls and checks](docs/wireframe.md).
+
+Press Enter (or keypad Enter) to open chat, type a message or command, and
+press Enter again to send. Backspace edits the line; Escape cancels it.
+Typing pauses movement and the day/night clock and blocks mouse-look, block
+edits, and gameplay shortcuts. Chat keeps the latest eight local messages
+and responses. Opening it again shows that history; the latest response also
+appears above the hotbar when space allows.
+
+Use `/time set day` for noon (tick 6000), `/time set night` for midnight
+(tick 18000), or `/time set 1200` to choose a specific tick. Numeric values
+must be decimal integers from 0 through 23999. Invalid commands report usage
+without changing time. Commands affect the current session; the cycle still
+starts in the morning after a restart. Chat is local, with multiplayer
+delivery planned. See [chat controls and checks](docs/local-chat.md).
 
 The HUD fits its text and material slots to the framebuffer. Small windows use
 smaller bitmap text and shorten long labels; diagnostics occupy available space
@@ -388,7 +403,8 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add client-server communication protocols
   - [ ] Create player synchronization for multiplayer experiences
   - [ ] Implement chunk synchronization across clients
-  - [ ] Add a basic chat system for player communication
+  - [x] Add local chat entry, message history, and `/time set` commands
+  - [ ] Add multiplayer chat delivery between players, with server-side command authorization
   - [ ] Create player authentication and session management
 
 - **World Management**:
