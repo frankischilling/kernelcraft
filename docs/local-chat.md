@@ -7,11 +7,17 @@ does not add a message. Enter repeats never open or submit chat.
 
 The current input accepts up to 127 printable ASCII characters, matching the
 existing bitmap-font path. Input scrolls horizontally to keep its end and
-caret visible. The overlay shows as many of the latest eight messages as fit
-in the lower half of the window. It replaces the hotbar and crosshair while
-typing; normal HUD controls return on close. The latest message remains in
-the control-hint row above the hotbar when space allows. History is local to
-the current session and is not saved.
+caret visible. A translucent black input strip spans the bottom of the
+window. History uses one contiguous translucent panel, up to 640 framebuffer
+pixels wide, with equal-width rows and white text over a one-pixel shadow.
+Panel width depends on the viewport, not the length of individual messages.
+
+The overlay shows as many of the latest eight messages as fit in the lower
+half of the window. Long history lines end with an ellipsis when space is
+limited. It replaces the hotbar and crosshair while typing; normal HUD
+controls return on close. History stays above the hotbar, taking the place
+of the control hints when messages are present. It is local to the current
+session, does not fade with time, and is not saved.
 
 Commands are case-sensitive:
 
@@ -48,7 +54,9 @@ and server-side command authorization.
 The CPU world suite checks named/numeric commands, malformed input, overflow,
 unchanged clocks after rejection, text capacity, Backspace, cancellation,
 unsupported codepoints, and history eviction. HUD tests cover long input and
-visible caret/history across large, narrow, short, and tiny viewports.
+visible caret/history across large, narrow, short, and tiny viewports,
+plus fixed panel edges, the history width cap on wide windows, and translucent
+background pixels with short messages.
 The hidden application fixture types through the registered GLFW callbacks
 and checks actual sky states after day/night/numeric commands, rendered chat
 pixels, gameplay isolation, focus/minimize handling, and resumed mouse input.

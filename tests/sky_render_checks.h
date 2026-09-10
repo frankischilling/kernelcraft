@@ -174,7 +174,7 @@ static bool testSkyRendering(GLuint shader) {
     unsigned char center[3], halo[3][3], base[3][3];
     skyDirectionPixel(&sky, &state, direction, center);
     SKY_CHECK(memcmp(center, centers[body], 3) == 0);
-    const float angles[] = {6, 10, 18};
+    const float angles[] = {6, 10, 36};
     for (int ring = 0; ring < 3; ring++) {
       Vec3 ray = {direction.x, direction.y, tanf(toRadians(angles[ring]))};
       skyDirectionPixel(&sky, &state, ray, halo[ring]);
@@ -195,6 +195,37 @@ static bool testSkyRendering(GLuint shader) {
     }
     SKY_CHECK(halo[0][0] - base[0][0] > halo[1][0] - base[1][0] + 5);
     SKY_CHECK(memcmp(halo[2], base[2], 3) == 0);
+
+    // A square pixel halo reaches farther toward a diagonal than a round
+    // halo at the same angular distance. Compare against each ray's own sky.
+    Vec3 axis = {direction.x, direction.y, 0.18f};
+    float diagonal = 0.18f / sqrtf(2);
+    Vec3 corner = {direction.x - direction.y * diagonal, direction.y + direction.x * diagonal, diagonal};
+    unsigned char axisGlow[3], axisSky[3], cornerGlow[3], cornerSky[3];
+    skyDirectionPixel(&sky, &state, axis, axisGlow);
+    skyDirectionPixel(&sky, &background, axis, axisSky);
+    skyDirectionPixel(&sky, &state, corner, cornerGlow);
+    skyDirectionPixel(&sky, &background, corner, cornerSky);
+    float axisAlpha = (float)(axisGlow[0] - axisSky[0]) / (255 - axisSky[0]);
+    float cornerAlpha = (float)(cornerGlow[0] - cornerSky[0]) / (255 - cornerSky[0]);
+    SKY_CHECK(cornerAlpha > axisAlpha + 0.08f);
+    // Within one coarse glow pixel, only the weak smooth glare may vary.
+    // Crossing its edge must produce a stronger change than that variation.
+    const float stepOffsets[] = {0.121f, 0.137f, 0.143f};
+    float stepAlpha[3];
+    for (int step = 0; step < 3; step++) {
+      Vec3 stepRay = {direction.x, direction.y, stepOffsets[step]};
+      skyDirectionPixel(&sky, &state, stepRay, axisGlow);
+      skyDirectionPixel(&sky, &background, stepRay, axisSky);
+      stepAlpha[step] = (float)(axisGlow[0] - axisSky[0]) / (255 - axisSky[0]);
+    }
+    SKY_CHECK(fabsf(stepAlpha[0] - stepAlpha[1]) < 0.025f);
+    SKY_CHECK(stepAlpha[1] - stepAlpha[2] > 0.04f);
+    // Forward scattering adds a restrained glow beyond the pixel halo.
+    Vec3 glareRay = {direction.x, direction.y, tanf(toRadians(18))};
+    skyDirectionPixel(&sky, &state, glareRay, axisGlow);
+    skyDirectionPixel(&sky, &background, glareRay, axisSky);
+    SKY_CHECK(abs(axisGlow[0] - axisSky[0]) + abs(axisGlow[1] - axisSky[1]) + abs(axisGlow[2] - axisSky[2]) > 2);
 
     // An off-center halo sample must land at its perspective-projected world
     // direction in both landscape and portrait views, at two fields of view.

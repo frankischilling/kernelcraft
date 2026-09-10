@@ -24,7 +24,7 @@ vec3 palette(sampler2D image, float position) {
     return mix(a, b, smoothstep(0.0, 1.0, band - float(low)));
 }
 
-vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 innerGlow, vec3 outerGlow, float strength) {
+vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 glowColor, float pixelStrength, float mieStrength) {
     // A world-oriented square subtending about nine degrees. The fixed Z axis
     // stays perpendicular to the east/west orbit, including at the zenith.
     vec3 right = vec3(0.0, 0.0, 1.0);
@@ -34,12 +34,28 @@ vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 innerGlo
         return color;
     vec2 offset = vec2(dot(ray, right), -dot(ray, up)) / facing;
     float horizonFade = smoothstep(0.0, 0.025, ray.y);
-    // Angular falloff keeps the halo attached to the body through camera
-    // motion, zoom, and resizing. Draw it beneath the original square image.
-    float radius = length(offset);
-    float falloff = 1.0 - smoothstep(0.06, 0.28, radius);
-    vec3 glow = mix(innerGlow, outerGlow, smoothstep(0.08, 0.28, radius));
-    color = mix(color, glow, strength * falloff * falloff * horizonFade);
+    // A coarse, world-oriented mask supplies the stepped square glow of a
+    // nearest-sampled sprite. It remains fixed to the body, not screen pixels.
+    vec2 cell = (floor(offset / 0.02) + 0.5) * 0.02;
+    // A fourth-power radius rounds the corners in pixel steps instead of
+    // producing a stack of large, uniformly opaque rectangular borders.
+    float squareRadius = sqrt(length(cell * cell));
+    float pixelHalo = 1.0 - smoothstep(0.075, 0.23, squareRadius);
+    pixelHalo *= pixelHalo;
+
+    // Peak-normalized Henyey-Greenstein forward lobe approximates Mie glare.
+    // Both ray and direction point toward the sky, so forward is dot = +1.
+    const float g = 0.8;
+    float mie = pow((1.0 - g) * (1.0 - g) / (1.0 + g * g - 2.0 * g * facing), 1.5);
+    float atmosphere = mix(1.5, 1.0, smoothstep(0.0, 0.5, direction.y));
+    float extent = smoothstep(cos(radians(35.0)), cos(radians(20.0)), facing);
+    // A soft bloom skirt follows the square emitter. This is celestial glow
+    // inside the sky pass, not a full-scene HDR postprocessing pipeline.
+    vec2 outside = max(abs(offset) - 0.08, vec2(0.0));
+    float bloom = exp(-dot(outside, outside) / 0.008);
+    float visibility = horizonFade * (1.0 - smoothstep(0.0, 0.08, -direction.y));
+    color = mix(color, glowColor, (mie * mieStrength * atmosphere + bloom * 0.12 * pixelStrength) * extent * visibility);
+    color = mix(color, glowColor, pixelHalo * pixelStrength * visibility);
     vec2 uv = offset / 0.16 + 0.5;
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
         return color;
@@ -75,7 +91,7 @@ void main() {
         float star = (h % 100u < 2u) ? 1.0 - smoothstep(0.4, 1.2, length(offset)) : 0.0;
         color = mix(color, vec3(1.0, 0.97, 0.91), star * starBrightness * smoothstep(0.0, 0.15, ray.y));
     }
-    color = body(color, ray, sunDirection, sunImage, vec3(1.0, 0.8, 0.25), vec3(1.0, 0.35, 0.03), 0.85);
-    color = body(color, ray, moonDirection, moonImage, vec3(1.0), vec3(1.0), 0.45);
+    color = body(color, ray, sunDirection, sunImage, vec3(1.0, 0.84, 0.42), 0.85, 0.18);
+    color = body(color, ray, moonDirection, moonImage, vec3(1.0), 0.45, 0.10);
     FragColor = vec4(color, 1.0);
 }

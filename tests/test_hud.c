@@ -86,6 +86,13 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawChatPrompt |= strncmp(text, "> ", 2) == 0;
   sawChatMessage |= strstr(text, "[Local]") != NULL;
   sawChatTail |= strstr(text, "z_") != NULL;
+  // Chat's shadow is a second draw of the same label, offset one pixel.
+  GLfloat tint[4];
+  glGetFloatv(GL_CURRENT_COLOR, tint);
+  if (chatLayout && tint[0] < 0.3f) {
+    __real_renderText(state, text, x, y);
+    return;
+  }
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
   if (text[0] >= '1' && text[0] <= '6' && text[1] == '\0') {
@@ -494,6 +501,45 @@ int main(int argc, char** argv) {
   sawChatMessage = false;
   HUDDraw(0, &data);
   CHECK(sawChatMessage);
+  // Short messages must still have a full-width translucent input strip and
+  // aligned history rows. Sample well beyond both messages, away from glyphs.
+  Chat panels = {.open = true, .input = "hi", .length = 2, .count = 2, .messages = {"[Local] short", "[Local] A somewhat longer message"}};
+  data.chat = &panels;
+  labels = 0;
+  glClearColor(0.3f, 0.4f, 0.5f, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+  HUDDraw(0, &data);
+  const int panelY[] = {8, 40, 70};
+  const unsigned char backdrop[] = {77, 102, 128};
+  for (int row = 0; row < 3; row++) {
+    unsigned char pixel[3];
+    glReadPixels(620, panelY[row], 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+    for (int channel = 0; channel < 3; channel++)
+      CHECK(pixel[channel] > backdrop[channel] / 4 && pixel[channel] < backdrop[channel] * 3 / 4);
+  }
+  unsigned char outside[3];
+  glReadPixels(639, 8, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, outside);
+  for (int channel = 0; channel < 3; channel++)
+    CHECK(abs(outside[channel] - backdrop[channel]) <= 1);
+  unsigned char panelCapture[640 * 480 * 3];
+  glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, panelCapture);
+  capture(640, 480, 200, 0, panelCapture);
+  // On a wider window, input keeps spanning the screen while history stops
+  // at its fixed 640-pixel width rather than growing with the viewport.
+  glfwSetWindowSize(window, 1280, 720);
+  glfwPollEvents();
+  glfwSwapBuffers(window);
+  glViewport(0, 0, 1280, 720);
+  labels = 0;
+  glClear(GL_COLOR_BUFFER_BIT);
+  HUDDraw(0, &data);
+  unsigned char inputEdge[3], historyOutside[3];
+  glReadPixels(1260, 8, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, inputEdge);
+  glReadPixels(660, 40, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, historyOutside);
+  for (int channel = 0; channel < 3; channel++) {
+    CHECK(inputEdge[channel] > backdrop[channel] / 4 && inputEdge[channel] < backdrop[channel] * 3 / 4);
+    CHECK(abs(historyOutside[channel] - backdrop[channel]) <= 1);
+  }
   data.chat = NULL;
   chatLayout = false;
 

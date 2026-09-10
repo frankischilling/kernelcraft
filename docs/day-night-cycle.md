@@ -39,14 +39,27 @@ astronomical simulation. Advanced realistic star positions, constellations,
 and apparent motion are in the TODO list, along with the remaining moon
 phases once their artwork is ready. The current moon is always full.
 
-The full moon has a soft white halo; the sun has a soft yellow-orange halo.
-These glows fade out about 16 degrees from each
-body's center and sit behind the original square artwork. Their size is
-angular, so they follow the same perspective as the bodies when looking
-around, changing field of view, or resizing. The sky stays centered on the
-camera during movement. Lowering the color gradient does not shift the
-orbit or the physical horizon: stars, bodies, and glows still fade at zero
-elevation, and terrain covers the sky and halos.
+The full moon has a white pixel-stepped halo; the sun has a yellow-orange
+halo using the same square profile. A coarse mask in body coordinates gives
+both glows crisp steps around the original artwork. A soft bloom skirt and
+a broader forward-scattering lobe soften the transition back into the sky.
+The scattering uses a peak-normalized Henyey-Greenstein approximation with
+`g = 0.8`, strengthened near the horizon and faded out by 35 degrees from
+each body. The sun's scattering is stronger than the moon's.
+
+This is a compact sky-pass approximation of celestial scattering and bloom,
+not a volumetric atmosphere or full-scene HDR bloom pipeline. It draws on
+the separate sun/moon scattering controls described in Minecraft's
+[Atmospheric Effects documentation](https://learn.microsoft.com/en-us/minecraft/creator/documents/vibrantvisuals/atmosphericscustomization)
+and the [Henyey-Greenstein phase function](https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions).
+The stepped mask is computed in the shader; the supplied artwork remains
+the source for each visible body.
+
+Glow size is angular, so it follows the same perspective as the bodies when
+looking around, changing field of view, or resizing. The sky stays centered
+on the camera during movement. Lowering the color gradient does not shift
+the orbit or the physical horizon: stars, bodies, and glows still fade at
+zero elevation, and terrain covers the sky and halos.
 
 `src/world/day_night.c` owns timing and phase/light sampling without graphics
 dependencies. `src/graphics/sky.c` draws one full-screen triangle before
@@ -63,7 +76,8 @@ wraparound, pause/resume, invalid elapsed values, bounded stalls, phase
 weights, orbit directions, and continuity. The graphical benchmark checks
 all five bands of all three palettes against independently recorded RGB
 values, nighttime star pixels, repeatability after camera translation,
-sun/full-moon visibility, halo colors and falloff, original body colors,
+sun/full-moon visibility, halo colors and falloff, square halo shape and pixel steps,
+forward glare beyond the pixel halo, original body colors,
 perspective alignment in landscape and portrait views, horizon clipping,
 halo occlusion, untouched depth, GL state restoration, and dimmer terrain
 without mesh uploads. The application harness checks the live sky

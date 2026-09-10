@@ -30,6 +30,7 @@ overhead, sunrise/sunset orange just below the horizon, and the darkest night
 purple overhead. The five color anchors sit at -6, 18, 42, 66, and 90 degrees.
 The three palettes blend as time advances.
 The sun and full moon retain their square outlines and nearest sampling.
-The sky shader draws a soft yellow-orange halo behind the sun and a white
-halo behind the moon. The supplied images do not need glow painted into them.
+The sky shader draws pixel-stepped square halos behind both bodies, tinted
+yellow-orange for the sun and white for the moon, with softer scattering and
+bloom around them. The supplied images do not need glow painted into them.
 Other moon phases are pending; see the README TODO list.
