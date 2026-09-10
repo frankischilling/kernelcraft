@@ -7,13 +7,16 @@ Rendering interpolates the fractional tick so celestial movement is smooth.
 The sun rises in +X and sets in -X; the full moon follows the opposite half
 of the same orbit. Both appear behind terrain.
 
-Escape/cursor release, focus loss, minimization, and a zero-sized framebuffer
+Chat entry, Escape/cursor release, focus loss, minimization, and a zero-sized framebuffer
 pause the clock. The first resumed frame ignores elapsed pause time. Active
 frame stalls advance at most 0.1 seconds, matching the existing bounded
 simulation behavior. There is no wall-clock catch-up while the game is closed.
 Every launch starts in the morning, including when loading a saved world.
 The save format and existing worlds are unchanged; saving cycle time is a
 separate TODO.
+
+The [local chat](local-chat.md) supports `/time set day`, `/time set night`,
+and `/time set 0` through `/time set 23999` to change the live cycle.
 
 The three supplied palettes blend smoothly with solar elevation. Day and
 night are fully established when their respective body is about 20 degrees

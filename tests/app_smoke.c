@@ -900,6 +900,8 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
   return __real_glfwCreateWindow(640, 360, title, monitor, share);
 }
 
+#include "chat_input_checks.h"
+
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testCameraCue();
@@ -974,9 +976,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     movementFrame(window);
   if (frame >= 55 && frame <= 70)
     breakingFrame(window);
-  if (frame >= 70)
+  if (frame >= 70 && frame < 74)
     wireframeFrame(window);
-  return frame >= 74;
+  if (frame >= 74 && frame < 84)
+    chatFrame(window);
+  return frame >= 84;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1043,7 +1047,7 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
   __real_renderSky(sky, camera, aspect, state);
   if (frame == 0)
     CHECK(fabsf(state->sunDirection.y - 0.70710678f) < 0.00001f);
-  if (lastSkyFrame >= 0) {
+  if (lastSkyFrame >= 0 && frame < 74) {
     CHECK(state->sunDirection.y >= lastSunY);
     CHECK(state->sunDirection.y - lastSunY < 0.0005f);
     if (frame == 3 || frame == 48)
@@ -1051,6 +1055,12 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
   }
   lastSunY = state->sunDirection.y;
   lastSkyFrame = frame;
+  if (frame == 75 || frame == 82 || frame == 83)
+    CHECK(state->night == 1 && state->stars == 1 && state->moonDirection.y > 0.999f);
+  if (frame == 76 || frame == 77)
+    CHECK(state->day == 1 && state->stars == 0 && state->sunDirection.y > 0.999f);
+  if (frame >= 78 && frame <= 81)
+    CHECK(fabsf(state->sunDirection.y - 0.30901699f) < 0.00001f);
   if (frame < 4) {
     glReadPixels(sizes[frame][0] / 2 + 16, sizes[frame][1] / 2 + 16, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyProbe);
     CHECK(skyProbe[0] || skyProbe[1] || skyProbe[2]);
@@ -1079,7 +1089,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
       CHECK(fabsf(tint[channel] - (skyTint[channel] * 0.84f + gold[channel] * 0.16f)) < 3);
   }
 
-  if (frame >= 70) {
+  if (frame >= 70 && frame < 74) {
     static RenderResult solidStats;
     CHECK(input->wireframe == (frame == 71 || frame == 72));
     // The wall is eight units away, beyond selection reach. Unfilled terrain
@@ -1101,6 +1111,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
   }
 
   __real_HUDDraw(program, data);
+  CHECK(data->chat == &input->chat);
 }
 
 static void captureFrame(int width, int height, const unsigned char* pixels) {
@@ -1121,6 +1132,29 @@ static void captureFrame(int width, int height, const unsigned char* pixels) {
 void __real_glfwSwapBuffers(GLFWwindow* window);
 
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
+  if (frame >= 74) {
+    InputState* input = glfwGetWindowUserPointer(window);
+    CHECK(frame < 84 && glGetError() == GL_NO_ERROR);
+    CHECK(vec3_distance(&input->camera->position, &beforeChatPosition) == 0);
+    if (input->chat.open) {
+      unsigned char pixels[1280 * 30 * 3];
+      glReadPixels(0, 0, 1280, 30, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      int white = 0;
+      for (size_t i = 0; i < sizeof(pixels); i += 3)
+        white += pixels[i] > 240 && pixels[i + 1] > 240 && pixels[i + 2] > 240;
+      CHECK(white > 20);
+    }
+    if (getenv("KERNELCRAFT_TEST_CAPTURE")) {
+      unsigned char* pixels = malloc(1280 * 720 * 3);
+      CHECK(pixels);
+      glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      captureFrame(1280, 720, pixels);
+      free(pixels);
+    }
+    swaps++;
+    __real_glfwSwapBuffers(window);
+    return;
+  }
   if (frame >= 70) {
     CHECK(frame < 74 && glGetError() == GL_NO_ERROR);
     unsigned char crosshair[3];
@@ -1237,7 +1271,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 72 && waits == 2);
+    CHECK(swaps == 82 && waits == 2);
+    puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");
     CHECK(sawCompactHUD && sawDebugHUD);
     puts("Application walking, crouching, running, jumping, flight, editing, wireframe, selection pixels, pause, framebuffer, and shutdown tests passed");
   }
