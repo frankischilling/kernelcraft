@@ -10,7 +10,7 @@
     "candidate": "98F94F3281BFE25F004C200037CDE53C5B16E046B6CC774EC1D11DF711817196",
     "baseline": "9785329DC17F7CABB08E3CCB9E88C6B7AA1B1D9DD5D3B02994BDE600EEDB5FC5"
   },
-  "measurement_hash_note": "Hashes recorded before the repeated trials and verified unchanged afterward. Harness hash uses the measured Windows file bytes, including CRLF. Executables are not distributed in this dataset.",
+  "measurement_hash_note": "Hashes recorded before the repeated trials and verified unchanged afterward, before the final validation rebuild. Harness hash uses the raw measured file bytes. The candidate executable was rebuilt later from the same production sources and no longer has the measured binary hash. Executables are not distributed in this dataset.",
   "baseline_instrumentation": "baseline-profile.patch; production sources unchanged",
   "source_hash_note": "SHA-256 after CRLF-to-LF normalization. The comparison script later gained option metadata and filtered-scene result counting; the measured render_profile.h and production code are unchanged.",
   "candidate_sources_sha256_lf": {
