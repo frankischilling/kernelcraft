@@ -21,11 +21,13 @@ and `/time set 0` through `/time set 23999` to change the live cycle.
 The three supplied palettes blend smoothly with solar elevation. Day and
 night are fully established when their respective body is about 20 degrees
 above the horizon; the dawn/dusk palette is exact at sunrise and sunset.
-The five colors in each swatch form a smooth gradient from six degrees below
-the horizon to the zenith. The color anchors sit at -6, 18, 42, 66, and 90
-degrees of elevation, lowering the color bands slightly toward the horizon.
-Daylight blue and dark night purple sit overhead; dawn/dusk orange sits just
-below the horizon. Each gradient passes through the original swatch colors.
+Daylight's five color anchors sit at -6, 1.5, 9, 16.5, and 24 degrees of
+elevation. This keeps the pale colors close to the horizon and carries the
+strongest supplied blue from 24 degrees through the zenith, covering most
+of the upper sky. Dawn/dusk and night retain their wider gradient with
+anchors at -6, 18, 42, 66, and 90 degrees. Dark night purple sits overhead;
+dawn/dusk orange sits just below the horizon. Each gradient passes through
+the original swatch colors.
 Sky colors are display colors and bypass terrain lighting. Terrain diffuse light follows
 the sun or moon, with warm twilight fill and dim purple-blue night fill.
 The directional intensity fades to zero at the horizon before changing
@@ -74,8 +76,8 @@ rendering paths.
 The CPU world suite includes timing at 20/60 frames per second, full-cycle
 wraparound, pause/resume, invalid elapsed values, bounded stalls, phase
 weights, orbit directions, and continuity. The graphical benchmark checks
-all five bands of all three palettes against independently recorded RGB
-values, nighttime star pixels, repeatability after camera translation,
+all five bands of all three palettes and broad daytime blue coverage against
+independently recorded RGB values, nighttime star pixels, repeatability after camera translation,
 sun/full-moon visibility, halo colors and falloff, square halo shape and pixel steps,
 forward glare beyond the pixel halo, original body colors,
 perspective alignment in landscape and portrait views, horizon clipping,

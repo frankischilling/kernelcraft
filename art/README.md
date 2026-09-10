@@ -24,10 +24,12 @@ and `full-moon.png` supply the visible bodies. Their runtime copies live in
 `src/assets/sky/`. Keep each export and its runtime copy identical.
 
 The sky samples the five palette colors and smoothly interpolates between
-them. Day and dawn/dusk run from top (six degrees below the horizon) to bottom
-(zenith); night runs in the opposite direction. This places daylight blue
-overhead, sunrise/sunset orange just below the horizon, and the darkest night
-purple overhead. The five color anchors sit at -6, 18, 42, 66, and 90 degrees.
+them. Day runs from the top color at six degrees below the horizon to the
+bottom blue at 24 degrees, then holds that blue through the zenith. Its five
+anchors sit at -6, 1.5, 9, 16.5, and 24 degrees so pale cyan stays near the
+horizon and strong blue covers the upper sky. Dawn/dusk uses top-to-bottom
+colors at -6, 18, 42, 66, and 90 degrees; night reverses that order. This puts
+sunrise/sunset orange just below the horizon and dark night purple overhead.
 The three palettes blend as time advances.
 The sun and full moon retain their square outlines and nearest sampling.
 The sky shader draws pixel-stepped square halos behind both bodies, tinted

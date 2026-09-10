@@ -79,12 +79,14 @@ static bool testSkyRendering(GLuint shader) {
   const double phases[] = {0.25, 0, 0.75};
   // Lower the bottom anchor six degrees while keeping the zenith fixed.
   const float elevations[] = {-6, 18, 42, 66, 90};
+  // Day's pale bands stay close to the horizon so blue covers the upper sky.
+  const float dayElevations[] = {-6, 1.5f, 9, 16.5f, 24};
   for (int phase = 0; phase < 3; phase++) {
     DayNightState state = sampleDayNight(phases[phase]);
     state.stars = 0;
     state.sunDirection = state.moonDirection = (Vec3){0, -1, 0};
     for (int band = 0; band < 5; band++) {
-      float angle = toRadians(elevations[phase == 2 ? 4 - band : band]);
+      float angle = toRadians(phase == 0 ? dayElevations[band] : elevations[phase == 2 ? 4 - band : band]);
       camera.front = (Vec3){0, sinf(angle), cosf(angle)};
       camera.up = fabsf(camera.front.y) > 0.99f ? (Vec3){0, 0, 1} : (Vec3){0, 1, 0};
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -97,6 +99,17 @@ static bool testSkyRendering(GLuint shader) {
       for (int channel = 0; channel < 3; channel++)
         SKY_CHECK(abs(pixel[channel] - colors[phase][band][channel]) <= 1);
     }
+  }
+
+  DayNightState blueSky = sampleDayNight(0.25);
+  blueSky.sunDirection = blueSky.moonDirection = (Vec3){0, -1, 0};
+  const float upperSkyAngles[] = {24, 30, 45, 60, 80};
+  for (size_t i = 0; i < sizeof(upperSkyAngles) / sizeof(upperSkyAngles[0]); i++) {
+    float angle = toRadians(upperSkyAngles[i]);
+    unsigned char pixel[3];
+    skyDirectionPixel(&sky, &blueSky, (Vec3){0, sinf(angle), cosf(angle)}, pixel);
+    for (int channel = 0; channel < 3; channel++)
+      SKY_CHECK(abs(pixel[channel] - colors[0][4][channel]) <= 1);
   }
 
   static unsigned char plain[960 * 540 * 3], stars[sizeof(plain)], moved[sizeof(plain)];
