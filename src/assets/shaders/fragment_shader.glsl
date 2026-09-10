@@ -14,7 +14,7 @@ in vec3 Normal;   // Surface normal at fragment
 in vec2 TexCoord; // Texture coordinates
 flat in float Material;
 
-uniform vec3 lightDirection; // World-space direction toward the fixed key light
+uniform vec3 lightDirection; // World-space direction toward the sun or moon
 uniform vec3 lightColor;     // Linear diffuse intensity
 uniform vec3 skyColor;       // Linear upper-hemisphere fill
 uniform vec3 groundColor;    // Linear lower-hemisphere fill

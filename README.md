@@ -48,6 +48,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 - **Rendering**:
   - Basic rendering of cubes with lighting effects using shaders.
+  - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun and full moon, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
   - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics. [Cached text rendering](docs/hud-performance.md) reduces the overlay's frame-time cost.
@@ -331,9 +332,13 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add support for skyboxes and clouds 
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
   - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
-  - [ ] Add day/night cycle
-    - [ ] Within the system implement tick based time
-    - [ ] Add a sun and moon that follow the day/night cycle
+  - [x] Add day/night cycle
+    - [x] Within the system implement tick based time (20 ticks/second, 24,000 ticks/day)
+    - [x] Add a sun and full moon that follow the day/night cycle
+    - [x] Add a deterministic nighttime star field that fades through twilight
+    - [ ] Add all remaining moon phases once their artwork is ready
+    - [ ] Add advanced, realistic star placement with astronomical positions, constellations, and apparent motion
+    - [ ] Persist the cycle clock across world saves and restarts
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
   - [ ] Create water shader with reflections and refractions

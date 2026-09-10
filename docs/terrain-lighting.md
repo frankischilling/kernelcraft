@@ -1,10 +1,15 @@
 # Terrain lighting
 
-Terrain uses a fixed world-space light direction with matte diffuse shading.
+The original lighting checkpoint below describes the fixed reference setup.
+The game now uses the [day/night cycle](day-night-cycle.md) to update the
+world-space light direction and fill each frame. Its tests retain the fixed
+reference setup to isolate material mapping and camera-independent shading.
+
+Terrain uses a world-space light direction with matte diffuse shading.
 Soft hemispheric fill keeps side faces and undersides readable, with a slightly
 cooler fill above and warmer fill below. Moving through the map or turning the
 camera no longer moves a glossy highlight or changes an identical face's light.
-The light has no visible object or time simulation.
+The live game follows the visible sun or full moon as its clock advances.
 
 The fragment shader decodes the existing RGBA8 texture samples from sRGB,
 multiplies the linear color by the lighting, and encodes the result for the
@@ -24,7 +29,8 @@ unchanged.
 
 This is unshadowed lighting. Enclosed rooms receive the same fill as exposed
 faces with matching normals. Cast shadows, ambient occlusion, local light
-sources, day/night simulation, and sun/moon rendering remain future work.
+sources remain future work. Day/night simulation and sun/full-moon rendering
+are implemented in the cycle module.
 
 ## Regression checks
 

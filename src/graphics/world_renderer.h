@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 #include "camera.h"
+#include "../world/day_night.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -18,6 +19,8 @@ typedef struct {
 
 // These functions require a current GL context. The caller owns the shader.
 bool initWorld(GLuint shaderProgram);
+// Updates uniforms only; the clock never invalidates chunk meshes or culling.
+void setWorldDayNight(const DayNightState* state);
 // Solid terrain uses current-view conservative occlusion; wireframe bypasses it.
 // The caller clears depth and draws opaque terrain with ordinary depth testing.
 // Reuse the CPU draw list only while the camera, projection, viewport, world and

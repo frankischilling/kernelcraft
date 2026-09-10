@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "graphics/camera.h"
 #include "graphics/hud.h"
+#include "graphics/sky.h"
 #include "utils/inputs.h"
 #include "world/world.h"
 #include <math.h>
@@ -19,6 +20,9 @@ static float previousProjectionScale;
 static int frame = -1;
 static int swaps, waits;
 static bool sawCompactHUD, sawDebugHUD;
+static unsigned char skyProbe[3], skyTint[3], skyWall[96 * 96 * 3];
+static float lastSunY;
+static int lastSkyFrame = -1;
 static Vec3 beforeMinimize;
 static float yawBeforeMinimize, pitchBeforeMinimize;
 static const Vec3i editFixture = {-1, 40, 6};
@@ -1031,6 +1035,32 @@ void __wrap_glfwWaitEvents(void) {
 
 void __real_HUDDraw(GLuint program, DebugData* data);
 
+void __real_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state);
+
+void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state) {
+  // Observe the actual sky pass before terrain, so wireframe tests compare
+  // coverage against the background even when its color changes.
+  __real_renderSky(sky, camera, aspect, state);
+  if (frame == 0)
+    CHECK(fabsf(state->sunDirection.y - 0.70710678f) < 0.00001f);
+  if (lastSkyFrame >= 0) {
+    CHECK(state->sunDirection.y >= lastSunY);
+    CHECK(state->sunDirection.y - lastSunY < 0.0005f);
+    if (frame == 3 || frame == 48)
+      CHECK(state->sunDirection.y == lastSunY);
+  }
+  lastSunY = state->sunDirection.y;
+  lastSkyFrame = frame;
+  if (frame < 4) {
+    glReadPixels(sizes[frame][0] / 2 + 16, sizes[frame][1] / 2 + 16, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyProbe);
+    CHECK(skyProbe[0] || skyProbe[1] || skyProbe[2]);
+  }
+  if (frame == 60)
+    glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyTint);
+  if (frame >= 70)
+    glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
+}
+
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
   CHECK(data->showDebug == input->showDebug);
@@ -1043,7 +1073,10 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
     // The gold tint must still fill it when the terrain itself is unfilled.
     unsigned char tint[3];
     glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, tint);
-    CHECK(input->wireframe && tint[0] > 30 && tint[0] < 60 && tint[1] > 25 && tint[1] < 50 && tint[2] < 15);
+    CHECK(input->wireframe);
+    const float gold[] = {255, 216.75f, 51};
+    for (int channel = 0; channel < 3; channel++)
+      CHECK(fabsf(tint[channel] - (skyTint[channel] * 0.84f + gold[channel] * 0.16f)) < 3);
   }
 
   if (frame >= 70) {
@@ -1055,7 +1088,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, pixels);
     int lit = 0;
     for (size_t i = 0; i < sizeof(pixels); i += 3)
-      lit += pixels[i] || pixels[i + 1] || pixels[i + 2];
+      lit += abs(pixels[i] - skyWall[i]) > 2 || abs(pixels[i + 1] - skyWall[i + 1]) > 2 || abs(pixels[i + 2] - skyWall[i + 2]) > 2;
     bool wireframe = frame == 71 || frame == 72;
     printf("Application terrain frame %d: %d/9216 lit pixels\n", frame, lit);
     CHECK(wireframe ? lit > 50 && lit < 1500 : lit > 9000);
@@ -1185,7 +1218,7 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   captureFrame(width, height, pixels);
   free(pixels);
   if (frame == 1)
-    CHECK(pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0);
+    CHECK(pixel[0] == skyProbe[0] && pixel[1] == skyProbe[1] && pixel[2] == skyProbe[2]);
   else
     CHECK(pixel[0] || pixel[1] || pixel[2]);
   CHECK(frame == 1 ? outlinePixels == 0 : outlinePixels > 10);

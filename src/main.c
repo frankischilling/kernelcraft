@@ -7,6 +7,7 @@
 #include "graphics/shader.h"
 #include "graphics/world_renderer.h"
 #include "graphics/selection.h"
+#include "graphics/sky.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/options.h"
@@ -191,7 +192,9 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (!HUDInit(BUILD_NAME, BUILD_VERSION)) {
+  SkyRenderer sky = {0};
+  if (!initSky(&sky) || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+    cleanupSky(&sky);
     cleanupWorld();
     cleanupChunks();
     glDeleteProgram(shaderProgram);
@@ -203,6 +206,7 @@ int main(int argc, char** argv) {
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
+    cleanupSky(&sky);
     HUDCleanup();
     cleanupWorld();
     cleanupChunks();
@@ -227,6 +231,8 @@ int main(int argc, char** argv) {
   lastTime = lastFrame;
 
   int exitStatus = EXIT_SUCCESS;
+  DayNightClock clock;
+  initDayNight(&clock);
   while (!glfwWindowShouldClose(window)) {
     double currentFrame = glfwGetTime();
     double deltaTime = currentFrame - lastFrame;
@@ -243,6 +249,7 @@ int main(int argc, char** argv) {
     glfwGetFramebufferSize(window, &width, &height);
     // Iconification is independent of framebuffer size on some window systems.
     if (width <= 0 || height <= 0 || glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+      advanceDayNight(&clock, 0, false);
       pauseInput(&input);
       glfwWaitEvents();
       lastFrame = glfwGetTime();
@@ -250,6 +257,9 @@ int main(int argc, char** argv) {
     }
 
     processInput(window, &input, deltaTime);
+    bool active = glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    advanceDayNight(&clock, deltaTime, active);
+    DayNightState daylight = sampleDayNight(dayNightPhase(&clock));
     processBlockBreaking(window, &input, deltaTime);
     if (input.saveRequested) {
       input.saveRequested = false;
@@ -264,6 +274,8 @@ int main(int argc, char** argv) {
     vec3_add(&target, &camera.position, &camera.front);
     mat4_lookAt(view, &camera.position, &target, &camera.up);
     mat4_perspective(projection, camera.fov, (float)width / height, 0.1f, 1000.0f);
+    renderSky(&sky, &camera, (float)width / height, &daylight);
+    setWorldDayNight(&daylight);
     RenderResult result = renderWorld(&camera, view, projection, input.wireframe);
 
     if (!result.success) {
@@ -299,6 +311,7 @@ int main(int argc, char** argv) {
   if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
     exitStatus = EXIT_FAILURE;
   HUDCleanup();
+  cleanupSky(&sky);
   cleanupWorld();
   cleanupChunks();
   glDeleteProgram(shaderProgram);

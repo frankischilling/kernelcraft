@@ -26,4 +26,11 @@ status=0
 test "$status" -eq 1 || { echo "Missing texture exit: $status (expected 1)" >&2; exit 1; }
 grep -q 'Failed to load texture' missing.log
 if grep -q 'Application smoke test:' missing.log; then cat missing.log; exit 1; fi
+cp "$assets/textures/dirt.png" "$fixture/game/assets/textures/"
+rm "$fixture/game/assets/sky/full-moon.png"
+status=0
+"$fixture/game/test-startup" --no-save >missing.log 2>&1 || status=$?
+test "$status" -eq 1 || { echo "Missing moon exit: $status (expected 1)" >&2; exit 1; }
+grep -q 'Failed to initialize sky rendering' missing.log
+if grep -q 'Application smoke test:' missing.log; then cat missing.log; exit 1; fi
 echo 'Application startup, missing assets, and shutdown tests passed'

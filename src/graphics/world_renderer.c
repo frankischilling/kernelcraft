@@ -133,6 +133,19 @@ static bool updateDirtyChunks(RenderResult* result) {
   return true;
 }
 
+static GLint lightDirectionLocation, lightColorLocation, skyFillLocation, groundFillLocation;
+
+void setWorldDayNight(const DayNightState* state) {
+  GLint previous;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &previous);
+  glUseProgram(program);
+  glUniform3f(lightDirectionLocation, state->lightDirection.x, state->lightDirection.y, state->lightDirection.z);
+  glUniform3f(lightColorLocation, state->lightColor.x, state->lightColor.y, state->lightColor.z);
+  glUniform3f(skyFillLocation, state->skyFill.x, state->skyFill.y, state->skyFill.z);
+  glUniform3f(groundFillLocation, state->groundFill.x, state->groundFill.y, state->groundFill.z);
+  glUseProgram(previous);
+}
+
 bool initWorld(GLuint shaderProgram) {
   cleanupWorld();
   program = shaderProgram;
@@ -149,6 +162,10 @@ bool initWorld(GLuint shaderProgram) {
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
   gridLocation = glGetUniformLocation(program, "drawGrid");
+  lightDirectionLocation = glGetUniformLocation(program, "lightDirection");
+  lightColorLocation = glGetUniformLocation(program, "lightColor");
+  skyFillLocation = glGetUniformLocation(program, "skyColor");
+  groundFillLocation = glGetUniformLocation(program, "groundColor");
   glUniform1i(glGetUniformLocation(program, "texture1"), 0);
   glUniform1ui(glGetUniformLocation(program, "worldSeed"), worldSeed());
   glUniform1f(glGetUniformLocation(program, "blockSize"), CUBE_SIZE);

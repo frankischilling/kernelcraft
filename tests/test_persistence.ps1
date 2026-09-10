@@ -30,6 +30,15 @@ try {
     [IO.File]::WriteAllText($sentinel, 'existing default save sentinel')
     Invoke-Expected 0 @('--no-save') -Program $SmokeBinary
     if ([IO.File]::ReadAllText($sentinel) -ne 'existing default save sentinel') { throw 'Temporary session changed the default save' }
+    # Use a disposable package to test partial sky initialization cleanup.
+    $missingGame = Join-Path $fixture 'missing-sky'
+    New-Item -ItemType Directory -Path $missingGame | Out-Null
+    $runtime = Split-Path $SmokeBinary -Parent
+    Copy-Item -LiteralPath $SmokeBinary -Destination $missingGame
+    Get-ChildItem -LiteralPath $runtime -Filter '*.dll' | Copy-Item -Destination $missingGame
+    Copy-Item -LiteralPath (Join-Path $runtime 'assets') -Destination $missingGame -Recurse
+    Remove-Item -LiteralPath (Join-Path $missingGame 'assets/sky/full-moon.png')
+    Invoke-Expected 1 @('--no-save') 'Failed to initialize sky rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
     $env:KERNELCRAFT_TEST_WORLD = Join-Path $fixture 'world with spaces.kcw'
     $env:KERNELCRAFT_TEST_RESTART = 'save'
     Invoke-Expected 0 @('--world', 'world with spaces.kcw', '--seed', '42')
