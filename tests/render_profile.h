@@ -1,7 +1,17 @@
 // Optional measurement mode for render_benchmark.c. Compile this identical
 // header against both revisions; no production profiling hooks.
 #include "world/player.h"
+#include "utils/text.h"
 #include <math.h>
+
+static bool profileSkipText;
+
+void __real_renderText(const TextState* state, const char* text, float x, float y);
+
+void __wrap_renderText(const TextState* state, const char* text, float x, float y) {
+  if (!profileSkipText)
+    __real_renderText(state, text, x, y);
+}
 
 enum { PROFILE_WARMUP = 120, PROFILE_FRAMES = 600 };
 
@@ -43,6 +53,10 @@ static int profileCompare(const void* left, const void* right) {
 
 static int profileRendering(GLuint shader) {
   bool pipelined = getenv("KERNELCRAFT_PROFILE_PIPELINED") != NULL;
+  bool debug = getenv("KERNELCRAFT_PROFILE_DEBUG") != NULL;
+  const char* onlyScene = getenv("KERNELCRAFT_PROFILE_SCENE");
+  profileSkipText = getenv("KERNELCRAFT_PROFILE_SKIP_TEXT") != NULL;
+  printf("PROFILE_HUD debug=%d skip_text=%d scene=%s\n", debug, profileSkipText, onlyScene ? onlyScene : "all");
   GLFWwindow* window = glfwGetCurrentContext();
   glfwSwapInterval(0);
   glfwSetWindowSize(window, 1280, 720);
@@ -89,7 +103,11 @@ static int profileRendering(GLuint shader) {
   const Block* original = getBlock(&edit);
   int originalID = original ? original->id : BLOCK_AIR;
   int changedID = originalID == BLOCK_AIR ? BLOCK_STONE : BLOCK_AIR;
+  bool matchedScene = false;
   for (size_t scenario = 0; success && scenario < sizeof(scenarios) / sizeof(scenarios[0]); scenario++) {
+    if (onlyScene && strcmp(onlyScene, scenarios[scenario]))
+      continue;
+    matchedScene = true;
     double frameTimes[PROFILE_FRAMES], cpuTimes[PROFILE_FRAMES], gpuTimes[PROFILE_FRAMES];
     ProfileFrame samples[PROFILE_FRAMES];
     double drainMs = 0, batchStart = 0, frameBoundary = 0;
@@ -162,10 +180,11 @@ static int profileRendering(GLuint shader) {
       glBeginQuery(GL_TIME_ELAPSED, timer);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       RenderResult result = renderWorld(&camera, view, projection, false);
-      DebugData data = {.camera = &camera, .fps = 60, .visibleBlocks = result.surfaceBlocks, .captured = true, .selectedSlot = 0, .stats = &result};
+      DebugData data = {
+          .camera = &camera, .fps = 60 + (step % 100) * 0.1f, .visibleBlocks = result.surfaceBlocks, .captured = true, .selectedSlot = 0, .stats = &result, .showDebug = debug};
       data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
       drawSelection(&data.selection, view, projection);
-      HUDDraw(shader, &data); // Normal HUD; F3 text is hidden on both revisions.
+      HUDDraw(shader, &data);
       glEndQuery(GL_TIME_ELAPSED);
       double cpuMs = (glfwGetTime() - start) * 1000;
       if (pipelined) {
@@ -270,6 +289,8 @@ static int profileRendering(GLuint shader) {
   __glewGenQueries = profilePreviousGenQueries;
   if (raw && fclose(raw) != 0)
     success = false;
+  success = success && matchedScene;
+  profileSkipText = false;
   if (!success)
     fprintf(stderr, "Rendering profile failed its GL, draw-count, or rebuild checks\n");
   return success ? 0 : 32;
