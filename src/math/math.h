@@ -17,15 +17,18 @@ typedef struct {
   float y;
   float z;
 } Vec3;
+
 typedef struct {
   int x;
   int y;
   int z;
 } Vec3i;
+
 typedef struct {
   int a;
   int b;
 } Vec2i;
+
 #define VEC3_ZERO {0, 0, 0}
 #define VEC3_RIGHT {1, 0, 0}
 #define VEC3_LEFT {-1, 0, 0}
@@ -33,6 +36,7 @@ typedef struct {
 #define VEC3_DOWN {0, -1, 0}
 #define VEC3_FRONT {0, 0, 1}
 #define VEC3_REAR {0, 0, -1}
+
 enum Face {
   RIGHT = 0,
   LEFT = 1,

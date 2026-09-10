@@ -5,11 +5,14 @@
 static bool bypassOcclusion;
 static unsigned visibilityChecks;
 bool __real_occlusionBoundsHidden(const OcclusionBuffer* buffer, Vec3 min, Vec3 max);
+
 bool __wrap_occlusionBoundsHidden(const OcclusionBuffer* buffer, Vec3 min, Vec3 max) {
   visibilityChecks++;
   return !bypassOcclusion && __real_occlusionBoundsHidden(buffer, min, max);
 }
+
 bool __real_meshVisibilityIntersects(const MeshVisibility* visibility, const float planes[6][4]);
+
 bool __wrap_meshVisibilityIntersects(const MeshVisibility* visibility, const float planes[6][4]) {
   visibilityChecks++;
   return bypassOcclusion || __real_meshVisibilityIntersects(visibility, planes);
@@ -43,6 +46,7 @@ static bool compareOcclusionFrame(const Camera* camera, float fov, int width, in
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, color[pass]);
     glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, depth[pass]);
   }
+
   bypassOcclusion = false;
   // Leave a normal, clean cache for the next camera/viewport/mode transition.
   getChunk(&(Vec2i){0, 0})->dirty = true;
@@ -54,6 +58,7 @@ static bool compareOcclusionFrame(const Camera* camera, float fov, int width, in
       colorDifferences += memcmp(color[0] + pixel * 4, color[1] + pixel * 4, 4) != 0;
       depthDifferences += depth[0][pixel] != depth[1][pixel];
     }
+
     success = !colorDifferences && !depthDifferences && (expectedDraws < 0 || result[0].terrainDrawCalls == expectedDraws) && result[0].chunksOccluded >= hidden;
     if (wireframe)
       success &= result[0].chunksOccluded == 0;
@@ -62,10 +67,12 @@ static bool compareOcclusionFrame(const Camera* camera, float fov, int width, in
               camera->position.y, camera->position.z, fov, width, height, wireframe, colorDifferences, depthDifferences, result[0].terrainDrawCalls, result[1].terrainDrawCalls,
               expectedDraws, result[0].chunksOccluded, hidden);
   }
+
   for (int pass = 0; pass < 2; pass++) {
     free(color[pass]);
     free(depth[pass]);
   }
+
   return success && glGetError() == GL_NO_ERROR;
 }
 
@@ -109,6 +116,7 @@ static bool testVisibilityInvalidation(Camera camera) {
       getChunk(&(Vec2i){0, 0})->dirty = true;
       break;
     }
+
     visibilityChecks = 0;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult changed = renderWorld(&camera, view, projection, wireframe);
@@ -116,6 +124,7 @@ static bool testVisibilityInvalidation(Camera camera) {
       fprintf(stderr, "Visibility cache failed to refresh for change %d: checks=%u rebuilt=%d\n", change, visibilityChecks, changed.chunksRebuilt);
       return false;
     }
+
     visibilityChecks = 0;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult repeated = renderWorld(&camera, view, projection, wireframe);
@@ -124,6 +133,7 @@ static bool testVisibilityInvalidation(Camera camera) {
       return false;
     }
   }
+
   glViewport(0, 0, 960, 540);
   return true;
 }
@@ -148,9 +158,11 @@ static bool testMovingOcclusion(GLuint shader) {
       fprintf(stderr, "Moving occlusion frame %d: expected one terrain draw behind a solid wall, got %d\n", frame, result.terrainDrawCalls);
       return false;
     }
+
     if (!compareOcclusionFrame(&camera, 70, 960, 540, false, 1, 1))
       return false;
   }
+
   Camera camera = occlusionCamera((Vec3){8.5f, 20.5f, 8}, (Vec3){8.5f, 20.5f, -20});
   if (!testVisibilityInvalidation(camera))
     return false;
@@ -167,6 +179,7 @@ static bool testMovingOcclusion(GLuint shader) {
     fprintf(stderr, "Unchanged visibility repeated %u CPU checks\n", visibilityChecks);
     return false;
   }
+
   if (!compareOcclusionFrame(&camera, 100, 320, 480, false, 1, 1) || !compareOcclusionFrame(&camera, 35, 37, 23, false, 1, 1) ||
       !compareOcclusionFrame(&camera, 70, 960, 540, true, 2, 0))
     return false;
@@ -186,6 +199,7 @@ static bool testMovingOcclusion(GLuint shader) {
     if (!compareOcclusionFrame(&camera, 70, 320, 240, false, -1, 0))
       return false;
   }
+
   for (int x = 0; x < 16; x++)
     for (int y = 8; y < 32; y++)
       setBlock(&(Vec3i){x, y, 0}, BLOCK_AIR);
@@ -242,6 +256,7 @@ static bool testMovingOcclusion(GLuint shader) {
       return false;
     }
   }
+
   // Compare changing poses in the real generated world, including underground,
   // grazing horizons, sky, negative coordinates and chunk seams.
   const float heights[] = {0.5f, 10, 13.62f, 40};
@@ -255,6 +270,7 @@ static bool testMovingOcclusion(GLuint shader) {
     if (!compareOcclusionFrame(&camera, 70, 320, 180, false, -1, 0))
       return false;
   }
+
   glViewport(0, 0, 960, 540);
   puts("Occlusion matches unculled color/depth: moving walls, aperture, edits, near plane, wireframe, resize, framebuffer, and 192 terrain poses");
   return glGetError() == GL_NO_ERROR;

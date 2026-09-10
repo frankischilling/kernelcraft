@@ -46,10 +46,12 @@ static bool testTerrainLighting(GLuint shader) {
           unstable += abs(rgb[channel] - reference[face][channel]) > 1;
       }
   }
+
   if (unstable) {
     fprintf(stderr, "Terrain lighting changed with world position or camera angle: %d channel samples\n", unstable);
     success = false;
   }
+
   // Mid-gray must remain visible even underneath a block. Tops should be
   // brighter than every side, and sides brighter than undersides.
   for (int face = 0; face < 6; face++) {
@@ -60,6 +62,7 @@ static bool testTerrainLighting(GLuint shader) {
         success &= reference[TOP][channel] > reference[face][channel] + 8 && reference[face][channel] > reference[BOTTOM][channel] + 8;
     }
   }
+
   // A linear-light multiply keeps the decoded gray/white reflectance ratio.
   // This catches gamma-space shading and applying output encoding twice.
   const unsigned char levels[] = {0, 8, 64, 128, 224, 240, 255};
@@ -80,6 +83,7 @@ static bool testTerrainLighting(GLuint shader) {
       }
     }
   }
+
   if (!success)
     fprintf(stderr, "Terrain lighting stability, face readability, or texture contrast failed\n");
   else

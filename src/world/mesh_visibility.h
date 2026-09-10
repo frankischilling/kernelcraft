@@ -6,6 +6,7 @@
 typedef struct {
   Vec3 min, max;
 } MeshSurfaceBounds;
+
 typedef struct {
   MeshSurfaceBounds* surfaces;
   size_t surfaceCount;

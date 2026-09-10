@@ -6,6 +6,7 @@
  */
 #include "cube.h"
 #include <stdio.h>
+
 typedef struct {
   float vertices[48]; // 6 vertices * 8 floats per vertex
 } CubeFace;

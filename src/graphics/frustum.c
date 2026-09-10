@@ -91,6 +91,7 @@ bool is_block_occluded(Vec3i* pos, float size, const Camera* camera) {
     if (!neighbor || neighbor->id == BLOCK_AIR)
       return false;
   }
+
   return true;
 }
 

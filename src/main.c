@@ -45,10 +45,12 @@ static bool saveSession(const AppOptions* options) {
     fprintf(stderr, "Cannot save world: no clear player position\n");
     return false;
   }
+
   if (saveWorld(options->worldPath, &saved, error, sizeof(error)) != SAVE_OK) {
     fprintf(stderr, "Cannot save world '%s': %s\n", options->worldPath, error);
     return false;
   }
+
   printf("Saved world: %s\n", options->worldPath);
   return true;
 }
@@ -69,6 +71,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "%s\n", error);
     return EXIT_FAILURE;
   }
+
   if (options.help) {
     puts("Usage: minecraft_clone [--world PATH] [--seed N] [--no-save]\n"
          "--world PATH  Load or create this file (default: kernelcraft.kcw in the launch directory)\n"
@@ -85,11 +88,13 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Failed to locate the executable directory\n");
     return EXIT_FAILURE;
   }
+
   wchar_t* separator = wcsrchr(executablePath, L'\\');
   if (!separator) {
     fprintf(stderr, "Invalid executable path\n");
     return EXIT_FAILURE;
   }
+
   *separator = L'\0';
   if (!SetCurrentDirectoryW(executablePath)) {
     fprintf(stderr, "Failed to open the executable directory\n");
@@ -103,12 +108,14 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Failed to locate the executable directory: %s\n", length < 0 ? strerror(errno) : "path too long");
     return EXIT_FAILURE;
   }
+
   executablePath[length] = '\0';
   char* separator = strrchr(executablePath, '/');
   if (!separator) {
     fprintf(stderr, "Invalid executable path\n");
     return EXIT_FAILURE;
   }
+
   separator[separator == executablePath ? 1 : 0] = '\0';
   if (chdir(executablePath) != 0) {
     fprintf(stderr, "Failed to open the executable directory: %s\n", strerror(errno));
@@ -144,6 +151,7 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
+
   // Some compatibility drivers leave an error while GLEW probes extensions.
   while (glGetError() != GL_NO_ERROR) {
   }
@@ -174,6 +182,7 @@ int main(int argc, char** argv) {
   } else {
     fprintf(stderr, "Cannot load world '%s': %s\n", options.worldPath, error);
   }
+
   if (!worldReady || !initWorld(shaderProgram)) {
     cleanupChunks();
     glDeleteProgram(shaderProgram);
@@ -181,6 +190,7 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
+
   if (!HUDInit(BUILD_NAME, BUILD_VERSION)) {
     cleanupWorld();
     cleanupChunks();
@@ -201,6 +211,7 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
+
   glfwSetWindowUserPointer(window, &input);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glfwSetCursorPosCallback(window, mouseCallback);
@@ -237,6 +248,7 @@ int main(int argc, char** argv) {
       lastFrame = glfwGetTime();
       continue;
     }
+
     processInput(window, &input, deltaTime);
     processBlockBreaking(window, &input, deltaTime);
     if (input.saveRequested) {
@@ -244,6 +256,7 @@ int main(int argc, char** argv) {
       if (!options.noSave)
         saveStatus = saveSession(&options) ? "Saved (F5)" : "Save failed; see console";
     }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, width, height);
     Mat4 view, projection;
@@ -257,6 +270,7 @@ int main(int argc, char** argv) {
       exitStatus = EXIT_FAILURE;
       break;
     }
+
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
     drawSelection(&selection, view, projection);
     DebugData data = {.camera = &camera,

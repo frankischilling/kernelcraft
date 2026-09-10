@@ -31,6 +31,7 @@ static GLuint iconTextures[6];
   } while (0)
 
 GLuint __real_loadTexture(const char* path);
+
 GLuint __wrap_loadTexture(const char* path) {
   if (failTexture && !strcmp(path, failTexture))
     return 0;
@@ -41,6 +42,7 @@ GLuint __wrap_loadTexture(const char* path) {
 }
 
 void __real_renderText(const TextState* state, const char* text, float x, float y);
+
 void __wrap_renderText(const TextState* state, const char* text, float x, float y) {
   CHECK(state->fontHeight == glutBitmapHeight(state->font));
   sawSaveFailure |= strstr(text, "Save failed") != NULL;
@@ -60,6 +62,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
     CHECK(!iconTextures[slot] || iconTextures[slot] == (GLuint)texture);
     iconTextures[slot] = (GLuint)texture;
   }
+
   int width = glutBitmapLength(state->font, (const unsigned char*)text);
   float top = y - state->fontHeight, bottom = y + 4;
   CHECK(x >= 0 && x + width <= state->viewport[2]);
@@ -75,6 +78,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
     rectangles[labels][2] = x + width;
     rectangles[labels++][3] = bottom;
   }
+
   __real_renderText(state, text, x, y);
 }
 
@@ -111,9 +115,11 @@ static bool hasIcon(const unsigned char* pixels, int width, int height, int slot
             if (abs((int)actual[channel] - expected[channel]) > 1)
               match = false;
         }
+
       if (match)
         return true;
     }
+
   return false;
 }
 
@@ -130,6 +136,7 @@ int main(int argc, char** argv) {
     return 1;
   while (glGetError() != GL_NO_ERROR) {
   }
+
   Camera camera;
   initCamera(&camera);
   RenderResult stats = {.submittedQuads = 100000, .submittedTriangles = 200000};
@@ -166,6 +173,7 @@ int main(int argc, char** argv) {
     for (int pixel = 0; pixel < 16 * 16; pixel++)
       CHECK(reference[slot][pixel * 4 + 3] == 255);
   }
+
   const int sizes[][2] = {{320, 240}, {240, 320}, {640, 360}, {1280, 720}, {1920, 1080}, {192, 120}, {640, 120}, {1280, 120}, {96, 120}, {64, 64}, {1, 1}, {0, 0}};
   for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
     int width = sizes[i][0], height = sizes[i][1];
@@ -176,6 +184,7 @@ int main(int argc, char** argv) {
       glfwSwapBuffers(window);
       glfwGetFramebufferSize(window, &width, &height);
     }
+
     glViewport(0, 0, width, height);
     for (int debug = 0; debug <= 1; debug++) {
       labels = 0;
@@ -241,6 +250,7 @@ int main(int argc, char** argv) {
         CHECK(labels >= 5 && sawSaveFailure && sawModeBlocked && sawDebugHint);
         CHECK(sawFPS == (bool)debug);
       }
+
       if (width >= 1280 && height >= 240)
         CHECK(sawWireframe);
       if (!width || !height) {
@@ -248,6 +258,7 @@ int main(int argc, char** argv) {
         CHECK(glGetError() == GL_NO_ERROR);
         continue;
       }
+
       unsigned char* pixels = malloc((size_t)width * height * 3);
       CHECK(pixels);
       if (!pixels)
@@ -260,6 +271,7 @@ int main(int argc, char** argv) {
         CHECK(debug ? filled[0] < 240 : filled[0] > 240 && filled[1] > 180 && filled[2] < 100);
         CHECK(debug ? empty[0] < 240 : empty[0] < 30 && empty[1] < 30 && empty[2] < 30);
       }
+
       if (width >= 192 && height >= 120) {
         for (int slot = 0; slot < 9; slot++)
           CHECK(materialX[slot] >= 0 && (!slot || materialX[slot] > materialX[slot - 1]));
@@ -277,6 +289,7 @@ int main(int argc, char** argv) {
               gold[slot]++;
             }
           }
+
         // Each slot must occupy its own region, with exactly one selected border.
         int selected = data.selectedSlot;
         CHECK(gold[selected] > 10);
@@ -295,11 +308,13 @@ int main(int argc, char** argv) {
         for (int slot = 0; slot < 9; slot++)
           CHECK(materialX[slot] == -1);
       }
+
       capture(width, height, (int)i, debug, pixels);
       free(pixels);
       CHECK(glGetError() == GL_NO_ERROR);
     }
   }
+
   glfwSetWindowSize(window, 640, 480);
   glfwPollEvents();
   glfwSwapBuffers(window);
@@ -317,6 +332,7 @@ int main(int argc, char** argv) {
     HUDDraw(0, &data);
     CHECK(sawMovement && glGetError() == GL_NO_ERROR);
   }
+
   const char* names[] = {"Cobblestone", "Oak planks", "Stone bricks"};
   for (int material = 0; material < 3; material++) {
     labels = 0;
@@ -326,6 +342,7 @@ int main(int argc, char** argv) {
     HUDDraw(0, &data);
     CHECK(sawMaterial);
   }
+
   HUDCleanup();
   for (int slot = 0; slot < 6; slot++)
     CHECK(iconTextures[slot] && !glIsTexture(iconTextures[slot]));
@@ -339,6 +356,7 @@ int main(int argc, char** argv) {
       CHECK(partialTextures[slot] && !glIsTexture(partialTextures[slot]));
     HUDCleanup();
   }
+
   failTexture = NULL;
   memset(iconTextures, 0, sizeof(iconTextures));
   CHECK(HUDInit("kernelcraft", "recovered material icons"));

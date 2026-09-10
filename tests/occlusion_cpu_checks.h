@@ -71,6 +71,7 @@ static void check_occluder_mesh(const ChunkMesh* mesh) {
         same &= memcmp(&mesh->vertices[first + corner].position, &occluders.quads[i].corners[corner], sizeof(Vec3)) == 0;
       found |= same;
     }
+
     CHECK(found); // A chunk box or an invented solid span cannot become an occluder.
   }
 }
@@ -99,6 +100,7 @@ static void test_mesh_visibility(void) {
       {{-10.5f, -0.5f, -3}, {-9.5f, -0.5f, -3}, {-9.5f, 0.5f, -3}, {-10.5f, 0.5f, -3}}, // Before near plane.
       {{-10.5f, -0.5f, -7}, {-9.5f, -0.5f, -7}, {-9.5f, 0.5f, -7}, {-10.5f, 0.5f, -7}}, // Beyond far plane.
   };
+
   for (size_t rectangle = 0; rectangle < sizeof(rectangles) / sizeof(rectangles[0]); rectangle++) {
     for (int i = 0; i < 4; i++)
       vertices[i].position = rectangles[rectangle][i];
@@ -113,6 +115,7 @@ static void test_mesh_visibility(void) {
     vertices[i].position = rectangles[0][i % 4];
     vertices[i].position.x += i < 4 ? -5 : 5;
   }
+
   CHECK(buildMeshVisibility(&mesh, &visibility));
   CHECK(visibility.surfaceCount == 2);
   CHECK(!meshVisibilityIntersects(&visibility, box));

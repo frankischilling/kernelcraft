@@ -26,19 +26,24 @@ static PFNGLBUFFERDATAPROC realBufferData;
 static PFNGLGETUNIFORMLOCATIONPROC realGetUniformLocation;
 
 void __real_glDrawArrays(GLenum mode, GLint first, GLsizei count);
+
 void __wrap_glDrawArrays(GLenum mode, GLint first, GLsizei count) {
   draws++;
   __real_glDrawArrays(mode, first, count);
 }
+
 void __real_glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices);
+
 void __wrap_glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices) {
   draws++;
   __real_glDrawElements(mode, count, type, indices);
 }
+
 static void GLAPIENTRY countSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void* data) {
   uploads++;
   realBufferSubData(target, offset, size, data);
 }
+
 static void GLAPIENTRY countData(GLenum target, GLsizeiptr size, const void* data, GLenum usage) {
   uploads++;
 #ifndef KERNELCRAFT_BASELINE
@@ -52,6 +57,7 @@ static void GLAPIENTRY countData(GLenum target, GLsizeiptr size, const void* dat
 #endif
   realBufferData(target, size, data, usage);
 }
+
 static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
   lookups++;
   return realGetUniformLocation(program, name);
@@ -99,6 +105,7 @@ static bool testWireframe(GLuint shader) {
     success &= pass == 1 ? lit > 50 && lit < 1500 : lit == 96 * 96;
     printf("Terrain wireframe pass %d: %d/9216 lit pixels\n", pass, lit);
   }
+
   success &= memcmp(pixels[0], pixels[2], sizeof(pixels[0])) == 0;
   // A negative-coordinate seam edit must still invalidate both neighboring
   // chunks and upload their replacement meshes while wireframe is active.
@@ -165,6 +172,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
       memset(chunk->blocks, 0, sizeof(chunk->blocks));
     }
+
   for (int x = 1; x < 5; x++)
     for (int y = 20; y < 23; y++)
       for (int z = 1; z < 4; z++)
@@ -206,6 +214,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
       success = false;
       break;
     }
+
     glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, merged);
     // Use the original 2D sampler with independent face material selection.
     // The grid is outside the compared prism pixels.
@@ -230,6 +239,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
               vertices[corner * 8 + 1] = (vertices[corner * 8 + 1] + y + 0.5f) * CUBE_SIZE;
               vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
             }
+
             int id = repeatedTextureBlock(pattern, x, y, z);
             int material = referenceTerrainMaterial(id, face);
             material = referenceTerrainLayer(material, (Vec3i){x, y, z}, worldSeed());
@@ -237,6 +247,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
             glDrawArrays(GL_TRIANGLES, 0, 6);
           }
+
     glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, reference);
     size_t compared = 0, different = 0;
     for (size_t pixel = 0; pixel < bytes; pixel += 3) {
@@ -249,11 +260,13 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
           break;
         }
     }
+
     /* Nearest sampling can differ at texel boundaries after retriangulation.
      * Permit at most 0.2% differing pixels, not stretched or rotated tiles. */
     printf("Repeated texture pattern %d face %d: %zu/%zu differing pixels\n", pattern, direction, different, compared);
     success = compared > 10000 && different * 500 <= compared && glGetError() == GL_NO_ERROR;
   }
+
   free(merged);
   free(reference);
   glBindVertexArray(0);
@@ -281,6 +294,7 @@ static bool selectionPixelNear(const unsigned char* pixels, const Mat4 matrix, V
       if (color[0] > 240 && color[1] > 180 && color[2] < 100)
         return true;
     }
+
   return false;
 }
 
@@ -297,6 +311,7 @@ static bool testSelectionVisibility(GLuint shader) {
         Chunk* chunk = getChunk(&(Vec2i){x, z});
         memset(chunk->blocks, 0, sizeof(chunk->blocks));
       }
+
     Vec3 normal = vec3FaceMap[face], u = normal.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
     vec3_cross(&v, &normal, &u);
     // The selected face is in the middle of a flush 3x3 surface.
@@ -307,6 +322,7 @@ static bool testSelectionVisibility(GLuint shader) {
       success = false;
       break;
     }
+
     Vec3 center = {selected.x + 0.5f + normal.x * 0.5f, selected.y + 0.5f + normal.y * 0.5f, selected.z + 0.5f + normal.z * 0.5f};
     for (size_t angle = 0; angle < sizeof(angles) / sizeof(angles[0]); angle++) {
       float outward = 4 * cosf(toRadians(angles[angle])), tangent = 4 * sinf(toRadians(angles[angle]));
@@ -326,6 +342,7 @@ static bool testSelectionVisibility(GLuint shader) {
         success = false;
         continue;
       }
+
       drawSelection(&hit, view, projection);
       glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
       for (int edge = 0; edge < 4; edge++) {
@@ -337,6 +354,7 @@ static bool testSelectionVisibility(GLuint shader) {
           Vec3 point = {center.x + a * u.x + b * v.x, center.y + a * u.y + b * v.y, center.z + a * u.z + b * v.z};
           visible += selectionPixelNear(pixels, combined, point);
         }
+
         if (visible < 29) {
           fprintf(stderr, "Selection face %d angle %.0f edge %d: only %d/32 visible samples\n", face, angles[angle], edge, visible);
           success = false;
@@ -344,6 +362,7 @@ static bool testSelectionVisibility(GLuint shader) {
       }
     }
   }
+
   free(pixels);
   return success;
 }
@@ -361,6 +380,7 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
           Chunk* chunk = getChunk(&(Vec2i){x, z});
           memset(chunk->blocks, 0, sizeof(chunk->blocks));
         }
+
       Vec3 n = vec3FaceMap[face], u = n.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
       vec3_cross(&v, &n, &u);
       // Rotate the same floor/neighbor arrangement onto all six faces.
@@ -375,10 +395,12 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
               setBlock(&(Vec3i){selected.x + (int)(a * u.x + b * v.x + c * n.x), selected.y + (int)(a * u.y + b * v.y + c * n.y), selected.z + (int)(a * u.z + b * v.z + c * n.z)},
                        BLOCK_GRASS);
           }
+
       if (!initWorld(shader)) {
         free(pixels);
         return false;
       }
+
       Vec3 center = {selected.x + 0.5f + n.x * 0.5f, selected.y + 0.5f + n.y * 0.5f, selected.z + 0.5f + n.z * 0.5f};
       for (int angle = 0; angle < 3; angle++) {
         Camera camera = {.position = {center.x + 3.5f * n.x + (0.75f + angle * 0.75f) * v.x - angle * u.x, center.y + 3.5f * n.y + (0.75f + angle * 0.75f) * v.y - angle * u.y,
@@ -397,6 +419,7 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
           success = false;
           continue;
         }
+
         drawSelection(&hit, view, projection);
         glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
         if (capturePrefix && layout == 0 && face == FRONT && angle == 0) {
@@ -407,11 +430,13 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
             free(pixels);
             return false;
           }
+
           fprintf(capture, "P6\n960 540\n255\n");
           for (int row = 539; row >= 0; row--)
             fwrite(pixels + row * 960 * 3, 1, 960 * 3, capture);
           fclose(capture);
         }
+
         // Four edges of the aimed face, plus the other three top edges in
         // the reference arrangement. Every sampled boundary is visible terrain.
         for (int edge = 0; edge < (layout ? 4 : 7); edge++) {
@@ -424,6 +449,7 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
             Vec3 point = {center.x + a * u.x + b * v.x + c * n.x, center.y + a * u.y + b * v.y + c * n.y, center.z + a * u.z + b * v.z + c * n.z};
             visible += selectionPixelNear(pixels, combined, point);
           }
+
           if (visible < 30) {
             fprintf(stderr, "Neighbor selection layout %d face %d view %d edge %d: only %d/32 visible samples\n", layout, face, angle, edge, visible);
             success = false;
@@ -431,6 +457,7 @@ static bool testNeighborSelection(GLuint shader, const char* capturePrefix) {
         }
       }
     }
+
   free(pixels);
   if (success)
     puts("Selection floor and side boundaries passed in 36 views");
@@ -443,6 +470,7 @@ static bool testCloseSelection(GLuint shader) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
       memset(chunk->blocks, 0, sizeof(chunk->blocks));
     }
+
   setBlock(&(Vec3i){-1, 20, 0}, BLOCK_STONE);
   if (!initWorld(shader))
     return false;
@@ -469,6 +497,7 @@ static bool testCloseSelection(GLuint shader) {
     if (!result.success || !hit.hit || hit.normal.x != n.x || hit.normal.y != n.y || hit.normal.z != n.z || highlighted <= 4000 || glGetError() != GL_NO_ERROR)
       return false;
   }
+
   return true;
 }
 
@@ -515,6 +544,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
     glGetIntegerv(names[state], &value);
     restored &= value == expected[state];
   }
+
   GLint polygonMode[2];
   GLfloat factor, units, color[4], width;
   glGetIntegerv(GL_POLYGON_MODE, polygonMode);
@@ -537,6 +567,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
     fprintf(stderr, "Selection changed caller state, neighboring pixels, or depth storage\n");
     return false;
   }
+
   // Even a stale selection must not draw through a nearer voxel.
   setBlock(&(Vec3i){-1, 20, 2}, BLOCK_STONE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -570,6 +601,7 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
         occluded = false;
         break;
       }
+
       glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, before);
       drawSelection(&hit, view, projection);
       glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, after);
@@ -579,12 +611,14 @@ static bool testSelectionOcclusionAndState(GLuint shader) {
       }
     }
   }
+
   free(before);
   free(after);
   if (!occluded || glGetError() != GL_NO_ERROR) {
     fprintf(stderr, "Selection leaked through foreground terrain or drew a missed target\n");
     return false;
   }
+
   puts("Selection close-up, neighboring face, foreground occlusion, and GL state tests passed");
   return true;
 }
@@ -604,6 +638,7 @@ int main(int argc, char** argv) {
     return 1;
   while (glGetError() != GL_NO_ERROR) {
   }
+
   glViewport(0, 0, 960, 540);
   glEnable(GL_DEPTH_TEST);
   printf("renderer: %s\n", glGetString(GL_RENDERER));
@@ -644,6 +679,7 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return status;
   }
+
   if (getenv("KERNELCRAFT_OCCLUSION_CHECK"))
     return testMovingOcclusion(shader) ? 0 : 24;
 #endif
@@ -664,6 +700,7 @@ int main(int argc, char** argv) {
         draws = uploads = lookups = 0;
         start = glfwGetTime();
       }
+
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       Mat4 view, projection;
       Vec3 target;
@@ -690,6 +727,7 @@ int main(int argc, char** argv) {
       HUDDraw(shader, &data);
       glFinish();
     }
+
     elapsed = glfwGetTime() - start;
     printf("pitch=%5.1f frame_ms=%.3f terrain_grid_draws_per_frame=%lu uploads_per_frame=%lu lookups_per_frame=%lu surface_blocks=%d\n", pitches[scenario], elapsed * 1000.0 / 60,
            draws / 60, uploads / 60, lookups / 60, result.surfaceBlocks);
@@ -699,6 +737,7 @@ int main(int argc, char** argv) {
       fprintf(stderr, "Expected one terrain draw per visible chunk plus the grid\n");
       return 15;
     }
+
     if (uploads || lookups || draws > 60 * (4 * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS + 1))
       return 2;
     if (scenario == 2 && result.surfaceBlocks != 0)
@@ -711,6 +750,7 @@ int main(int argc, char** argv) {
       fprintf(stderr, "GL error: %u\n", error);
       return 4;
     }
+
     {
       unsigned char* pixels = malloc(960 * 540 * 3);
       if (!pixels)
@@ -726,6 +766,7 @@ int main(int argc, char** argv) {
           if (abs(pixel[0] - pixel[1]) > 5 || abs(pixel[1] - pixel[2]) > 5)
             terrainPixels++;
         }
+
       if (scenario == 3 && terrainPixels < 500) {
         fprintf(stderr, "Exterior terrain did not produce visible textured pixels\n");
         free(pixels);
@@ -743,6 +784,7 @@ int main(int argc, char** argv) {
           fwrite(pixels + row * 960 * 3, 1, 960 * 3, capture);
         fclose(capture);
       }
+
       free(pixels);
     }
   }
@@ -754,6 +796,7 @@ int main(int argc, char** argv) {
       Chunk* chunk = getChunk(&index);
       memset(chunk->blocks, 0, sizeof(chunk->blocks));
     }
+
   Vec3i blockPosition = {0, 0, 0};
   setBlock(&blockPosition, BLOCK_STONE);
   if (!initWorld(shader))
@@ -771,6 +814,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "The block surface disappeared during free flight inside terrain\n");
     return 6;
   }
+
   // Edits must update both sides of a chunk seam in the next frame.
   setBlock(&blockPosition, BLOCK_AIR);
   Vec3i left = {-1, 20, 1}, right = {0, 20, 1};
@@ -816,6 +860,7 @@ int main(int argc, char** argv) {
     if (!renderWorld(&editCamera, view, projection, false).success)
       return 13;
   }
+
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
   if (!testMovingOcclusion(shader))
     return 24;
@@ -832,6 +877,7 @@ int main(int argc, char** argv) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
       return 14;
     }
+
   if (!testSelectionVisibility(shader))
     return 16;
   if (!testNeighborSelection(shader, argc > 1 ? argv[1] : NULL))

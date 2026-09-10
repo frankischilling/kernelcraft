@@ -40,6 +40,7 @@ bool buildMeshVisibility(const ChunkMesh* mesh, MeshVisibility* visibility) {
     extendBounds(&visibility->bounds, &surface->min);
     extendBounds(&visibility->bounds, &surface->max);
   }
+
   return true;
 }
 
@@ -64,6 +65,7 @@ static bool rectangleIntersects(const MeshSurfaceBounds* node, const float plane
     b.x = c.x;
     d.x = a.x;
   }
+
   polygons[0][0] = a;
   polygons[0][1] = b;
   polygons[0][2] = c;
@@ -85,16 +87,19 @@ static bool rectangleIntersects(const MeshSurfaceBounds* node, const float plane
         polygons[1 - input][outputCount++] =
             (Vec3){previous.x + t * (current.x - previous.x), previous.y + t * (current.y - previous.y), previous.z + t * (current.z - previous.z)};
       }
+
       if (distance >= 0)
         polygons[1 - input][outputCount++] = current;
       previous = current;
       previousDistance = distance;
     }
+
     if (!outputCount)
       return false;
     input = 1 - input;
     count = outputCount;
   }
+
   return true;
 }
 
@@ -108,6 +113,7 @@ static int classifyBounds(const MeshSurfaceBounds* node, const float planes[6][4
     Vec3 near = {planes[i][0] >= 0 ? node->min.x : node->max.x, planes[i][1] >= 0 ? node->min.y : node->max.y, planes[i][2] >= 0 ? node->min.z : node->max.z};
     entirelyInside &= planeDistance(planes[i], near) >= 0;
   }
+
   return entirelyInside ? 1 : 0;
 }
 
@@ -125,5 +131,6 @@ bool meshVisibilityIntersects(const MeshVisibility* visibility, const float plan
     if (intersection > 0 || (intersection == 0 && rectangleIntersects(surface, planes)))
       return true;
   }
+
   return false;
 }

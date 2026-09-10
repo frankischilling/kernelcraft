@@ -40,6 +40,7 @@ bool advanceBlockBreaking(BlockBreaking* breaking, Vec3 eye, Vec3 direction, dou
     resetBlockBreaking(breaking);
     return false;
   }
+
   Ray ray = rayCast(eye, direction, EDIT_REACH);
   const Block* block = ray.hit ? getBlock(&ray.blockCoords) : NULL;
   double duration = block ? blockHandBreakSeconds(block->id) : 0;
@@ -47,11 +48,13 @@ bool advanceBlockBreaking(BlockBreaking* breaking, Vec3 eye, Vec3 direction, dou
     resetBlockBreaking(breaking);
     return false;
   }
+
   if (!breaking->active || breaking->block != block->id || breaking->target.x != ray.blockCoords.x || breaking->target.y != ray.blockCoords.y ||
       breaking->target.z != ray.blockCoords.z) {
     *breaking = (BlockBreaking){.target = ray.blockCoords, .block = block->id, .active = true};
     return false;
   }
+
   breaking->elapsed += fmin(frameSeconds, BREAK_MAX_FRAME_SECONDS);
   // Allow sub-nanosecond summation error at rates such as 60 and 120 Hz.
   if (breaking->elapsed + 1e-9 < duration)

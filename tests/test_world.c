@@ -52,6 +52,7 @@ static void test_occlusion(void) {
     Vec3i neighbor = {center.x + vec3iFaceMap[face].x, center.y + vec3iFaceMap[face].y, center.z + vec3iFaceMap[face].z};
     writeBlock(&neighbor, BLOCK_STONE);
   }
+
   CHECK(is_block_occluded(&center, 1, NULL));
   Vec3i top = {0, 21, 0};
   writeBlock(&top, BLOCK_AIR);
@@ -95,6 +96,7 @@ static void check_mesh_geometry(const ChunkMesh* mesh) {
     vec3_cross(&normal, &ab, &ac);
     CHECK(vec3_dot(&normal, &v0->normal) > 0);
   }
+
   for (size_t i = 0; i < mesh->vertexCount; i++) {
     const MeshVertex* vertex = &mesh->vertices[i];
     CHECK(vertex->position.x >= mesh->min.x && vertex->position.x <= mesh->max.x);
@@ -137,6 +139,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
           high[axis] = fmaxf(high[axis], p[axis]);
         }
       }
+
       int axis = n.x ? 0 : n.y ? 1 : 2;
       int u = axis == 0 ? 2 : 0, v = axis == 1 ? 2 : 1;
       CHECK(low[axis] == high[axis] && high[u] > low[u] && high[v] > low[v]);
@@ -147,12 +150,14 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
         if (vertex >= slot * 4 && vertex < (slot + 1) * 4)
           references[vertex - slot * 4]++;
       }
+
       int diagonal[2] = {0}, shared = 0;
       for (int c = 0; c < 4; c++) {
         CHECK(references[c] == 1 || references[c] == 2);
         if (references[c] == 2 && shared < 2)
           diagonal[shared++] = c;
       }
+
       CHECK(shared == 2);
       Vec3 d;
       vec3_subtract(&d, &vertices[diagonal[0]].position, &vertices[diagonal[1]].position);
@@ -165,6 +170,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
         CHECK(vertices[c].uv[0] == p[u] - low[u]);
         CHECK(vertices[c].uv[1] == (face == TOP ? p[v] - low[v] : high[v] - p[v]));
       }
+
       for (int a = (int)low[u]; a < (int)high[u]; a++)
         for (int b = (int)low[v]; b < (int)high[v]; b++) {
           int cell[3] = {(int)low[0], (int)low[1], (int)low[2]};
@@ -194,6 +200,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
         }
     }
   }
+
   CHECK(nextIndex == mesh->indexCount);
   for (int x = 0; x < CHUNK_SIZE; x++)
     for (int y = 0; y < CHUNK_HEIGHT; y++)
@@ -205,6 +212,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
           bool exposed = blockIsSolid(chunk->blocks[x][y][z].id) && (!neighbor || !blockIsSolid(neighbor->id));
           CHECK(seen[x][y][z][face] == (unsigned)exposed);
         }
+
   return area;
 }
 
@@ -291,6 +299,7 @@ static void test_greedy_shapes(void) {
     CHECK(check_mesh_coverage(buildingChunk, &buildingMesh) == 10);
     freeChunkMesh(&buildingMesh);
   }
+
   clear_world();
   Chunk* chunk = getChunk(&(Vec2i){7, 7});
   for (int x = 2; x < 7; x++)
@@ -314,6 +323,7 @@ static void test_greedy_shapes(void) {
             id = BLOCK_AIR;
           CHECK(setBlock(&(Vec3i){x, y, z}, id));
         }
+
     for (int x = 6; x <= 8; x++)
       for (int z = 6; z <= 8; z++) {
         Chunk* current = getChunk(&(Vec2i){x, z});
@@ -334,6 +344,7 @@ static void test_generated_meshes(void) {
         Vec3i pos = {x, y, z};
         terrainHash = (terrainHash ^ getBlock(&pos)->id) * UINT64_C(1099511628211);
       }
+
   CHECK(terrainHash == UINT64_C(512190482430576247));
   size_t faces = 0, quads = 0, bytes = 0;
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
@@ -358,6 +369,7 @@ static void test_generated_meshes(void) {
                 expectedFaces++;
             }
           }
+
       CHECK(check_mesh_coverage(chunk, &mesh) == expectedFaces);
       CHECK(mesh.indexCount <= expectedFaces * 6);
       check_mesh_geometry(&mesh);
@@ -367,6 +379,7 @@ static void test_generated_meshes(void) {
       freeChunkMesh(&mesh);
     }
   }
+
   printf("Generated world: %zu exposed unit faces, %zu quads, %zu mesh bytes\n", faces, quads, bytes);
 }
 #endif
@@ -390,6 +403,7 @@ int main(void) {
     fprintf(stderr, "%d checks failed\n", failures);
     return 1;
   }
+
   puts("World regression tests passed");
   return 0;
 }

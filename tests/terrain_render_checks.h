@@ -35,6 +35,7 @@ static bool testTerrainVariants(GLuint shader) {
       success = false;
       break;
     }
+
     uint64_t fingerprint = UINT64_C(14695981039346656037);
     for (int id = BLOCK_GRASS; success && id <= BLOCK_STONE_BRICKS; id++)
       for (int face = 0; success && face < 6; face++) {
@@ -48,6 +49,7 @@ static bool testTerrainVariants(GLuint shader) {
           success = false;
           break;
         }
+
         GLint layers = 0;
         glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_DEPTH, &layers);
         if (layers != 10) {
@@ -55,6 +57,7 @@ static bool testTerrainVariants(GLuint shader) {
           success = false;
           break;
         }
+
         // Replace only the in-memory fixture tiles with distinct RGB bit masks.
         // The real shader, array binding, greedy meshes, and culling still run.
         unsigned char colors[10 * 4];
@@ -63,6 +66,7 @@ static bool testTerrainVariants(GLuint shader) {
             colors[layer * 4 + channel] = ((layer + 1) & (1 << channel)) ? 255 : 0;
           colors[layer * 4 + 3] = 255;
         }
+
         // An eighth binary RGB mask would be black and could hide missing faces.
         // Orange stays distinct from the seven masks under terrain lighting.
         colors[28] = 255;
@@ -83,6 +87,7 @@ static bool testTerrainVariants(GLuint shader) {
           success = false;
           break;
         }
+
         glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
         for (int a = -16; success && a < 16; a++)
           for (int b = -16; b < 16; b++) {
@@ -95,6 +100,7 @@ static bool testTerrainVariants(GLuint shader) {
               success = false;
               break;
             }
+
             const unsigned char* rgb = pixels + (y * 960 + x) * 3;
             int actual = (rgb[0] > 20 ? 1 : 0) + (rgb[1] > 20 ? 2 : 0) + (rgb[2] > 20 ? 4 : 0) - 1;
             if (rgb[1] > 5 && rgb[0] > 2 * rgb[1] && rgb[2] == 0)
@@ -110,10 +116,12 @@ static bool testTerrainVariants(GLuint shader) {
               success = false;
               break;
             }
+
             totals[material]++;
             variants[material] += actual != material;
             fingerprint = (fingerprint ^ (unsigned)actual) * UINT64_C(1099511628211);
           }
+
         // Rebuilding after an edit must leave the remaining tile choices stable.
         if (success && face == FRONT) {
           setBlock(&(Vec3i){-1, 24, 0}, BLOCK_AIR);
@@ -123,19 +131,24 @@ static bool testTerrainVariants(GLuint shader) {
           glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, rebuilt);
           success &= memcmp(pixels, rebuilt, 960 * 540 * 3) == 0;
         }
+
         success &= glGetError() == GL_NO_ERROR;
       }
+
     fingerprints[seed] = fingerprint;
   }
+
   const int low[] = {0, 22, 7, 1}, high[] = {0, 28, 13, 3};
   for (int material = 0; success && material < 4; material++) {
     printf("Terrain material %d: %zu/%zu variant tiles\n", material, variants[material], totals[material]);
     success &= totals[material] > 1000 && variants[material] * 100 >= totals[material] * low[material] && variants[material] * 100 <= totals[material] * high[material];
   }
+
   for (int material = 7; material < 10; material++) {
     printf("Terrain building material %d: %zu/%zu variant tiles\n", material, variants[material], totals[material]);
     success &= totals[material] == 3 * 6 * 32 * 32 && variants[material] == 0;
   }
+
   success &= fingerprints[0] == fingerprints[2] && fingerprints[0] != fingerprints[1];
   free(pixels);
   free(rebuilt);
@@ -166,6 +179,7 @@ static bool testFarTerrain(GLuint shader) {
       fprintf(stderr, "Terrain at %d blocks: visible=%d, chunks=%d, expected=%d\n", distances[i], visible, result.chunksRendered, expected);
       return false;
     }
+
     RenderResult wireframe = renderWorld(&camera, view, projection, true);
     if (!wireframe.success || wireframe.chunksRendered != result.chunksRendered || wireframe.submittedTriangles != result.submittedTriangles || wireframe.chunksRebuilt)
       return false;
@@ -177,6 +191,7 @@ static bool testFarTerrain(GLuint shader) {
       return false;
     setBlock(&block, BLOCK_AIR);
   }
+
   puts("Terrain render radius: 64/80 blocks visible, 112 blocks culled in both directions");
   return glGetError() == GL_NO_ERROR;
 }

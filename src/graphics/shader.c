@@ -23,6 +23,7 @@ static char* readShaderFile(const char* filePath) {
     fclose(file);
     return NULL;
   }
+
   long length = ftell(file);
   if (length <= 0 || fseek(file, 0, SEEK_SET) != 0) {
     fprintf(stderr, "Empty or unreadable shader file: %s\n", filePath);
@@ -44,6 +45,7 @@ static char* readShaderFile(const char* filePath) {
     fclose(file);
     return NULL;
   }
+
   buffer[bytesRead] = '\0';
   fclose(file);
 
@@ -57,6 +59,7 @@ static GLuint compileShader(const char* code, GLenum type) {
     fprintf(stderr, "Failed to create %s shader\n", type == GL_VERTEX_SHADER ? "vertex" : "fragment");
     return 0;
   }
+
   glShaderSource(shader, 1, &code, NULL);
   glCompileShader(shader);
 
@@ -113,6 +116,7 @@ GLuint loadShaders(const char* vertexPath, const char* fragmentPath) {
     glDeleteShader(fragmentShader);
     return 0;
   }
+
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
   glLinkProgram(shaderProgram);

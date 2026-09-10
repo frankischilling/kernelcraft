@@ -45,6 +45,7 @@ static void testAxes(void) {
     ray = rayCast(origin, direction, 0);
     CHECK(ray.hit && ray.distance == 0 && equal(ray.normal, n));
   }
+
   Ray inside = rayCast((Vec3){0.5f, 20.5f, 0.5f}, (Vec3){1, 0, 0}, 6);
   CHECK(inside.hit && inside.distance == 0 && !inside.hasPlacementFace);
   CHECK(equal(inside.normal, (Vec3i){0, 0, 0}));

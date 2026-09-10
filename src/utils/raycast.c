@@ -29,6 +29,7 @@ Ray rayCast(Vec3 origin, Vec3 direction, float maxDistance) {
         return miss;
       continue;
     }
+
     double a = (lo[axis] - o[axis]) / d[axis];
     double b = (hi[axis] - o[axis]) / d[axis];
     double near = fmin(a, b), far = fmax(a, b);
@@ -36,6 +37,7 @@ Ray rayCast(Vec3 origin, Vec3 direction, float maxDistance) {
       enter = near;
       entryAxis = axis;
     }
+
     leave = fmin(leave, far);
     if (enter > leave)
       return miss;
@@ -56,6 +58,7 @@ Ray rayCast(Vec3 origin, Vec3 direction, float maxDistance) {
       normal[axis] = -step[axis];
     next[axis] = step[axis] ? (cell[axis] + (step[axis] > 0) - o[axis]) / d[axis] : INFINITY;
   }
+
   if (entryAxis >= 0)
     normal[entryAxis] = -step[entryAxis];
 
@@ -75,6 +78,7 @@ Ray rayCast(Vec3 origin, Vec3 direction, float maxDistance) {
                    .distance = (float)distance,
                    .hasPlacementFace = normal[0] || normal[1] || normal[2]};
     }
+
     double crossing = fmin(next[0], fmin(next[1], next[2]));
     if (crossing > leave)
       return miss;
@@ -89,10 +93,13 @@ Ray rayCast(Vec3 origin, Vec3 direction, float maxDistance) {
         normal[axis] = -step[axis];
         foundFace = true;
       }
+
       // Recompute from the origin instead of accumulating per-cell error.
       next[axis] = (cell[axis] + (step[axis] > 0) - o[axis]) / d[axis];
     }
+
     distance = crossing;
   }
+
   return miss;
 }

@@ -40,6 +40,7 @@ int main(void) {
       generateTerrainChunk(&actual, 42);
       CHECK(memcmp(actual.blocks, getChunk(&(Vec2i){x, z})->blocks, sizeof(actual.blocks)) == 0);
     }
+
   CHECK(fingerprint() == first);
   CHECK(initChunks());
   CHECK(worldSeed() == 0 && fingerprint() == UINT64_C(512190482430576247));

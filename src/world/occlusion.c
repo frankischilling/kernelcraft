@@ -45,6 +45,7 @@ void buildMeshOccluders(const ChunkMesh* mesh, MeshOccluders* occluders) {
       occluders->quads[index] = occluders->quads[index - 1];
       index--;
     }
+
     for (int corner = 0; corner < 4; corner++)
       occluders->quads[index].corners[corner] = mesh->vertices[first + corner].position;
     occluders->quads[index].area = area;
@@ -74,11 +75,13 @@ void occlusionRasterizeQuad(OcclusionBuffer* buffer, const Vec3 corners[4]) {
     minY = fmin(minY, p[i].y);
     maxY = fmax(maxY, p[i].y);
   }
+
   double area = 0;
   for (int i = 0; i < 4; i++) {
     int j = (i + 1) % 4;
     area += p[i].x * p[j].y - p[j].x * p[i].y;
   }
+
   if (!isfinite(area) || fabs(area) < 0.00001 || maxY <= 0 || minY >= OCCLUSION_HEIGHT)
     return;
   double a[4], b[4], c[4];
@@ -91,6 +94,7 @@ void occlusionRasterizeQuad(OcclusionBuffer* buffer, const Vec3 corners[4]) {
     // Worst of all four cell corners, plus an inward coverage margin.
     c[i] += fmin(0, a[i]) + fmin(0, b[i]) - buffer->marginX * fabs(a[i]) - buffer->marginY * fabs(b[i]);
   }
+
   int firstY = (int)fmax(0, floor(minY)), lastY = (int)fmin(OCCLUSION_HEIGHT - 1, floor(maxY));
   float depth = (float)farthest + depthMargin;
   for (int y = firstY; y <= lastY; y++) {
@@ -106,6 +110,7 @@ void occlusionRasterizeQuad(OcclusionBuffer* buffer, const Vec3 corners[4]) {
         break;
       }
     }
+
     if (left > right)
       continue;
     int firstX = (int)ceil(left), lastX = (int)floor(right);
@@ -128,6 +133,7 @@ bool occlusionBoundsHidden(const OcclusionBuffer* buffer, Vec3 min, Vec3 max) {
     maxY = fmax(maxY, projected.y);
     nearest = fmin(nearest, projected.z);
   }
+
   if (maxX < 0 || maxY < 0 || minX >= OCCLUSION_WIDTH || minY >= OCCLUSION_HEIGHT)
     return false;
   int firstX = (int)fmax(0, floor(minX - buffer->marginX));

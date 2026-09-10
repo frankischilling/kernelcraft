@@ -43,6 +43,7 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
           if (exposed[p[0]][p[1]][p[2]] & (1u << face))
             mask[row * columns + col] = (uint8_t)(faceMaterial(chunk->blocks[p[0]][p[1]][p[2]].id, face) + 1);
         }
+
       for (int row = 0; row < rows; row++)
         for (int col = 0; col < columns;) {
           uint8_t key = mask[row * columns + col];
@@ -50,6 +51,7 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
             col++;
             continue;
           }
+
           int width = 1, height = 1;
           while (col + width < columns && mask[row * columns + col + width] == key)
             width++;
@@ -61,6 +63,7 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
               break;
             height++;
           }
+
           size_t slot = slots[key - 1]++;
           if (output) {
             int p[3], extent[3] = {1, 1, 1};
@@ -79,10 +82,12 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
                                {vertex[6] * width, vertex[7] * height},
                                (float)(key - 1)};
             }
+
             const uint32_t* winding = face == RIGHT || face == TOP || face == REAR ? reversed : outward;
             for (int i = 0; i < 6; i++)
               output->indices[slot * 6 + i] = (uint32_t)(slot * 4) + winding[i];
           }
+
           for (int dy = 0; dy < height; dy++)
             memset(mask + (row + dy) * columns + col, 0, (size_t)width);
           col += width;
@@ -113,6 +118,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
             continue;
           exposed[x][y][z] |= (uint8_t)(1u << face);
         }
+
         if (!exposed[x][y][z])
           continue;
         mesh->surfaceBlocks++;
@@ -135,10 +141,12 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
     mesh->batches[material] = (MeshBatch){totalFaces * 6, faceCounts[material] * 6};
     totalFaces += faceCounts[material];
   }
+
   if (!totalFaces) {
     mesh->min = mesh->max = (Vec3)VEC3_ZERO;
     return true;
   }
+
   mesh->vertexCount = totalFaces * 4;
   mesh->indexCount = totalFaces * 6;
   mesh->vertices = malloc(mesh->vertexCount * sizeof(*mesh->vertices));
