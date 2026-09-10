@@ -53,7 +53,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Basic rendering of cubes with lighting effects using shaders.
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
-  - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics.
+  - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics. [Cached text rendering](docs/hud-performance.md) reduces the overlay's frame-time cost.
 
 - **World Generation**:
   - Procedural terrain generation using Perlin noise and selectable 32-bit seeds.

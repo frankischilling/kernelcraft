@@ -1,0 +1,4 @@
+# Preserve recorded bytes for the SHA-256 manifest.
+* -text
+# Unified diff context lines intentionally begin with a space.
+*.patch -whitespace
