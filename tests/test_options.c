@@ -10,12 +10,14 @@
       exit(EXIT_FAILURE);                                                                                                                                                          \
     }                                                                                                                                                                              \
   } while (0)
+
 static bool parse(int count, char* const args[], AppOptions* options) {
   char error[256];
   bool okay = parseOptions(count, args, options, error, sizeof(error));
   CHECK(okay ? !error[0] : error[0]);
   return okay;
 }
+
 int main(void) {
   AppOptions options;
   CHECK(parse(1, (char*[]){"game"}, &options));

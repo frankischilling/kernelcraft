@@ -54,6 +54,7 @@ static void testEdits(void) {
     CHECK(editTarget((Vec3){-0.5f, 20.5f, -3}, (Vec3){0, 0, 1}, (Vec3){-0.5f, 20, -3}, false, id, true));
     CHECK(getBlock(&(Vec3i){-1, 20, -2})->id == id);
   }
+
   CHECK(!blockIDValid(7) && !setBlock(&(Vec3i){0, 20, 0}, 7));
   for (int slot = 6; slot < HOTBAR_SLOT_COUNT; slot++)
     CHECK(hotbarBlock(slot) == BLOCK_AIR);
@@ -65,6 +66,7 @@ static void testEdits(void) {
     CHECK(getBlock(&invalid[i]) == NULL);
     CHECK(!setBlock(&invalid[i], BLOCK_STONE));
   }
+
   Vec3i interior = {1, 20, 1};
   CHECK(!setBlock(&interior, -1) && !setBlock(&interior, 256));
   CHECK(dirtyCount() == 0);
@@ -90,11 +92,13 @@ static void testEdits(void) {
         bool expected = (x == owner.a && z == owner.b) || (x == nx && z == owner.b) || (x == owner.a && z == nz);
         CHECK(getChunk(&(Vec2i){x, z})->dirty == expected);
       }
+
     for (int x = 0; x < CHUNKS_PER_AXIS; x++)
       for (int z = 0; z < CHUNKS_PER_AXIS; z++)
         getChunk(&(Vec2i){x, z})->dirty = false;
     CHECK(setBlock(&corners[i], BLOCK_DIRT) && dirtyCount() == 1);
   }
+
   resetWorld();
   CHECK(setBlock(&(Vec3i){-128, 0, -128}, BLOCK_STONE) && dirtyCount() == 1);
   resetWorld();
@@ -116,10 +120,12 @@ static void testEdits(void) {
 static void testHandBreaking(void) {
   const Vec3 eye = {-0.5f, 20.5f, -3}, direction = {0, 0, 1};
   const Vec3i target = {-1, 20, -1}, behind = {-1, 20, 0};
+
   const struct {
     int block;
     double seconds;
   } cases[] = {{BLOCK_DIRT, 0.5}, {BLOCK_GRASS, 0.75}, {BLOCK_STONE, 1.5}, {BLOCK_COBBLESTONE, 2.0}, {5, 1.0}, {6, 2.0}};
+
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     for (int rate = 30; rate <= 120; rate *= 2) {
       resetWorld();
@@ -133,6 +139,7 @@ static void testHandBreaking(void) {
         CHECK(getBlock(&target)->id == cases[i].block);
         CHECK(fabs(blockBreakingProgress(&breaking) - (double)frame / rate / cases[i].seconds) < 0.00001);
       }
+
       // Remove only the target, and rebuild its negative-coordinate seam neighbors.
       for (int x = 0; x < CHUNKS_PER_AXIS; x++)
         for (int z = 0; z < CHUNKS_PER_AXIS; z++)
@@ -144,6 +151,7 @@ static void testHandBreaking(void) {
       CHECK(breaking.elapsed == 0 && getBlock(&behind)->id == BLOCK_STONE);
     }
   }
+
   resetWorld();
   CHECK(setBlock(&target, BLOCK_DIRT));
   BlockBreaking breaking = {0};
@@ -165,6 +173,7 @@ static void testHandBreaking(void) {
     CHECK(getBlock(&target)->id == BLOCK_DIRT);
     CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
   }
+
   CHECK(!advanceBlockBreaking(&breaking, eye, direction, 0.1));
   resetBlockBreaking(&breaking);
   CHECK(!breaking.active && blockBreakingProgress(&breaking) == 0);

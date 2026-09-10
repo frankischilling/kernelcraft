@@ -3,7 +3,7 @@ AlignOperands: Align
 AlignTrailingComments:
   Kind: Always
   OverEmptyLines: 0
-AllowShortFunctionsOnASingleLine: Inline
+AllowShortFunctionsOnASingleLine: None
 AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
 BreakBeforeBraces: Attach
@@ -13,6 +13,10 @@ IndentWidth: 2
 InsertBraces: false
 KeepEmptyLinesAtTheStartOfBlocks: false
 KeepEmptyLinesAtEOF: false
+MaxEmptyLinesToKeep: 1
+# Blank lines after control-flow blocks are preserved, not inserted automatically.
+# Keep function and type definitions separated by a blank line.
+SeparateDefinitionBlocks: Always
 PointerAlignment: Left
 SpaceBeforeParens: ControlStatements
 SpacesBeforeTrailingComments: 1

@@ -35,6 +35,7 @@ void renderText(const TextState* state, const char* text, float x, float y) {
   if (x < 0) {
     x += state->viewport[2] - textWidth(state, text);
   }
+
   glRasterPos2f(x, state->viewport[3] - y);
   glutBitmapString(state->font, (const unsigned char*)text);
 }

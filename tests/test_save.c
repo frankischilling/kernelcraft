@@ -32,56 +32,70 @@
   } while (0)
 static int failIO, failAllocation;
 void* __real_calloc(size_t count, size_t size);
+
 void* __wrap_calloc(size_t count, size_t size) {
   if (failAllocation && --failAllocation == 0) {
     errno = ENOMEM;
     return NULL;
   }
+
   return __real_calloc(count, size);
 }
 #ifdef _WIN32
 extern int (*__real___imp__commit)(int descriptor);
+
 int __wrap__commit(int descriptor) {
   if (failIO == 4) {
     failIO = 0;
     errno = EIO;
     return -1;
   }
+
   return __real___imp__commit(descriptor);
 }
+
 // MinGW calls _commit through its imported function pointer.
 int (*__wrap___imp__commit)(int descriptor) = __wrap__commit;
 extern BOOL(WINAPI* __real___imp_MoveFileExA)(LPCSTR, LPCSTR, DWORD);
+
 static BOOL WINAPI replaceFile(LPCSTR from, LPCSTR to, DWORD flags) {
   if (failIO == 5) {
     failIO = 0;
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
   }
+
   return __real___imp_MoveFileExA(from, to, flags);
 }
+
 BOOL(WINAPI* __wrap___imp_MoveFileExA)(LPCSTR, LPCSTR, DWORD) = replaceFile;
 #else
 int __real_rename(const char* from, const char* to);
+
 int __wrap_rename(const char* from, const char* to) {
   if (failIO == 5) {
     failIO = 0;
     errno = EACCES;
     return -1;
   }
+
   return __real_rename(from, to);
 }
+
 int __real_fsync(int descriptor);
+
 int __wrap_fsync(int descriptor) {
   if (failIO == 4) {
     failIO = 0;
     errno = EIO;
     return -1;
   }
+
   return __real_fsync(descriptor);
 }
 #endif
 size_t __real_fwrite(const void* data, size_t size, size_t count, FILE* file);
+
 size_t __wrap_fwrite(const void* data, size_t size, size_t count, FILE* file) {
   if (failIO == 1) {
     failIO = 0;
@@ -89,18 +103,24 @@ size_t __wrap_fwrite(const void* data, size_t size, size_t count, FILE* file) {
     errno = ENOSPC;
     return 0;
   }
+
   return __real_fwrite(data, size, count, file);
 }
+
 int __real_fflush(FILE* file);
+
 int __wrap_fflush(FILE* file) {
   if (failIO == 2) {
     failIO = 0;
     errno = ENOSPC;
     return EOF;
   }
+
   return __real_fflush(file);
 }
+
 int __real_fclose(FILE* file);
+
 int __wrap_fclose(FILE* file) {
   int result = __real_fclose(file);
   if (failIO == 3) {
@@ -108,6 +128,7 @@ int __wrap_fclose(FILE* file) {
     errno = EIO;
     return EOF;
   }
+
   return result;
 }
 
@@ -119,6 +140,7 @@ static uint64_t fingerprint(void) {
         hash = (hash ^ getBlock(&(Vec3i){x, y, z})->id) * UINT64_C(1099511628211);
   return hash;
 }
+
 static unsigned char* readFile(const char* path, size_t* size) {
   FILE* f = fopen(path, "rb");
   CHECK(f);
@@ -132,15 +154,18 @@ static unsigned char* readFile(const char* path, size_t* size) {
   CHECK(fread(data, 1, *size, f) == *size && fclose(f) == 0);
   return data;
 }
+
 static void writeFile(const char* path, const unsigned char* bytes, size_t size) {
   FILE* f = fopen(path, "wb");
   CHECK(f);
   CHECK(fwrite(bytes, 1, size, f) == size && fclose(f) == 0);
 }
+
 static void put32(unsigned char* p, uint32_t v) {
   for (int i = 0; i < 4; i++)
     p[i] = (unsigned char)(v >> (i * 8));
 }
+
 static void fixChecksum(unsigned char* bytes, size_t size) {
   uint32_t hash = UINT32_C(2166136261);
   for (size_t i = 0; i < size; i++)
@@ -148,12 +173,14 @@ static void fixChecksum(unsigned char* bytes, size_t size) {
       hash = (hash ^ bytes[i]) * UINT32_C(16777619);
   put32(bytes + 68, hash);
 }
+
 static void sameFile(const char* path, const unsigned char* expected, size_t size) {
   size_t got;
   unsigned char* data = readFile(path, &got);
   CHECK(got == size && memcmp(data, expected, size) == 0);
   free(data);
 }
+
 static void rejected(const char* path, const unsigned char* bytes, size_t size, uint64_t hash) {
   writeFile(path, bytes, size);
   SavedPlayer output = {.feet = {7, 8, 9}, .yaw = 12, .pitch = 13, .selectedSlot = 1}, previous = output;
@@ -181,8 +208,10 @@ int main(void) {
       created = true;
       break;
     }
+
     CHECK(errno == EEXIST);
   }
+
   CHECK(created);
   CHECK(snprintf(path, sizeof(path), "%s/world.kcw", directory) > 0);
   CHECK(snprintf(blocked, sizeof(blocked), "%s/blocked", directory) > 0);
@@ -211,6 +240,7 @@ int main(void) {
     CHECK(failAllocation == 0 && error[0] && memcmp(&unchanged, &player, sizeof(player)) == 0);
     CHECK(worldSeed() == 42 && fingerprint() == hash);
   }
+
   CHECK(initChunksSeeded(7));
   SavedPlayer loaded = {0};
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
@@ -235,6 +265,7 @@ int main(void) {
     CHECK(loaded.selectedSlot == material - 1 && loaded.yaw == player.yaw && loaded.pitch == player.pitch);
     CHECK(!memcmp(&loaded.feet, &player.feet, sizeof(player.feet)) && fingerprint() == hash);
   }
+
   put32(bad + 60, 4);
   fixChecksum(bad, size);
   rejected(path, bad, size, hash);
@@ -248,6 +279,7 @@ int main(void) {
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(loaded.selectedSlot == slot - 1 && fingerprint() == hash);
   }
+
   for (int slot = 0; slot < 9; slot++) {
     SavedPlayer selection = player;
     selection.selectedSlot = slot;
@@ -255,6 +287,7 @@ int main(void) {
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(!memcmp(&loaded, &selection, sizeof(loaded)) && fingerprint() == hash);
   }
+
   // Cobblestone retains its own persisted ID, including at a negative seam.
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_COBBLESTONE));
   SavedPlayer cobblePlayer = player;
@@ -276,6 +309,7 @@ int main(void) {
     fixChecksum(cobbleSave, cobbleSize);
     rejected(path, cobbleSave, cobbleSize, cobbleHash);
   }
+
   free(cobbleSave);
   for (int id = 5; id <= 6; id++) {
     CHECK(setBlock(&(Vec3i){-1, 40, -1}, id));
@@ -295,20 +329,25 @@ int main(void) {
       fixChecksum(buildingSave, buildingSize);
       rejected(path, buildingSave, buildingSize, buildingHash);
     }
+
     free(buildingSave);
   }
+
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_DIRT) && fingerprint() == hash);
+
   const struct {
     size_t offset;
     uint32_t value;
   } cases[] = {{0, 0},           {8, 5},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
                {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
+
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memcpy(bad, original, size);
     put32(bad + cases[i].offset, cases[i].value);
     fixChecksum(bad, size);
     rejected(path, bad, size, hash);
   }
+
   memcpy(bad, original, size);
   bad[68] ^= 1;
   rejected(path, bad, size, hash);
@@ -329,6 +368,7 @@ int main(void) {
     CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
     sameFile(path, original, size);
   }
+
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_STONE));
   for (int failure = 1; failure <= 5; failure++) {
     failIO = failure;
@@ -336,6 +376,7 @@ int main(void) {
     CHECK(failIO == 0 && error[0]);
     sameFile(path, original, size);
   }
+
   CHECK(makeDirectory(blocked) == 0);
   writeFile(nested, original, size);
   CHECK(saveWorld(blocked, &player, error, sizeof(error)) == SAVE_IO_ERROR);

@@ -53,12 +53,14 @@ bool initChunksSeeded(uint32_t seed) {
         cleanupChunks();
         return false;
       }
+
       chunks[x][z] = chunk;
       chunk->dirty = true;
       chunk->position = (Vec2i){x - CHUNKS_PER_AXIS / 2, z - CHUNKS_PER_AXIS / 2};
       generateTerrainChunk(chunk, seed);
     }
   }
+
   return true;
 }
 
@@ -75,11 +77,13 @@ static BiomeParameters biomeParameters[] = { // Plains biome - flatter, lower am
     {0.03f, 0.5f, 0.3f, 4.0f},               // Lower frequency and amplitude for flatter terrain
                                              // Hills biome - more varied, higher amplitude
     {0.1f, 1.2f, 0.5f, 12.0f}};
+
 static float getBiomeBlendFactor(const Noise* noise, float x, float z) {
   // Use a different noise frequency for biome transitions
   float biomeNoise = perlinWithNoise(noise, x * 0.02f, 0, z * 0.02f);
   return smoothstep(0.4f, 0.6f, biomeNoise);
 }
+
 static BiomeParameters biomeParametersAt(const Noise* noise, float x, float z) {
   float blendFactor = getBiomeBlendFactor(noise, x, z);
   BiomeParameters result;
@@ -91,6 +95,7 @@ static BiomeParameters biomeParametersAt(const Noise* noise, float x, float z) {
 
   return result;
 }
+
 static float terrainHeight(const Noise* noise, float x, float z) {
   BiomeParameters params = biomeParametersAt(noise, x, z);
   float height = 0.0f;
@@ -106,6 +111,7 @@ static float terrainHeight(const Noise* noise, float x, float z) {
 
   return height * params.heightScale;
 }
+
 BiomeParameters getInterpolatedBiomeParameters(float x, float z) {
   return biomeParametersAt(currentSeed ? &activeNoise : NULL, x, z);
 }
@@ -171,6 +177,7 @@ bool setBlock(const Vec3i* pos, int id) {
     if (lz == CHUNK_SIZE - 1)
       dirtyNeighbor(cx, cz + 1);
   }
+
   return true;
 }
 
@@ -192,6 +199,7 @@ bool copyWorldBlocks(uint8_t* blocks, size_t count) {
             blocks[offset++] = id;
           }
     }
+
   return true;
 }
 
@@ -212,6 +220,7 @@ bool replaceWorldBlocks(uint32_t seed, const uint8_t* blocks, size_t count) {
             free(next[x][z]);
         return false;
       }
+
       next[cx][cz] = chunk;
       chunk->position = (Vec2i){cx - CHUNKS_PER_AXIS / 2, cz - CHUNKS_PER_AXIS / 2};
       chunk->dirty = true;
@@ -220,6 +229,7 @@ bool replaceWorldBlocks(uint32_t seed, const uint8_t* blocks, size_t count) {
           for (int z = 0; z < CHUNK_SIZE; z++)
             chunk->blocks[x][y][z].id = blocks[offset++];
     }
+
   cleanupChunks();
   memcpy(chunks, next, sizeof(chunks));
   currentSeed = seed;

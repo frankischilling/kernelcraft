@@ -4,6 +4,7 @@
 
 #include "../math/math.h"
 #include <stdbool.h>
+
 typedef struct {
   bool hit;
   Vec3 hitCoords;

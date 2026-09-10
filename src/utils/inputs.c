@@ -138,27 +138,32 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         input->player.running = false;
     }
   }
+
   if (action != GLFW_PRESS)
     return;
   if (key == GLFW_KEY_ESCAPE && acceptsWindowInput(window)) {
     setCursorCaptured(window, glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED);
     return;
   }
+
   // Diagnostics remain accessible while the cursor is released. They never
   // resume movement or alter the world, and repeats are rejected above.
   if (input && key == GLFW_KEY_F3 && acceptsWindowInput(window)) {
     input->showDebug = !input->showDebug;
     return;
   }
+
   if (input && key == GLFW_KEY_F4 && acceptsWindowInput(window)) {
     input->wireframe = !input->wireframe;
     return;
   }
+
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9) {
     if (selectedSlot != key - GLFW_KEY_1)
       cancelBreaking(input);
     selectedSlot = key - GLFW_KEY_1;
   }
+
   if (!input || !acceptsEditing(window))
     return;
   if (key == GLFW_KEY_F5)
@@ -189,6 +194,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     cancelBreaking(input);
     return;
   }
+
   if (!input || action != GLFW_PRESS || !acceptsEditing(window))
     return;
   Camera* camera = input->camera;
@@ -196,6 +202,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     input->breakHeld = true;
     advanceBlockBreaking(&input->breaking, camera->position, camera->front, 0);
   }
+
   if (button == GLFW_MOUSE_BUTTON_RIGHT) {
     cancelBreaking(input);
     editTarget(camera->position, camera->front, inputBodyFeet(input), !input->flying && input->player.crouched, selectedBlock(), true);
@@ -209,6 +216,7 @@ void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTim
     cancelBreaking(input);
     return;
   }
+
   if (input->breakHeld)
     advanceBlockBreaking(&input->breaking, input->camera->position, input->camera->front, deltaTime);
 }
@@ -221,6 +229,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     pauseInput(input);
     return;
   }
+
   if (!isfinite(deltaTime) || deltaTime <= 0)
     return;
   Camera* camera = input->camera;
@@ -243,6 +252,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     updateCameraFov(camera, input->player.running, deltaTime);
     return;
   }
+
   float velocity = camera->speed * (float)fmin(deltaTime, 0.1);
   Vec3 temp;
 
@@ -251,15 +261,18 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     vec3_scale(&temp, &camera->front, velocity);
     vec3_add(&camera->position, &camera->position, &temp);
   }
+
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
     vec3_scale(&temp, &camera->front, velocity);
     vec3_subtract(&camera->position, &camera->position, &temp);
   }
+
   // Up/Down
   if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
     vec3_scale(&temp, &camera->up, velocity);
     vec3_add(&camera->position, &camera->position, &temp);
   }
+
   if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
     vec3_scale(&temp, &camera->up, velocity);
     vec3_subtract(&camera->position, &camera->position, &temp);
@@ -274,6 +287,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     vec3_scale(&temp, &right, velocity);
     vec3_add(&camera->position, &camera->position, &temp);
   }
+
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
     vec3_scale(&temp, &right, velocity);
     vec3_subtract(&camera->position, &camera->position, &temp);
@@ -286,6 +300,7 @@ void mouseCallback(GLFWwindow* window, double xpos, double ypos) {
     firstMouse = true;
     return;
   }
+
   Camera* camera = input->camera;
 
   if (firstMouse) {

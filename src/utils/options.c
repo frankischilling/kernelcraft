@@ -41,12 +41,14 @@ bool parseOptions(int argc, char* const argv[], AppOptions* options, char* error
           return fail(error, capacity, "--seed must be a decimal integer from 0 to 4294967295");
         seed = seed * 10 + (unsigned)(*p - '0');
       }
+
       options->seed = seed;
       options->seedGiven = true;
     } else {
       return fail(error, capacity, "Unknown argument; use --help for usage");
     }
   }
+
   if (worldGiven && options->noSave)
     return fail(error, capacity, "--world and --no-save cannot be combined");
   if (options->help || options->noSave)

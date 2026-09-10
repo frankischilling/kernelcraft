@@ -24,6 +24,7 @@ static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
+
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
 
 typedef struct {
@@ -50,6 +51,7 @@ static void initGrid(void) {
     memcpy(vertices + count, endpoints, sizeof(endpoints));
     count += 12;
   }
+
   glGenVertexArrays(1, &gridVAO);
   glGenBuffers(1, &gridVBO);
   glBindVertexArray(gridVAO);
@@ -65,12 +67,14 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     freeChunkMesh(mesh);
     return false;
   }
+
   if (mesh->indexCount) {
     if (!render->vao) {
       glGenVertexArrays(1, &render->vao);
       glGenBuffers(1, &render->vbo);
       glGenBuffers(1, &render->ebo);
     }
+
     glBindVertexArray(render->vao);
     glBindBuffer(GL_ARRAY_BUFFER, render->vbo);
     glBufferData(GL_ARRAY_BUFFER, mesh->vertexCount * sizeof(MeshVertex), mesh->vertices, GL_DYNAMIC_DRAW);
@@ -85,11 +89,13 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     glEnableVertexAttribArray(2);
     glEnableVertexAttribArray(3);
   }
+
   if (glGetError() != GL_NO_ERROR) {
     freeMeshVisibility(&visibility);
     freeChunkMesh(mesh);
     return false;
   }
+
   render->surfaceBlocks = mesh->surfaceBlocks;
   vec3_add(&render->center, &mesh->min, &mesh->max);
   vec3_scale(&render->center, &render->center, 0.5f);
@@ -117,8 +123,10 @@ static bool updateDirtyChunks(RenderResult* result) {
         fprintf(stderr, "Failed to rebuild chunk (%d, %d)\n", chunk->position.a, chunk->position.b);
         return false;
       }
+
       result->chunksRebuilt++;
     }
+
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   result->meshUpdateMilliseconds = (glfwGetTime() - start) * 1000.0;
@@ -163,6 +171,7 @@ bool initWorld(GLuint shaderProgram) {
         goto failure;
     }
   }
+
   initGrid();
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -217,9 +226,11 @@ static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 
         candidates[index] = candidates[index - 1];
         index--;
       }
+
       candidates[index] = (ChunkCandidate){chunk, distance, false};
     }
   }
+
   if (wireframe || candidateCount < 2)
     return;
   occlusionClear(&occlusion, viewProjection, viewport[2], viewport[3]);
@@ -234,6 +245,7 @@ static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 
       hiddenCount++;
       continue;
     }
+
     // Only retained chunks contribute occluders. All visibility work finishes
     // before terrain submission so CPU rasterization does not interrupt draws.
     if (i + 1 < candidateCount)
@@ -279,6 +291,7 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
     result.submittedTriangles += chunk->indexCount / 3;
     glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
   }
+
   glBindVertexArray(0);
   glPolygonMode(GL_FRONT, (GLenum)polygonMode[0]);
   glPolygonMode(GL_BACK, (GLenum)polygonMode[1]);
@@ -295,6 +308,7 @@ void cleanupWorld(void) {
       freeMeshVisibility(&chunk->visibility);
     }
   }
+
   memset(renderChunks, 0, sizeof(renderChunks));
   glDeleteVertexArrays(1, &gridVAO);
   glDeleteBuffers(1, &gridVBO);

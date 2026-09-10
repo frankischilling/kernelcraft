@@ -42,6 +42,7 @@ static int testShaderFailure(const char* label, const char* vertex, const char* 
   __glewCreateProgram = createProgramForTest;
   while (glGetError() != GL_NO_ERROR) {
   }
+
   GLuint program = loadShaders(vertex, fragment);
   __glewCreateShader = realCreateShader;
   __glewCreateProgram = realCreateProgram;
@@ -50,10 +51,12 @@ static int testShaderFailure(const char* label, const char* vertex, const char* 
     fprintf(stderr, "%s did not reach the expected loading stage\n", label);
     failed = 1;
   }
+
   if (program || glGetError() != GL_NO_ERROR) {
     fprintf(stderr, "%s must return zero without using an invalid GL handle\n", label);
     failed = 1;
   }
+
   if (program)
     glDeleteProgram(program);
   if (createdProgram && glIsProgram(createdProgram)) {
@@ -61,6 +64,7 @@ static int testShaderFailure(const char* label, const char* vertex, const char* 
     failed = 1;
     glDeleteProgram(createdProgram);
   }
+
   for (int i = 0; i < createdCount; i++) {
     if (!createdShaders[i] || glIsShader(createdShaders[i])) {
       fprintf(stderr, "%s must release previously created shaders\n", label);
@@ -69,6 +73,7 @@ static int testShaderFailure(const char* label, const char* vertex, const char* 
         glDeleteShader(createdShaders[i]);
     }
   }
+
   return failed;
 }
 
@@ -110,6 +115,7 @@ static int checkArrayFailure(const char* const paths[], int count, int storageFa
     GLuint leaked = (GLuint)createdArray;
     glDeleteTextures(1, &leaked);
   }
+
   return failed;
 }
 
@@ -162,6 +168,7 @@ static int testTextureArrays(const char* first) {
     fprintf(stderr, "Texture array must preserve RGBA pixels, layer order, dimensions, and repeating nearest sampling\n");
     failed = 1;
   }
+
   glDeleteTextures(1, &texture);
   __glewTexImage3D = realTexImage3D;
   __glewTexSubImage3D = realTexSubImage3D;
@@ -213,6 +220,7 @@ int main(void) {
     fprintf(stderr, "Valid shaders must load after failed attempts\n");
     failed = 1;
   }
+
   glDeleteProgram(shader);
   if (!writeShader(vertex, ""))
     return 1;
@@ -221,6 +229,7 @@ int main(void) {
     failed = 1;
     glDeleteProgram(shader);
   }
+
   const char* texturePath = "test-gray-alpha.tga";
   const unsigned char tga[] = {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 16, 8, 128, 255};
   FILE* file = fopen(texturePath, "wb");
@@ -230,6 +239,7 @@ int main(void) {
   fclose(file);
   while (glGetError() != GL_NO_ERROR) {
   }
+
   GLuint texture = loadTexture(texturePath);
   unsigned char pixel[4] = {0};
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
@@ -237,6 +247,7 @@ int main(void) {
     fprintf(stderr, "Grayscale-alpha texture must upload as RGBA\n");
     failed = 1;
   }
+
   glDeleteTextures(1, &texture);
   failed |= testTextureArrays(texturePath);
   remove(texturePath);
@@ -246,6 +257,7 @@ int main(void) {
     failed = 1;
     glDeleteTextures(1, &texture);
   }
+
   remove(vertex);
   remove(fragment);
   glfwDestroyWindow(window);

@@ -50,6 +50,7 @@ static void testSpawn(void) {
       Chunk* chunk = getChunk(&(Vec2i){x, z});
       memset(chunk->blocks, BLOCK_STONE, sizeof(chunk->blocks));
     }
+
   CHECK(!playerFindSpawn(&player, (Vec3){0, 0, 0}));
 }
 
@@ -68,6 +69,7 @@ static void testFloorJumpAndCeiling(void) {
     tick(&player, (Vec3){0}, false);
     peak = fmaxf(peak, player.position.y);
   }
+
   CHECK(peak > 5.2f && peak < 5.4f && player.grounded && player.position.y == 4);
   CHECK(setBlock(&(Vec3i){-1, 6, -1}, BLOCK_STONE));
   tick(&player, (Vec3){0}, true);
@@ -78,6 +80,7 @@ static void testFloorJumpAndCeiling(void) {
     if (player.velocity.y == 0 && !player.grounded)
       hitCeiling = true;
   }
+
   CHECK(hitCeiling && player.grounded && player.position.y == 4);
   CHECK(setBlock(&(Vec3i){-1, 3, -1}, BLOCK_AIR));
   tick(&player, (Vec3){0}, true);
@@ -107,6 +110,7 @@ static void testWallsSeamsAndCorners(void) {
         float expected = side > 0 ? seam - PLAYER_RADIUS : seam + 1 + PLAYER_RADIUS;
         CHECK(fabsf(position - expected) < 0.00001f);
       }
+
   clearWorld();
   for (int y = 0; y < 5; y++) {
     for (int t = -4; t <= 4; t++) {
@@ -114,6 +118,7 @@ static void testWallsSeamsAndCorners(void) {
       CHECK(setBlock(&(Vec3i){t, y, 1}, BLOCK_STONE));
     }
   }
+
   Player player;
   CHECK(playerSetPosition(&player, (Vec3){-1, 0, -1}));
   for (int i = 0; i < 120; i++)
@@ -192,6 +197,7 @@ static void testFastFallAndAirborneJump(void) {
     if (player.velocity.y == 0 && !player.grounded)
       hitTop = true;
   }
+
   CHECK(hitTop);
   CHECK(setBlock(&(Vec3i){0, 1, 0}, BLOCK_STONE));
   CHECK(playerSetPosition(&player, (Vec3){0.5f, 2.2f, 0.5f}));
@@ -222,12 +228,14 @@ static void testCrouchClearance(void) {
     motionTick(&player, (PlayerMotion){.jump = i == 0, .run = true});
     CHECK(player.crouched && !player.running && player.position.y == 0);
   }
+
   // The whole body must clear the ceiling, including a negative-coordinate seam.
   for (int i = 0; i < 70; i++) {
     motionTick(&player, (PlayerMotion){.wish = {1, 0, 0}});
     if (player.position.x < PLAYER_RADIUS)
       CHECK(player.crouched);
   }
+
   CHECK(!player.crouched && player.position.x > PLAYER_RADIUS);
   CHECK(fabsf(playerEyePosition(&player).y - 1.62f) < 0.00001f);
   // Crouching at the world top does not allow standing through the boundary.
@@ -263,6 +271,7 @@ static void testMovementSpeeds(void) {
     playerResetTiming(&straight);
     CHECK(!straight.running && !straight.jumpPending && straight.accumulator == 0);
   }
+
   // Running uses the same swept collision against thin walls and finite bounds.
   for (int side = -1; side <= 1; side += 2) {
     clearWorld();
@@ -289,6 +298,7 @@ static void testRunTaps(void) {
     playerForwardEvent(&input, false, times[i]);
     CHECK(!input.running);
   }
+
   PlayerRunInput input = {0};
   playerForwardEvent(&input, true, 0);
   playerForwardEvent(&input, true, 0.1);
@@ -319,6 +329,7 @@ static void testCrouchLedges(void) {
       CHECK(playerAdvance(&player, (PlayerMotion){.wish = directions[d], .crouch = true}, 1000) == 8);
       CHECK(player.position.y == 4 && player.grounded);
     }
+
     CHECK((double)player.position.x + PLAYER_RADIUS > -16 && (double)player.position.x - PLAYER_RADIUS < -15);
     CHECK((double)player.position.z + PLAYER_RADIUS > -1 && (double)player.position.z - PLAYER_RADIUS < 0);
     // Releasing crouch deliberately walks off the same ledge.
@@ -326,6 +337,7 @@ static void testCrouchLedges(void) {
       motionTick(&player, (PlayerMotion){.wish = directions[d]});
     CHECK(player.position.y < 4);
   }
+
   clearWorld();
   CHECK(setBlock(&(Vec3i){0, 3, 0}, BLOCK_STONE));
   Player player;

@@ -18,6 +18,7 @@ static float outlineOffsetFactor(const float* vertices, Vec3i block, const Mat4 
       screen[corner][axis] = clip / w * 0.5 * (axis < 2 ? viewport[axis + 2] : 1);
     }
   }
+
   double dx1 = screen[1][0] - screen[0][0], dy1 = screen[1][1] - screen[0][1], dz1 = screen[1][2] - screen[0][2];
   double dx2 = screen[2][0] - screen[0][0], dy2 = screen[2][1] - screen[0][1], dz2 = screen[2][2] - screen[0][2];
   double area = dx1 * dy2 - dx2 * dy1;
@@ -75,6 +76,7 @@ void drawSelection(const Ray* selection, const Mat4 view, const Mat4 projection)
     glDisable(GL_BLEND);
     break;
   }
+
   glColor3f(1.0f, 0.85f, 0.2f);
   glDisable(GL_BLEND);
   glDisable(GL_CULL_FACE);
@@ -93,8 +95,10 @@ void drawSelection(const Ray* selection, const Mat4 view, const Mat4 projection)
       const float* vertex = vertices + corners[corner] * 8;
       glVertex3f((p.x + 0.5f + vertex[0]) * CUBE_SIZE, (p.y + 0.5f + vertex[1]) * CUBE_SIZE, (p.z + 0.5f + vertex[2]) * CUBE_SIZE);
     }
+
     glEnd();
   }
+
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();

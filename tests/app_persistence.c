@@ -21,19 +21,23 @@ static bool failureShown;
 static const Vec3 feet = {-0.5f, 40, 0.5f};
 static const Vec3i removed = {-1, 41, 2}, placed = {-1, 41, 3}, exitEdit = {0, 42, 4}, cobblestone = {0, 41, 3};
 static const Vec3i building[] = {{-2, 41, 3}, {1, 41, 3}};
+
 static bool crouchScenario(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   return phase && !strncmp(phase, "crouch-", 7);
 }
+
 static bool failing(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   return phase && !strcmp(phase, "fail");
 }
+
 static bool saving(void) {
   const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
   CHECK(phase);
   return !strcmp(phase, "save") || !strcmp(phase, "crouch-save") || failing();
 }
+
 static int id(Vec3i cell) {
   const Block* block = getBlock(&cell);
   CHECK(block);
@@ -41,6 +45,7 @@ static int id(Vec3i cell) {
 }
 
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
+
 GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share) {
   (void)width;
   (void)height;
@@ -48,25 +53,31 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
   glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
   return __real_glfwCreateWindow(640, 480, title, monitor, share);
 }
+
 void __wrap_glfwSetInputMode(GLFWwindow* window, int mode, int value) {
   (void)window;
   CHECK(mode == GLFW_CURSOR);
   cursorMode = value;
 }
+
 int __wrap_glfwGetInputMode(GLFWwindow* window, int mode) {
   (void)window;
   CHECK(mode == GLFW_CURSOR);
   return cursorMode;
 }
+
 int __real_glfwGetWindowAttrib(GLFWwindow* window, int attrib);
+
 int __wrap_glfwGetWindowAttrib(GLFWwindow* window, int attrib) {
   return attrib == GLFW_FOCUSED ? GLFW_TRUE : __real_glfwGetWindowAttrib(window, attrib);
 }
+
 int __wrap_glfwGetKey(GLFWwindow* window, int key) {
   (void)window;
   (void)key;
   return GLFW_RELEASE;
 }
+
 double __wrap_glfwGetTime(void) {
   return 1.0;
 } // Freeze physics so saved feet compare exactly.
@@ -91,6 +102,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
         for (int y = 40; y <= 44; y++)
           CHECK(setBlock(&(Vec3i){x, y, z}, BLOCK_AIR));
       }
+
     CHECK(setBlock(&removed, BLOCK_DIRT));
     CHECK(setBlock(&(Vec3i){-1, 41, 4}, BLOCK_GRASS));
     CHECK(playerSetPosition(&input->player, feet));
@@ -130,6 +142,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
       CHECK(id(cell) == material);
     }
+
     input->camera->position = playerEyePosition(&input->player);
     CHECK(getChunk(&(Vec2i){7, 8})->dirty && getChunk(&(Vec2i){8, 8})->dirty);
     if (crouchScenario()) {
@@ -139,6 +152,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       input->camera->pitch = -35;
       updateCameraVectors(input->camera);
     }
+
     key(window, GLFW_KEY_F5, 0, GLFW_REPEAT, 0);
     CHECK(!input->saveRequested);
     key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
@@ -151,6 +165,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       expectedFeet.y = 42;
       CHECK(id((Vec3i){-1, 41, 0}) == BLOCK_STONE);
     }
+
     CHECK(!memcmp(&input->player.position, &expectedFeet, sizeof(feet)));
     CHECK(!input->player.crouched && !input->player.running && !input->runInput.tapPending);
     CHECK(!input->breakHeld && !input->breaking.active);
@@ -158,6 +173,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(input->camera->yaw == 90 && input->camera->pitch == (crouchScenario() ? -35 : 0) && selectedBlock() == BLOCK_AIR);
     CHECK(selectedHotbarSlot() == 8);
   }
+
   if (frame == 1 && saving()) {
     CHECK(input->wireframe);
     CHECK(!input->saveRequested);
@@ -177,26 +193,32 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
         CHECK(fseek(file, 44, SEEK_SET) == 0 && fread(&savedY, sizeof(savedY), 1, file) == 1);
         CHECK(savedY == 42 && input->player.position.y == 40 && input->player.crouched);
       }
+
       CHECK(fclose(file) == 0);
     }
+
     // A second edit after F5 must be included by the normal-exit save.
     CHECK(setBlock(&exitEdit, BLOCK_DIRT));
     key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
     CHECK(selectedHotbarSlot() == 8 && selectedBlock() == BLOCK_AIR);
   }
+
   return frame >= 2;
 }
 
 void __real_HUDDraw(GLuint program, DebugData* data);
+
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   if (failing()) {
     CHECK(data->saveStatus && strstr(data->saveStatus, "Save failed"));
     failureShown = true;
   }
+
   __real_HUDDraw(program, data);
 }
 
 void __real_glfwSwapBuffers(GLFWwindow* window);
+
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   CHECK(glGetError() == GL_NO_ERROR);
   CHECK(!getChunk(&(Vec2i){7, 8})->dirty && !getChunk(&(Vec2i){8, 8})->dirty);
@@ -209,12 +231,15 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   swaps++;
   __real_glfwSwapBuffers(window);
 }
+
 void __real_glfwDestroyWindow(GLFWwindow* window);
+
 void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   CHECK(glfwGetCurrentContext() == window && glGetError() == GL_NO_ERROR);
   if (frame >= 0) {
     CHECK(swaps == 2);
     puts(failing() ? "Application save failure status and cleanup checks passed" : "Application edit, F5, exit save, restart state, and rendered chunk checks passed");
   }
+
   __real_glfwDestroyWindow(window);
 }

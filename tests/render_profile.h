@@ -4,6 +4,7 @@
 #include <math.h>
 
 enum { PROFILE_WARMUP = 120, PROFILE_FRAMES = 600 };
+
 static size_t profileUploadBytes;
 static unsigned profileQueries, profileQueryObjects;
 static PFNGLBUFFERDATAPROC profilePreviousBufferData;
@@ -109,6 +110,7 @@ static int profileRendering(GLuint shader) {
         glFinish();
         batchStart = frameBoundary = glfwGetTime();
       }
+
       Camera camera;
       initCamera(&camera);
       camera.position = eye;
@@ -119,10 +121,12 @@ static int profileRendering(GLuint shader) {
         camera.position = (Vec3){0, 32, 3};
         camera.pitch = -45;
       }
+
       if (scenario == 3) {
         camera.position.y = 40;
         camera.pitch = 89;
       }
+
       // Repeat exactly the same path during warm-up and each measured trial.
       int step = frame < 0 ? frame + PROFILE_WARMUP : frame;
       if (scenario == 4)
@@ -136,6 +140,7 @@ static int profileRendering(GLuint shader) {
         camera.position.x += (step % 12) * 0.0025f;
         camera.yaw += (step % 12) * 0.05f;
       }
+
       if (scenario == 8)
         camera.position = (Vec3){8.5f + sinf(step * 0.01f), 20, 3.5f};
       updateCameraVectors(&camera);
@@ -175,6 +180,7 @@ static int profileRendering(GLuint shader) {
       } else {
         glFinish();
       }
+
       double frameMs = (glfwGetTime() - start) * 1000;
       double gpuMs = 0;
       if (!pipelined) {
@@ -182,6 +188,7 @@ static int profileRendering(GLuint shader) {
         glGetQueryObjectui64v(timer, GL_QUERY_RESULT, &nanoseconds);
         gpuMs = (double)nanoseconds / 1000000;
       }
+
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
                 draws == (unsigned long)result.terrainDrawCalls + 1;
       if (scenario != 6)
@@ -200,6 +207,7 @@ static int profileRendering(GLuint shader) {
         frameMs = (boundary - frameBoundary) * 1000;
         frameBoundary = boundary;
       }
+
       frameTimes[frame] = frameMs;
       cpuTimes[frame] = cpuMs;
       gpuTimes[frame] = gpuMs;
@@ -217,6 +225,7 @@ static int profileRendering(GLuint shader) {
           frameMs,        cpuMs,  result.meshUpdateMilliseconds, result.submittedTriangles, profileUploadBytes, result.terrainDrawCalls, result.surfaceBlocks, result.chunksRebuilt,
           profileQueries, uploads};
     }
+
     if (!success)
       break;
     // Queue completion above makes every timer ready. Defer both readback
@@ -227,12 +236,14 @@ static int profileRendering(GLuint shader) {
         glGetQueryObjectui64v(timers[frame + 1], GL_QUERY_RESULT, &nanoseconds);
         gpuTimes[frame] = (double)nanoseconds / 1000000;
       }
+
       totalGPU += gpuTimes[frame];
       const ProfileFrame* sample = &samples[frame];
       if (raw)
         fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs, gpuTimes[frame], sample->draws,
                 sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls, sample->uploadBytes);
     }
+
     success = glGetError() == GL_NO_ERROR;
     if (!success)
       break;
@@ -251,6 +262,7 @@ static int profileRendering(GLuint shader) {
            rebuildMs / PROFILE_FRAMES, (double)totalRebuilt / PROFILE_FRAMES, (double)totalUploads / PROFILE_FRAMES, (double)totalBytes / PROFILE_FRAMES,
            gpuTimes[(PROFILE_FRAMES * 99 + 99) / 100 - 1]);
   }
+
   setBlock(&edit, originalID);
   glDeleteQueries(timerCount, timers);
   __glewBufferData = profilePreviousBufferData;

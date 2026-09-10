@@ -43,6 +43,7 @@ static void drawLabel(const TextState* state, const char* text, float x, float b
     fitted[--length] = '\0';
     shortened = true;
   }
+
   if (shortened) {
     int dots = textWidth(state, "...");
     while (length && (length + 3 >= sizeof(fitted) || textWidth(state, fitted) + dots > availableWidth))
@@ -50,6 +51,7 @@ static void drawLabel(const TextState* state, const char* text, float x, float b
     if (dots <= availableWidth)
       memcpy(fitted + length, "...", 4);
   }
+
   if (!fitted[0])
     return;
   int width = textWidth(state, fitted);
@@ -88,6 +90,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
       glEnd();
     }
   }
+
   glLineWidth(1);
   if (data->captured && data->breakingProgress > 0 && width >= 64 && height >= 40) {
     glColor3f(0.08f, 0.08f, 0.08f);
@@ -106,6 +109,7 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     glVertex2f(cx - 24, cy + 13);
     glEnd();
   }
+
   // Tiny windows keep only status and the crosshair until controls fit again.
   if (width < 192 || height < 120)
     return;
@@ -161,9 +165,11 @@ static void DrawControls(const TextState* state, const DebugData* data) {
       glEnd();
       glDisable(GL_TEXTURE_2D);
     }
+
     char number[] = {(char)('1' + i), '\0'};
     drawLabel(&numbers, number, x + (slotWidth - textWidth(&numbers, number)) / 2, height - 14, slotWidth - 4);
   }
+
   float baseline = height - barHeight - 22;
   const char* names[] = {"Empty", "Grass", "Dirt", "Stone", "Cobblestone", "Oak planks", "Stone bricks"};
   const char* selectedName = names[hotbarBlock(data->selectedSlot)];
@@ -227,17 +233,20 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
       drawTopLabel(&state, entryFaces.text, &baseline);
       drawTopLabel(&state, entryRebuilds.text, &baseline);
     }
+
     const DebugEntry* entries[] = {&entryWorldCoords, &entryChunkCoords, &entryBiome, &entryCubeCount, &entryMovement, &entryBuildInfo};
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
       drawTopLabel(&state, entries[i]->text, &baseline);
     if (cast.hit)
       drawTopLabel(&state, entryLookingAtBlockCoords.text, &baseline);
   }
+
   DrawControls(&state, data);
   endText(&state);
   glPopAttrib();
   glActiveTexture((GLenum)activeTexture);
 }
+
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
   snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d", movementStatus(data), data->simulationSteps);
@@ -258,6 +267,7 @@ static void UpdateEntries(DebugData* data) {
 
   snprintf(entryChunkCoords.text, sizeof(entryChunkCoords.text), "Chunk coordinates: X:%d Z:%d", currentChunkX, currentChunkZ);
 }
+
 void HUDCleanup(void) {
   glDeleteTextures(HOTBAR_SLOT_COUNT, itemTextures);
   memset(itemTextures, 0, sizeof(itemTextures));
@@ -284,6 +294,7 @@ bool HUDInit(const char* buildName, const char* buildVersion) {
       break;
     }
   }
+
   if (!ready)
     HUDCleanup();
   glPopAttrib();

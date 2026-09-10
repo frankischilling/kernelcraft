@@ -29,24 +29,29 @@ static SaveResult result(SaveResult code, char* error, size_t capacity, const ch
     snprintf(error, capacity, "%s", message);
   return code;
 }
+
 static uint32_t get32(const uint8_t* bytes) {
   return (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 | (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
 }
+
 static void put32(uint8_t* bytes, uint32_t value) {
   for (int i = 0; i < 4; i++)
     bytes[i] = (uint8_t)(value >> (8 * i));
 }
+
 static float getFloat(const uint8_t* bytes) {
   uint32_t bits = get32(bytes);
   float value;
   memcpy(&value, &bits, sizeof(value));
   return value;
 }
+
 static void putFloat(uint8_t* bytes, float value) {
   uint32_t bits;
   memcpy(&bits, &value, sizeof(bits));
   put32(bytes, bits);
 }
+
 static uint32_t checksum(const uint8_t* header, const uint8_t* blocks) {
   uint32_t hash = UINT32_C(2166136261);
   for (size_t i = 0; i < 68; i++)
@@ -55,6 +60,7 @@ static uint32_t checksum(const uint8_t* header, const uint8_t* blocks) {
     hash = (hash ^ blocks[i]) * UINT32_C(16777619);
   return hash;
 }
+
 static bool validPlayer(const SavedPlayer* player, const uint8_t* blocks) {
   Vec3i first, last;
   if (!player || !isfinite(player->yaw) || player->yaw < 0 || player->yaw >= 360 || !isfinite(player->pitch) || player->pitch < -89 || player->pitch > 89 ||
@@ -69,8 +75,10 @@ static bool validPlayer(const SavedPlayer* player, const uint8_t* blocks) {
         if (blockIsSolid(blocks[offset]))
           return false;
       }
+
   return true;
 }
+
 static FILE* createTemporary(const char* path, char* temporary, size_t capacity) {
   static unsigned sequence;
 #ifdef _WIN32
@@ -105,11 +113,14 @@ static FILE* createTemporary(const char* path, char* temporary, size_t capacity)
       remove(temporary);
       errno = savedError;
     }
+
     return file;
   }
+
   errno = EEXIST;
   return NULL;
 }
+
 static int syncFile(FILE* file) {
 #ifdef _WIN32
   return _commit(_fileno(file));
@@ -128,6 +139,7 @@ SaveResult saveWorld(const char* path, const SavedPlayer* player, char* error, s
     free(blocks);
     return result(SAVE_INVALID, error, capacity, "World or saved player is invalid");
   }
+
   uint8_t header[HEADER_BYTES] = {0};
   memcpy(header, "KCRFTSV\0", 8);
   put32(header + 8, SAVE_VERSION);
@@ -151,6 +163,7 @@ SaveResult saveWorld(const char* path, const SavedPlayer* player, char* error, s
     free(blocks);
     return result(SAVE_IO_ERROR, error, capacity, "Cannot create a temporary save beside the destination");
   }
+
   bool written = fwrite(header, 1, sizeof(header), file) == sizeof(header) && fwrite(blocks, 1, WORLD_BLOCK_COUNT, file) == WORLD_BLOCK_COUNT;
   if (written)
     written = fflush(file) == 0 && syncFile(file) == 0;
@@ -171,6 +184,7 @@ SaveResult saveWorld(const char* path, const SavedPlayer* player, char* error, s
     bool removed = remove(temporary) == 0;
     return result(SAVE_IO_ERROR, error, capacity, removed ? "Cannot replace destination; previous save retained" : "Cannot replace destination or remove temporary save");
   }
+
   return result(SAVE_OK, error, capacity, "");
 }
 
@@ -186,25 +200,30 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     fclose(file);
     return result(failed ? SAVE_IO_ERROR : SAVE_INVALID, error, capacity, "Save header is unreadable or truncated");
   }
+
   if (memcmp(header, "KCRFTSV\0", 8) != 0) {
     fclose(file);
     return result(SAVE_INVALID, error, capacity, "Unrecognized world save header");
   }
+
   uint32_t version = get32(header + 8);
   if ((version < 1 || version > SAVE_VERSION) || get32(header + 12) != WORLD_GENERATOR_VERSION) {
     fclose(file);
     return result(SAVE_UNSUPPORTED, error, capacity, "Unsupported save or generator version");
   }
+
   if (get32(header + 20) != WORLD_SIZE || get32(header + 24) != CHUNK_HEIGHT || get32(header + 28) != CHUNK_SIZE || get32(header + 32) != CHUNKS_PER_AXIS * CHUNKS_PER_AXIS ||
       get32(header + 36) != WORLD_BLOCK_COUNT || get32(header + 64) != 0) {
     fclose(file);
     return result(SAVE_INVALID, error, capacity, "Invalid save dimensions, counts, or reserved field");
   }
+
   uint8_t* blocks = malloc(WORLD_BLOCK_COUNT);
   if (!blocks) {
     fclose(file);
     return result(SAVE_NO_MEMORY, error, capacity, "Not enough memory to read world save");
   }
+
   size_t count = fread(blocks, 1, WORLD_BLOCK_COUNT, file);
   int trailing = fgetc(file);
   bool readError = ferror(file) != 0;
@@ -214,6 +233,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     free(blocks);
     return result(readError ? SAVE_IO_ERROR : SAVE_INVALID, error, capacity, "Save payload is unreadable, truncated, or has trailing data");
   }
+
   bool valid = get32(header + 68) == checksum(header, blocks);
   int lastBlock = version < 3 ? BLOCK_STONE : version == 3 ? BLOCK_COBBLESTONE : BLOCK_STONE_BRICKS;
   for (size_t i = 0; valid && i < WORLD_BLOCK_COUNT; i++)
@@ -229,6 +249,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     free(blocks);
     return result(SAVE_INVALID, error, capacity, "Save checksum, block IDs, or player state is invalid");
   }
+
   bool installed = replaceWorldBlocks(get32(header + 16), blocks, WORLD_BLOCK_COUNT);
   free(blocks);
   if (!installed)

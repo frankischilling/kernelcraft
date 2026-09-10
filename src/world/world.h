@@ -24,6 +24,7 @@ typedef struct {
   float persistence;
   float heightScale;
 } BiomeParameters;
+
 BiomeParameters getInterpolatedBiomeParameters(float x, float z);
 float getTerrainHeight(float x, float z);
 const char* getCurrentBiomeText(float x, float z);

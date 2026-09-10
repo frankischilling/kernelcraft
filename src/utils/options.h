@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #define WORLD_PATH_CAPACITY 4096
+
 typedef struct {
   uint32_t seed;
   bool seedGiven, noSave, help;

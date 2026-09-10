@@ -38,6 +38,7 @@ static bool bodyCellRange(Vec3 feet, bool crouched, Vec3i* firstCell, Vec3i* las
     first[axis] = (int)floor(min[axis] / CUBE_SIZE);
     last[axis] = (int)ceil(max[axis] / CUBE_SIZE) - 1;
   }
+
   *firstCell = (Vec3i){first[0], first[1], first[2]};
   *lastCell = (Vec3i){last[0], last[1], last[2]};
   return true;
@@ -64,6 +65,7 @@ bool playerCanOccupyPosture(Vec3 feet, bool crouched) {
         if (!block || blockIsSolid(block->id))
           return false;
       }
+
   return true;
 }
 
@@ -82,6 +84,7 @@ static double clipAxis(Vec3 feet, bool crouched, int axis, double displacement) 
     first[a] = (int)floor(start / CUBE_SIZE);
     last[a] = (int)ceil(end / CUBE_SIZE) - 1;
   }
+
   // Scan the swept volume, not just the endpoint, so thin walls cannot be skipped.
   for (int x = first[0]; x <= last[0]; x++)
     for (int y = first[1]; y <= last[1]; y++)
@@ -96,6 +99,7 @@ static double clipAxis(Vec3 feet, bool crouched, int axis, double displacement) 
         if (displacement < 0 && far <= min[axis])
           allowed = fmax(allowed, far - min[axis]);
       }
+
   return allowed;
 }
 
@@ -123,6 +127,7 @@ static bool spawnColumn(Player* player, int x, int z) {
       break;
     }
   }
+
   return playerSetPosition(player, (Vec3){(x + 0.5f) * CUBE_SIZE, (top + 1) * CUBE_SIZE, (z + 0.5f) * CUBE_SIZE});
 }
 
@@ -139,11 +144,13 @@ bool playerFindSpawn(Player* player, Vec3 preferred) {
       if (radius && spawnColumn(player, cx + dx, cz + radius))
         return true;
     }
+
     for (int dz = -radius + 1; dz < radius; dz++) {
       if (spawnColumn(player, cx - radius, cz + dz) || spawnColumn(player, cx + radius, cz + dz))
         return true;
     }
   }
+
   return false;
 }
 
@@ -165,6 +172,7 @@ static bool moveAxis(Player* player, int axis, double displacement, bool guardLe
     *coordinate = nextafterf(rounded, displacement > 0 ? -INFINITY : INFINITY);
     blocked = true;
   }
+
   if (guardLedge && !supported(player->position, player->crouched)) {
     float safe = start, unsafe = *coordinate;
     // Each crouch step is at most 0.0125 units, smaller than a block gap.
@@ -176,9 +184,11 @@ static bool moveAxis(Player* player, int axis, double displacement, bool guardLe
       else
         unsafe = *coordinate;
     }
+
     *coordinate = safe;
     blocked = true;
   }
+
   return blocked;
 }
 
@@ -194,6 +204,7 @@ static void playerStep(Player* player, PlayerMotion motion) {
     player->velocity.y = PLAYER_JUMP_SPEED;
     player->grounded = false;
   }
+
   player->velocity.x = motion.wish.x * speed;
   player->velocity.z = motion.wish.z * speed;
   player->velocity.y = fmaxf(-PLAYER_TERMINAL_SPEED, player->velocity.y - PLAYER_GRAVITY * PLAYER_STEP_SECONDS);
@@ -219,6 +230,7 @@ int playerAdvance(Player* player, PlayerMotion motion, double frameSeconds) {
     motion.wish.x = (float)(motion.wish.x / length);
     motion.wish.z = (float)(motion.wish.z / length);
   }
+
   player->jumpPending |= motion.jump;
   player->accumulator += fmin(frameSeconds, PLAYER_MAX_STEPS * PLAYER_STEP_SECONDS);
   // The small tolerance prevents double rounding from losing a whole step.
@@ -231,6 +243,7 @@ int playerAdvance(Player* player, PlayerMotion motion, double frameSeconds) {
     playerStep(player, motion);
     player->jumpPending = false;
   }
+
   return steps;
 }
 
@@ -249,11 +262,13 @@ void playerForwardEvent(PlayerRunInput* input, bool pressed, double seconds) {
     playerResetRunInput(input);
     return;
   }
+
   if (!pressed) {
     input->forwardDown = false;
     input->running = false;
     return; // Retain the first tap across its release.
   }
+
   if (input->forwardDown)
     return;
   input->forwardDown = true;

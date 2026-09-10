@@ -11,9 +11,11 @@
 #include "camera.h"
 #include "world_renderer.h"
 #include "../utils/raycast.h"
+
 typedef struct {
   char text[64];
 } DebugEntry;
+
 typedef struct {
   Camera* camera;
   float fps;
@@ -30,6 +32,7 @@ typedef struct {
   bool showDebug;
   bool wireframe;
 } DebugData;
+
 void HUDDraw(GLuint shaderProgram, DebugData* data);
 // Initialization and cleanup require the current rendering context.
 bool HUDInit(const char* buildName, const char* buildVersion);
