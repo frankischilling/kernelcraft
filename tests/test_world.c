@@ -17,6 +17,10 @@ static int failures;
     }                                                                                                                                                                              \
   } while (0)
 
+#ifndef KERNELCRAFT_BASELINE
+#include "occlusion_cpu_checks.h"
+#endif
+
 static void writeBlock(Vec3i* pos, int id) {
 #ifdef KERNELCRAFT_BASELINE
   getBlock(pos)->id = id;
@@ -338,6 +342,7 @@ static void test_generated_meshes(void) {
       Chunk* chunk = getChunk(&index);
       ChunkMesh mesh;
       CHECK(buildChunkMesh(chunk, &mesh));
+      check_occluder_mesh(&mesh);
       size_t expectedFaces = 0;
       for (int i = 0; i < CHUNK_SIZE; i++)
         for (int j = 0; j < CHUNK_HEIGHT; j++)
@@ -370,6 +375,8 @@ int main(void) {
   initChunks();
 #ifndef KERNELCRAFT_BASELINE
   test_generated_meshes();
+  test_software_occlusion();
+  test_mesh_visibility();
 #endif
   test_coordinates();
   test_occlusion();

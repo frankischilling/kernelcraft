@@ -1,0 +1,31 @@
+{
+    "pairs":  5,
+    "directories":  {
+                        "base":  "C:\\Users\\imike\\kernelcraft-occlusion-baseline",
+                        "candidate":  "C:\\Users\\imike\\kernelcraft-true-occlusion"
+                    },
+    "cpu":  [
+                {
+                    "Name":  "13th Gen Intel(R) Core(TM) i7-13700H"
+                }
+            ],
+    "utc":  "2026-09-10T00:49:48.5527121Z",
+    "mode":  "pipelined",
+    "os":  [
+               {
+                   "Caption":  "Microsoft Windows 11 Pro",
+                   "Version":  "10.0.22621"
+               }
+           ],
+    "graphics":  [
+                     {
+                         "Name":  "Intel(R) UHD Graphics",
+                         "DriverVersion":  "32.0.101.7077"
+                     },
+                     {
+                         "Name":  "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+                         "DriverVersion":  "32.0.15.7371"
+                     }
+                 ],
+    "harnessSha256":  "BA81474289D4B33945A70CEDA9E541348C214F37E7750E588DBFD1F395927D31"
+}

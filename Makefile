@@ -69,7 +69,7 @@ TEST_SOURCES += tests/test_hud.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
 WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw
 WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents,$(WRAP_STARTUP))
-WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements
+WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -Wl,--wrap=occlusionBoundsHidden -Wl,--wrap=meshVisibilityIntersects
 
 # Quote option text as data, including embedded single quotes. Keep this in a
 # recipe so make -n never writes files while expanding the build settings.

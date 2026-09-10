@@ -60,6 +60,8 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
+#include "occlusion_render_checks.h"
+#include "render_profile.h"
 
 static bool testWireframe(GLuint shader) {
   clearTerrainFixture();
@@ -631,6 +633,20 @@ int main(int argc, char** argv) {
   __glewBufferSubData = countSubData;
   __glewBufferData = countData;
   __glewGetUniformLocation = countLookup;
+#ifndef KERNELCRAFT_BASELINE
+  if (getenv("KERNELCRAFT_RENDER_PROFILE")) {
+    int status = profileRendering(shader);
+    HUDCleanup();
+    cleanupWorld();
+    cleanupChunks();
+    glDeleteProgram(shader);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return status;
+  }
+  if (getenv("KERNELCRAFT_OCCLUSION_CHECK"))
+    return testMovingOcclusion(shader) ? 0 : 24;
+#endif
   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
   for (int scenario = 0; scenario < 4; scenario++) {
     Camera camera;
@@ -801,6 +817,8 @@ int main(int argc, char** argv) {
       return 13;
   }
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
+  if (!testMovingOcclusion(shader))
+    return 24;
   if (!testWireframe(shader))
     return 22;
   if (!testFarTerrain(shader))
