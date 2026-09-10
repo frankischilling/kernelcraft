@@ -1,0 +1,29 @@
+diff --git a/tests/render_benchmark.c b/tests/render_benchmark.c
+index a26ed0c..f1848d6 100644
+--- a/tests/render_benchmark.c
++++ b/tests/render_benchmark.c
+@@ -60,6 +60,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
+ #ifndef KERNELCRAFT_BASELINE
+ #include "terrain_render_checks.h"
+ #include "lighting_render_checks.h"
++#include "render_profile.h"
+
+ static bool testWireframe(GLuint shader) {
+   clearTerrainFixture();
+@@ -631,6 +632,16 @@ int main(int argc, char** argv) {
+   __glewBufferSubData = countSubData;
+   __glewBufferData = countData;
+   __glewGetUniformLocation = countLookup;
++  if (getenv("KERNELCRAFT_RENDER_PROFILE")) {
++    int status = profileRendering(shader);
++    HUDCleanup();
++    cleanupWorld();
++    cleanupChunks();
++    glDeleteProgram(shader);
++    glfwDestroyWindow(window);
++    glfwTerminate();
++    return status;
++  }
+   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
+   for (int scenario = 0; scenario < 4; scenario++) {
+     Camera camera;
