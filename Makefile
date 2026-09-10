@@ -67,8 +67,8 @@ SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/textu
 TEST_SOURCES := tests/test_options.c tests/test_save.c tests/test_seed.c tests/test_player.c tests/test_selection.c tests/test_edits.c tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c tests/app_persistence.c
 TEST_SOURCES += tests/test_hud.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
-WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw
-WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents,$(WRAP_STARTUP))
+WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw -Wl,--wrap=renderSky
+WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents %--wrap=renderSky,$(WRAP_STARTUP))
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -Wl,--wrap=occlusionBoundsHidden -Wl,--wrap=meshVisibilityIntersects -Wl,--wrap=renderText
 
 # Quote option text as data, including embedded single quotes. Keep this in a

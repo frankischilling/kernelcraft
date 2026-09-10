@@ -227,6 +227,7 @@ try {
         $worldTest = Join-Path $outputDirectory 'test-world.exe'
         $worldSources = @('tests/test_world.c', 'src/world/chunk.c', 'src/world/edit.c', 'src/world/player.c', 'src/world/save.c', 'src/world/cube.c', 'src/world/mesh.c', 'src/world/mesh_visibility.c', 'src/world/occlusion.c', 'src/world/world.c', 'src/math/math.c', 'src/graphics/frustum.c', 'src/utils/raycast.c') |
             ForEach-Object { Join-Path $projectDirectory $_ }
+        $worldSources += Join-Path $projectDirectory 'src/world/day_night.c'
         Build-Executable $worldSources $worldTest @('-lm')
 
         $editTest = Join-Path $outputDirectory 'test-edits.exe'
@@ -261,10 +262,10 @@ try {
         Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTexture', '-Wl,--wrap=glutBitmapString', '-Wl,--wrap=__imp_glutBitmapString') + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
-        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw')
+        $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw', '-Wl,--wrap=renderSky')
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_smoke.c'))) $smokeTest ($smokeFlags + $libraries)
         $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
-        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents') })
+        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky') })
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_persistence.c'))) $persistenceTest ($persistenceFlags + $libraries)
         $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $optionsTest, $shaderTest, $smokeTest)
     }

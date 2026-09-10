@@ -19,6 +19,7 @@ static int failures;
 
 #ifndef KERNELCRAFT_BASELINE
 #include "occlusion_cpu_checks.h"
+#include "day_night_checks.h"
 #endif
 
 static void writeBlock(Vec3i* pos, int id) {
@@ -388,6 +389,7 @@ int main(void) {
   initChunks();
 #ifndef KERNELCRAFT_BASELINE
   test_generated_meshes();
+  test_day_night();
   test_software_occlusion();
   test_mesh_visibility();
 #endif
