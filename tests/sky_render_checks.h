@@ -1,22 +1,33 @@
 #include "graphics/sky.h"
 
+static void skyDirectionPixel(const SkyRenderer* sky, const DayNightState* state, Vec3 direction, unsigned char pixel[3]) {
+  Camera camera = {.front = direction, .up = {0, 1, 0}, .fov = 1};
+  vec3_normalize(&camera.front, &camera.front);
+  renderSky(sky, &camera, 960.0f / 540, state);
+  glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+}
+
 static bool captureSkyViews(const SkyRenderer* sky, GLuint shader) {
   const char* prefix = getenv("KERNELCRAFT_SKY_CAPTURE");
   if (!prefix)
     return true;
   if (!initChunksSeeded(42) || !initWorld(shader))
     return false;
-  const double phases[] = {0.125, 0.0, 0.625};
-  const char* names[] = {"day", "dawn", "night"};
+  const double phases[] = {0.125, 0.0, 0.625, 0.125, 0.625};
+  const char* names[] = {"day", "dawn", "night", "sun-glow", "moon-glow"};
   Camera camera = {.position = {-45, 24, 0}, .front = {0.985f, 0.174f, 0}, .up = {0, 1, 0}, .fov = 80};
   vec3_normalize(&camera.front, &camera.front);
   Mat4 view, projection;
-  Vec3 target;
-  vec3_add(&target, &camera.position, &camera.front);
-  mat4_lookAt(view, &camera.position, &target, &camera.up);
   mat4_perspective(projection, camera.fov, 960.0f / 540, 0.1f, 1000);
   static unsigned char pixels[960 * 540 * 3];
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 5; i++) {
+    // Extra views leave room around each halo without changing the original
+    // day/dawn/night viewpoints used for before/after gradient comparisons.
+    if (i >= 3)
+      camera.front = (Vec3){cosf(toRadians(20)), sinf(toRadians(20)), 0};
+    Vec3 target;
+    vec3_add(&target, &camera.position, &camera.front);
+    mat4_lookAt(view, &camera.position, &target, &camera.up);
     DayNightState state = sampleDayNight(phases[i]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     renderSky(sky, &camera, 960.0f / 540, &state);
@@ -66,7 +77,8 @@ static bool testSkyRendering(GLuint shader) {
                                          {{255, 97, 44}, {255, 137, 153}, {255, 188, 197}, {255, 228, 232}, {255, 250, 250}},
                                          {{39, 12, 70}, {64, 25, 96}, {96, 35, 125}, {151, 94, 178}, {180, 129, 205}}};
   const double phases[] = {0.25, 0, 0.75};
-  const float elevations[] = {0, 22.5f, 45, 67.5f, 90};
+  // Lower the bottom anchor six degrees while keeping the zenith fixed.
+  const float elevations[] = {-6, 18, 42, 66, 90};
   for (int phase = 0; phase < 3; phase++) {
     DayNightState state = sampleDayNight(phases[phase]);
     state.stars = 0;
@@ -150,6 +162,71 @@ static bool testSkyRendering(GLuint shader) {
     SKY_CHECK(abs(visible[0] - absent[0]) + abs(visible[1] - absent[1]) + abs(visible[2] - absent[2]) > 30);
   }
 
+  // Probe beyond the square artwork: halos must have the requested tint,
+  // soften with angular distance, and leave the original center untouched.
+  const unsigned char centers[2][3] = {{255, 251, 234}, {233, 228, 210}};
+  for (int body = 0; body < 2; body++) {
+    DayNightState state = sampleDayNight(body ? 0.625 : 0.125);
+    state.stars = 0;
+    DayNightState background = state;
+    background.sunDirection = background.moonDirection = (Vec3){0, -1, 0};
+    Vec3 direction = body ? state.moonDirection : state.sunDirection;
+    unsigned char center[3], halo[3][3], base[3][3];
+    skyDirectionPixel(&sky, &state, direction, center);
+    SKY_CHECK(memcmp(center, centers[body], 3) == 0);
+    const float angles[] = {6, 10, 18};
+    for (int ring = 0; ring < 3; ring++) {
+      Vec3 ray = {direction.x, direction.y, tanf(toRadians(angles[ring]))};
+      skyDirectionPixel(&sky, &state, ray, halo[ring]);
+      skyDirectionPixel(&sky, &background, ray, base[ring]);
+    }
+    printf("%s halo at 6 degrees: (%u,%u,%u), background (%u,%u,%u)\n", body ? "Moon" : "Sun", halo[0][0], halo[0][1], halo[0][2], base[0][0], base[0][1], base[0][2]);
+    if (body) {
+      for (int channel = 0; channel < 3; channel++) {
+        SKY_CHECK(halo[0][channel] > base[0][channel] + 10);
+        // A white halo approaches white by the same fraction in each channel.
+        float red = (255.0f - halo[0][0]) / (255.0f - base[0][0]);
+        float other = (255.0f - halo[0][channel]) / (255.0f - base[0][channel]);
+        SKY_CHECK(fabsf(red - other) < 0.025f);
+      }
+    } else {
+      SKY_CHECK(halo[0][0] > base[0][0] + 15 && halo[0][2] < base[0][2] - 20);
+      SKY_CHECK(halo[0][0] > halo[0][1] && halo[0][1] > halo[0][2]);
+    }
+    SKY_CHECK(halo[0][0] - base[0][0] > halo[1][0] - base[1][0] + 5);
+    SKY_CHECK(memcmp(halo[2], base[2], 3) == 0);
+
+    // An off-center halo sample must land at its perspective-projected world
+    // direction in both landscape and portrait views, at two fields of view.
+    Vec3 ray = {direction.x, direction.y, tanf(toRadians(6))};
+    const int widths[] = {960, 400};
+    const float fovs[] = {100, 115};
+    for (int shape = 0; shape < 2; shape++) {
+      int width = widths[shape];
+      glViewport(0, 0, width, 540);
+      Camera projected = {.position = {-121, 71, 119}, .front = {1, 0, 0}, .up = {0, 1, 0}, .fov = fovs[shape]};
+      float scale = tanf(toRadians(projected.fov) * 0.5f);
+      int x = (int)(width * 0.5f + ray.z / ray.x * 270 / scale);
+      int y = (int)(270 + ray.y / ray.x * 270 / scale);
+      renderSky(&sky, &projected, (float)width / 540, &state);
+      unsigned char pixel[3];
+      glReadPixels(x, y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+      for (int channel = 0; channel < 3; channel++)
+        SKY_CHECK(abs(pixel[channel] - halo[0][channel]) <= 3);
+    }
+    glViewport(0, 0, 960, 540);
+
+    // At sunrise, neither the core nor its halo may spill below world Y=0.
+    if (body)
+      state.moonDirection = (Vec3){1, 0, 0};
+    else
+      state.sunDirection = (Vec3){1, 0, 0};
+    ray = (Vec3){1, -0.01f, 0};
+    skyDirectionPixel(&sky, &state, ray, center);
+    skyDirectionPixel(&sky, &background, ray, base[0]);
+    SKY_CHECK(memcmp(center, base[0], 3) == 0);
+  }
+
   // Nondefault caller state must survive the sky pass, including wireframe.
   glUseProgram(shader);
   glEnable(GL_BLEND);
@@ -203,11 +280,35 @@ static bool testSkyRendering(GLuint shader) {
   unsigned char opaque[3];
   glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, opaque);
   SKY_CHECK(result.success && result.chunksRebuilt == 0 && memcmp(opaque, nightPixel, 3) == 0);
+  // Put an opaque block directly in front of each halo, looking upward.
+  // Drawing sky first must leave the terrain pixel exactly as it was alone.
+  for (int body = 0; body < 2; body++) {
+    DayNightState state = sampleDayNight(body ? 0.625 : 0.125);
+    state.stars = 0;
+    Vec3 direction = body ? state.moonDirection : state.sunDirection;
+    camera.front = (Vec3){direction.x, direction.y, tanf(toRadians(6))};
+    vec3_normalize(&camera.front, &camera.front);
+    camera.position = (Vec3){target.x - camera.front.x * 4, target.y - camera.front.y * 4, target.z - camera.front.z * 4};
+    camera.up = (Vec3){0, 1, 0};
+    mat4_lookAt(view, &camera.position, &target, &camera.up);
+    setWorldDayNight(&state);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    SKY_CHECK(renderWorld(&camera, view, projection, false).success);
+    unsigned char terrain[3], halo[3];
+    glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, terrain);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderSky(&sky, &camera, 960.0f / 540, &state);
+    glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, halo);
+    SKY_CHECK(memcmp(halo, terrain, 3) != 0);
+    result = renderWorld(&camera, view, projection, false);
+    glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, opaque);
+    SKY_CHECK(result.success && result.chunksRebuilt == 0 && memcmp(opaque, terrain, 3) == 0);
+  }
   SKY_CHECK(captureSkyViews(&sky, shader));
   cleanupSky(&sky);
   cleanupSky(&sky);
   SKY_CHECK(glGetError() == GL_NO_ERROR);
-  puts("Sky palette, stars, bodies, translation, depth, lighting, and state checks passed");
+  puts("Sky palette, stars, bodies, halos, projection, horizon, occlusion, lighting, and state checks passed");
   return true;
 }
 

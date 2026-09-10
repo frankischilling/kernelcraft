@@ -21,10 +21,12 @@ and `/time set 0` through `/time set 23999` to change the live cycle.
 The three supplied palettes blend smoothly with solar elevation. Day and
 night are fully established when their respective body is about 20 degrees
 above the horizon; the dawn/dusk palette is exact at sunrise and sunset.
-The five colors in each swatch form a smooth gradient from zenith to horizon.
-Daylight blue and dark night purple sit overhead; dawn/dusk orange sits at
-the horizon. Each gradient passes through the original swatch colors. Sky colors are
-display colors and bypass terrain lighting. Terrain diffuse light follows
+The five colors in each swatch form a smooth gradient from six degrees below
+the horizon to the zenith. The color anchors sit at -6, 18, 42, 66, and 90
+degrees of elevation, lowering the color bands slightly toward the horizon.
+Daylight blue and dark night purple sit overhead; dawn/dusk orange sits just
+below the horizon. Each gradient passes through the original swatch colors.
+Sky colors are display colors and bypass terrain lighting. Terrain diffuse light follows
 the sun or moon, with warm twilight fill and dim purple-blue night fill.
 The directional intensity fades to zero at the horizon before changing
 bodies. Night retains enough ambient light to navigate. This remains
@@ -36,6 +38,15 @@ horizon. Camera translation does not move the field. This is not an
 astronomical simulation. Advanced realistic star positions, constellations,
 and apparent motion are in the TODO list, along with the remaining moon
 phases once their artwork is ready. The current moon is always full.
+
+The full moon has a soft white halo; the sun has a soft yellow-orange halo.
+These glows fade out about 16 degrees from each
+body's center and sit behind the original square artwork. Their size is
+angular, so they follow the same perspective as the bodies when looking
+around, changing field of view, or resizing. The sky stays centered on the
+camera during movement. Lowering the color gradient does not shift the
+orbit or the physical horizon: stars, bodies, and glows still fade at zero
+elevation, and terrain covers the sky and halos.
 
 `src/world/day_night.c` owns timing and phase/light sampling without graphics
 dependencies. `src/graphics/sky.c` draws one full-screen triangle before
@@ -52,8 +63,10 @@ wraparound, pause/resume, invalid elapsed values, bounded stalls, phase
 weights, orbit directions, and continuity. The graphical benchmark checks
 all five bands of all three palettes against independently recorded RGB
 values, nighttime star pixels, repeatability after camera translation,
-sun/full-moon visibility, untouched depth, GL state restoration, and dimmer
-terrain without mesh uploads. The application harness checks the live sky
+sun/full-moon visibility, halo colors and falloff, original body colors,
+perspective alignment in landscape and portrait views, horizon clipping,
+halo occlusion, untouched depth, GL state restoration, and dimmer terrain
+without mesh uploads. The application harness checks the live sky
 pass and pause/resume alongside movement, editing, wireframe, HUD, and
 normal shutdown. Its wireframe and selection checks compare against the
 actual sky background.

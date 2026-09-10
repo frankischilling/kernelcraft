@@ -24,7 +24,7 @@ vec3 palette(sampler2D image, float position) {
     return mix(a, b, smoothstep(0.0, 1.0, band - float(low)));
 }
 
-vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture) {
+vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 innerGlow, vec3 outerGlow, float strength) {
     // A world-oriented square subtending about nine degrees. The fixed Z axis
     // stays perpendicular to the east/west orbit, including at the zenith.
     vec3 right = vec3(0.0, 0.0, 1.0);
@@ -32,18 +32,28 @@ vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture) {
     float facing = dot(ray, direction);
     if (facing <= 0.0 || ray.y <= 0.0)
         return color;
-    vec2 uv = vec2(dot(ray, right), -dot(ray, up)) / (facing * 0.16) + 0.5;
+    vec2 offset = vec2(dot(ray, right), -dot(ray, up)) / facing;
+    float horizonFade = smoothstep(0.0, 0.025, ray.y);
+    // Angular falloff keeps the halo attached to the body through camera
+    // motion, zoom, and resizing. Draw it beneath the original square image.
+    float radius = length(offset);
+    float falloff = 1.0 - smoothstep(0.06, 0.28, radius);
+    vec3 glow = mix(innerGlow, outerGlow, smoothstep(0.08, 0.28, radius));
+    color = mix(color, glow, strength * falloff * falloff * horizonFade);
+    vec2 uv = offset / 0.16 + 0.5;
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
         return color;
     vec4 pixel = texture(picture, uv);
-    return mix(color, pixel.rgb, pixel.a * smoothstep(0.0, 0.025, ray.y));
+    return mix(color, pixel.rgb, pixel.a * horizonFade);
 }
 
 void main() {
     vec3 ray = normalize(cameraFront + screenPosition.x * viewScale.x * cameraRight + screenPosition.y * viewScale.y * cameraUp);
-    float elevation = asin(clamp(ray.y, 0.0, 1.0)) / 1.57079632679;
+    // Lower the gradient's bottom anchor by six degrees, keeping the zenith
+    // and the physical horizon used by celestial bodies and stars in place.
+    float elevation = clamp((asin(clamp(ray.y, -1.0, 1.0)) + radians(6.0)) / radians(96.0), 0.0, 1.0);
     // Blue daylight and dark purple night sit overhead. Sunrise/sunset's
-    // strongest orange sits at the horizon, below its paler pinks.
+    // strongest orange sits just below the horizon, below its paler pinks.
     vec3 color = palette(dayPalette, elevation) * weights.x
                + palette(twilightPalette, elevation) * weights.y
                + palette(nightPalette, 1.0 - elevation) * weights.z;
@@ -65,7 +75,7 @@ void main() {
         float star = (h % 100u < 2u) ? 1.0 - smoothstep(0.4, 1.2, length(offset)) : 0.0;
         color = mix(color, vec3(1.0, 0.97, 0.91), star * starBrightness * smoothstep(0.0, 0.15, ray.y));
     }
-    color = body(color, ray, sunDirection, sunImage);
-    color = body(color, ray, moonDirection, moonImage);
+    color = body(color, ray, sunDirection, sunImage, vec3(1.0, 0.8, 0.25), vec3(1.0, 0.35, 0.03), 0.85);
+    color = body(color, ray, moonDirection, moonImage, vec3(1.0), vec3(1.0), 0.45);
     FragColor = vec4(color, 1.0);
 }
