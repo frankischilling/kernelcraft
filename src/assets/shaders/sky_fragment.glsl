@@ -69,12 +69,10 @@ void main() {
     // and the physical horizon used by celestial bodies and stars in place.
     float angle = asin(clamp(ray.y, -1.0, 1.0));
     float elevation = clamp((angle + radians(6.0)) / radians(96.0), 0.0, 1.0);
-    // Day's pale cyan bands belong near the horizon. Reach the strongest
-    // supplied blue at 24 degrees and keep it across the rest of the sky.
-    float dayElevation = clamp((angle + radians(6.0)) / radians(30.0), 0.0, 1.0);
-    // Blue daylight and dark purple night sit overhead. Sunrise/sunset's
-    // strongest orange sits just below the horizon, below its paler pinks.
-    vec3 color = palette(dayPalette, dayElevation) * weights.x
+    // Day and night share spacing and interpolation. Their supplied swatches
+    // have opposite row order, so reverse night to keep blue/purple overhead.
+    // Sunrise/sunset's strongest orange sits just below the horizon.
+    vec3 color = palette(dayPalette, elevation) * weights.x
                + palette(twilightPalette, elevation) * weights.y
                + palette(nightPalette, 1.0 - elevation) * weights.z;
     if (starBrightness > 0.0 && ray.y > 0.0) {
