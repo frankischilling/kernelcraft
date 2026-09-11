@@ -355,6 +355,13 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [x] Add a deterministic nighttime star field that fades through twilight
     - [ ] Add all remaining moon phases once their artwork is ready
     - [ ] Add advanced, realistic star placement with astronomical positions, constellations, and apparent motion
+    - [ ] Add an Earth-like astronomical calendar and seasonal cycle
+      - [ ] Model Earth’s approximately 23.44° axial tilt and orbital year to drive spring, summer, autumn, and winter with latitude-dependent solar declination
+      - [ ] Implement a realistic sun path from observer latitude/longitude, solar azimuth/elevation, sunrise/sunset, solar noon, day length, and the equation of time
+      - [ ] Separate solar time from sidereal time so the star field rotates at the correct apparent rate
+      - [ ] Replace the procedural star field with catalog-based right ascension, declination, magnitude, color, constellations, and epoch/precession updates
+      - [ ] Drive lunar orbit inclination, phases, eclipses, and apparent size from the same celestial geometry
+      - [ ] Persist calendar date, world latitude/longitude, astronomical epoch, and cycle state in world saves
     - [ ] Persist the cycle clock across world saves and restarts
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
