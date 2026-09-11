@@ -4,8 +4,10 @@
 #include "../world/occlusion.h"
 #include "../world/mesh_visibility.h"
 #include "../world/world.h"
+#include "shader.h"
 #include "texture.h"
 #include <GLFW/glfw3.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -22,10 +24,16 @@ typedef struct {
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
-static GLuint program, gridVAO, gridVBO;
-static GLint viewProjectionLocation, gridLocation;
+static GLuint program, gridVAO, gridVBO, shadowProgram, shadowFramebuffer, shadowDepthTexture;
+static GLint viewProjectionLocation, gridLocation, lightSpaceMatrixLocation, shadowMapLocation, shadowTexelSizeLocation;
+static GLint shadowViewProjectionLocation;
 
-enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
+enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6, SHADOW_MAP_SIZE = 2048 };
+#define SHADOW_ORTHOGRAPHIC_HALF_SIZE 192.0f
+#define SHADOW_LIGHT_DISTANCE 320.0f
+#define SHADOW_NEAR_PLANE 0.1f
+#define SHADOW_FAR_PLANE 700.0f
+#define SHADOW_DIRECTION_EPSILON 0.005f
 
 typedef struct {
   RenderChunk* chunk;
@@ -134,12 +142,177 @@ static bool updateDirtyChunks(RenderResult* result) {
 }
 
 static GLint lightDirectionLocation, lightColorLocation, skyFillLocation, groundFillLocation;
+static const Vec3 defaultLightDirection = {0.45f, 0.8f, 0.35f};
+static Vec3 currentLightDirection = {0.45f, 0.8f, 0.35f};
+static Vec3 shadowMapDirection;
+static Mat4 shadowTransform;
+static bool shadowMapValid, shadowMapDirty = true, shadowMapDirectionValid;
+
+static bool lightDirectionChanged(Vec3 a, Vec3 b) {
+  float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  return dx * dx + dy * dy + dz * dz > SHADOW_DIRECTION_EPSILON * SHADOW_DIRECTION_EPSILON;
+}
+
+static bool initShadowResources(void) {
+  GLint previousDrawFramebuffer, previousReadFramebuffer;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousDrawFramebuffer);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFramebuffer);
+  shadowProgram = loadShaders("assets/shaders/shadow_vertex.glsl", "assets/shaders/shadow_fragment.glsl");
+  if (!shadowProgram)
+    return false;
+
+  glGenTextures(1, &shadowDepthTexture);
+  glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+  const GLfloat border[] = {1, 1, 1, 1};
+  glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+
+  glGenFramebuffers(1, &shadowFramebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowDepthTexture, 0);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  bool complete = shadowDepthTexture && shadowFramebuffer && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previousDrawFramebuffer);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, previousReadFramebuffer);
+  if (!complete) {
+    fprintf(stderr, "Failed to create terrain shadow framebuffer\n");
+    return false;
+  }
+
+  shadowViewProjectionLocation = glGetUniformLocation(shadowProgram, "lightSpaceMatrix");
+  return shadowViewProjectionLocation >= 0 && glGetError() == GL_NO_ERROR;
+}
+
+static void buildShadowTransform(Vec3 lightDirection) {
+  Vec3 direction;
+  vec3_normalize(&direction, &lightDirection);
+  Vec3 focus = {0, CHUNK_HEIGHT * CUBE_SIZE * 0.5f, 0};
+  Vec3 offset;
+  vec3_scale(&offset, &direction, SHADOW_LIGHT_DISTANCE);
+  Vec3 eye;
+  vec3_add(&eye, &focus, &offset);
+  Vec3 up = fabsf(direction.y) > 0.95f ? (Vec3){0, 0, 1} : (Vec3){0, 1, 0};
+  Mat4 view, projection;
+  mat4_lookAt(view, &eye, &focus, &up);
+  mat4_orthographic(projection, -SHADOW_ORTHOGRAPHIC_HALF_SIZE, SHADOW_ORTHOGRAPHIC_HALF_SIZE, -SHADOW_ORTHOGRAPHIC_HALF_SIZE,
+                    SHADOW_ORTHOGRAPHIC_HALF_SIZE, SHADOW_NEAR_PLANE, SHADOW_FAR_PLANE);
+  mat4_multiply(shadowTransform, projection, view);
+}
+
+static bool refreshShadowMap(RenderResult* result, bool geometryChanged) {
+  shadowMapDirty |= geometryChanged;
+  if (shadowMapValid && shadowMapDirectionValid && !shadowMapDirty && !lightDirectionChanged(currentLightDirection, shadowMapDirection))
+    return true;
+
+  buildShadowTransform(currentLightDirection);
+  GLint previousProgram, previousVAO, previousDrawFramebuffer, previousReadFramebuffer, previousDepthFunction, previousViewport[4], previousCullFace;
+  GLint previousPolygonMode[2];
+  GLfloat previousPolygonOffsetFactor, previousPolygonOffsetUnits, previousClearDepth;
+  GLboolean previousDepthMask;
+  GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST), blendEnabled = glIsEnabled(GL_BLEND), cullEnabled = glIsEnabled(GL_CULL_FACE);
+  GLboolean scissorEnabled = glIsEnabled(GL_SCISSOR_TEST), polygonOffsetEnabled = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &previousVAO);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousDrawFramebuffer);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFramebuffer);
+  glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunction);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
+  glGetIntegerv(GL_VIEWPORT, previousViewport);
+  glGetIntegerv(GL_CULL_FACE_MODE, &previousCullFace);
+  glGetIntegerv(GL_POLYGON_MODE, previousPolygonMode);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &previousPolygonOffsetFactor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &previousPolygonOffsetUnits);
+  glGetFloatv(GL_DEPTH_CLEAR_VALUE, &previousClearDepth);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
+  glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(2.0f, 4.0f);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glClearDepth(1.0);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glUseProgram(shadowProgram);
+  glUniformMatrix4fv(shadowViewProjectionLocation, 1, GL_FALSE, shadowTransform);
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      RenderChunk* chunk = &renderChunks[x][z];
+      if (!chunk->indexCount)
+        continue;
+      glBindVertexArray(chunk->vao);
+      glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
+      result->shadowDrawCalls++;
+    }
+
+  glBindVertexArray(previousVAO);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previousDrawFramebuffer);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, previousReadFramebuffer);
+  glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
+  glUseProgram(previousProgram);
+  glDepthFunc(previousDepthFunction);
+  glDepthMask(previousDepthMask);
+  if (depthEnabled)
+    glEnable(GL_DEPTH_TEST);
+  else
+    glDisable(GL_DEPTH_TEST);
+  if (blendEnabled)
+    glEnable(GL_BLEND);
+  else
+    glDisable(GL_BLEND);
+  if (cullEnabled)
+    glEnable(GL_CULL_FACE);
+  else
+    glDisable(GL_CULL_FACE);
+  glCullFace((GLenum)previousCullFace);
+  if (scissorEnabled)
+    glEnable(GL_SCISSOR_TEST);
+  else
+    glDisable(GL_SCISSOR_TEST);
+  if (polygonOffsetEnabled)
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  else
+    glDisable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(previousPolygonOffsetFactor, previousPolygonOffsetUnits);
+  glClearDepth(previousClearDepth);
+  glPolygonMode(GL_FRONT, (GLenum)previousPolygonMode[0]);
+  glPolygonMode(GL_BACK, (GLenum)previousPolygonMode[1]);
+  if (glGetError() != GL_NO_ERROR) {
+    fprintf(stderr, "Failed to render terrain shadow map\n");
+    shadowMapValid = false;
+    return false;
+  }
+
+  shadowMapDirection = currentLightDirection;
+  shadowMapDirectionValid = true;
+  shadowMapDirty = false;
+  shadowMapValid = true;
+  return true;
+}
 
 void setWorldDayNight(const DayNightState* state) {
+  if (!state)
+    return;
+  Vec3 lightDirection = state->lightDirection;
+  float lengthSquared = lightDirection.x * lightDirection.x + lightDirection.y * lightDirection.y + lightDirection.z * lightDirection.z;
+  if (!isfinite(lengthSquared) || lengthSquared < 0.000001f)
+    lightDirection = defaultLightDirection;
+  currentLightDirection = lightDirection;
+  shadowMapDirty |= !shadowMapDirectionValid || lightDirectionChanged(currentLightDirection, shadowMapDirection);
   GLint previous;
   glGetIntegerv(GL_CURRENT_PROGRAM, &previous);
   glUseProgram(program);
-  glUniform3f(lightDirectionLocation, state->lightDirection.x, state->lightDirection.y, state->lightDirection.z);
+  glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
   glUniform3f(lightColorLocation, state->lightColor.x, state->lightColor.y, state->lightColor.z);
   glUniform3f(skyFillLocation, state->skyFill.x, state->skyFill.y, state->skyFill.z);
   glUniform3f(groundFillLocation, state->groundFill.x, state->groundFill.y, state->groundFill.z);
@@ -149,6 +322,7 @@ void setWorldDayNight(const DayNightState* state) {
 bool initWorld(GLuint shaderProgram) {
   cleanupWorld();
   program = shaderProgram;
+  currentLightDirection = defaultLightDirection;
   // Base material layers 0..3 match MeshVertex.material; GLSL selects variants
   // 4..6 per voxel. Building materials occupy layers 7..9 on every face.
   const char* paths[] = {"assets/textures/stone.png",       "assets/textures/dirt.png",        "assets/textures/grass-top.png",
@@ -162,6 +336,9 @@ bool initWorld(GLuint shaderProgram) {
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
   gridLocation = glGetUniformLocation(program, "drawGrid");
+  lightSpaceMatrixLocation = glGetUniformLocation(program, "lightSpaceMatrix");
+  shadowMapLocation = glGetUniformLocation(program, "shadowMap");
+  shadowTexelSizeLocation = glGetUniformLocation(program, "shadowMapTexelSize");
   lightDirectionLocation = glGetUniformLocation(program, "lightDirection");
   lightColorLocation = glGetUniformLocation(program, "lightColor");
   skyFillLocation = glGetUniformLocation(program, "skyColor");
@@ -169,12 +346,16 @@ bool initWorld(GLuint shaderProgram) {
   glUniform1i(glGetUniformLocation(program, "texture1"), 0);
   glUniform1ui(glGetUniformLocation(program, "worldSeed"), worldSeed());
   glUniform1f(glGetUniformLocation(program, "blockSize"), CUBE_SIZE);
+  glUniform1i(shadowMapLocation, 1);
+  glUniform1f(shadowTexelSizeLocation, 1.0f / SHADOW_MAP_SIZE);
   // Fixed lighting keeps the same face readable throughout the finite world.
   // The fill and diffuse intensities leave headroom for bright texture detail.
   glUniform3f(glGetUniformLocation(program, "lightDirection"), 0.45f, 0.8f, 0.35f);
   glUniform3f(glGetUniformLocation(program, "lightColor"), 0.62f, 0.60f, 0.56f);
   glUniform3f(glGetUniformLocation(program, "skyColor"), 0.36f, 0.39f, 0.44f);
   glUniform3f(glGetUniformLocation(program, "groundColor"), 0.18f, 0.16f, 0.14f);
+  if (!initShadowResources())
+    goto failure;
 
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -275,6 +456,8 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   RenderResult result = {0};
   if (!program || !updateDirtyChunks(&result))
     return result;
+  if (!refreshShadowMap(&result, result.chunksRebuilt != 0))
+    return result;
   result.success = true;
   Mat4 viewProjection;
   mat4_multiply(viewProjection, projection, view);
@@ -284,6 +467,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
+  glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, shadowTransform);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
+  glActiveTexture(GL_TEXTURE0);
   glUniform1i(gridLocation, 1);
   glBindVertexArray(gridVAO);
   glDrawArrays(GL_LINES, 0, GRID_VERTICES);
@@ -332,6 +519,16 @@ void cleanupWorld(void) {
   gridVAO = gridVBO = 0;
   glDeleteTextures(1, &textureArray);
   textureArray = 0;
+  glDeleteFramebuffers(1, &shadowFramebuffer);
+  glDeleteTextures(1, &shadowDepthTexture);
+  if (shadowProgram)
+    glDeleteProgram(shadowProgram);
+  shadowFramebuffer = shadowDepthTexture = shadowProgram = 0;
+  shadowMapValid = false;
+  shadowMapDirty = true;
+  shadowMapDirectionValid = false;
+  currentLightDirection = defaultLightDirection;
+  memset(shadowTransform, 0, sizeof(shadowTransform));
   program = 0;
   visibilityValid = false;
   candidateCount = hiddenCount = 0;

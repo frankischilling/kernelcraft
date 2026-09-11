@@ -42,7 +42,7 @@ static bool compareOcclusionFrame(const Camera* camera, float fov, int width, in
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     draws = 0;
     result[pass] = renderWorld(camera, view, projection, wireframe);
-    success &= result[pass].success && draws == (unsigned long)result[pass].terrainDrawCalls + 1;
+    success &= result[pass].success && draws == (unsigned long)result[pass].terrainDrawCalls + result[pass].shadowDrawCalls + 1;
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, color[pass]);
     glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, depth[pass]);
   }

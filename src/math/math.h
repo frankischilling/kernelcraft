@@ -84,6 +84,7 @@ float vec2i_distance(const Vec2i* a, const Vec2i* b);
 // Matrix operations
 void mat4_identity(Mat4 result);
 void mat4_multiply(Mat4 result, const Mat4 a, const Mat4 b);
+void mat4_orthographic(Mat4 result, float left, float right, float bottom, float top, float near, float far);
 void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float far);
 void mat4_lookAt(Mat4 result, const Vec3* eye, const Vec3* center, const Vec3* up);
 

@@ -19,18 +19,22 @@ twice and would also change the existing HUD and selection colors. Texture
 files, array formats and layer ordering, nearest filtering, repeated UVs, and
 deterministic variants are unchanged.
 
-`src/graphics/world_renderer.c` sets the light direction, diffuse intensity,
-and upper/lower fill once when initializing terrain. The shader uses the face
-normal, so greedy rectangles need no additional vertices or merge constraints.
-Camera position still controls culling and projection, but is no longer a shader
-lighting input. The grid, selection overlay, hotbar, and F4 wireframe controls
-retain their existing rendering paths. World generation and save formats are
-unchanged.
+`src/graphics/world_renderer.c` initializes the light uniforms and updates them
+when the cycle advances. The shader uses the face normal, so greedy rectangles
+need no additional vertices or merge constraints. Camera position still controls
+culling and projection, but is no longer a shader lighting input. The grid,
+selection overlay, hotbar, and F4 wireframe controls retain their existing
+rendering paths. World generation and save formats are unchanged.
 
-This is unshadowed lighting. Enclosed rooms receive the same fill as exposed
-faces with matching normals. Cast shadows, ambient occlusion, local light
-sources remain future work. Day/night simulation and sun/full-moon rendering
-are implemented in the cycle module.
+Opaque terrain now casts filtered directional shadows. A 2048 by 2048 depth
+map is rendered from a stable orthographic sun or moon view, using all non-empty
+terrain chunks so shadows can fall across chunk boundaries. The terrain shader
+uses a 3 by 3 percentage-closer filter and a slope-scaled depth bias. The map is
+refreshed after dirty chunk uploads and when the active light direction changes;
+unchanged frames reuse it. Ambient hemispheric fill remains present in shadowed
+areas, and clouds, selection, and HUD geometry do not cast terrain shadows.
+Day/night simulation and sun/full-moon rendering remain implemented in the cycle
+module.
 
 ## Regression checks
 
@@ -47,6 +51,13 @@ samples. A mid-gray tile produced 26/255 on dark faces and 217/255 on top in the
 initial fixture. The fixed shader produces approximately 49-55 underneath,
 68-97 on sides, and 120-122 on top, with the same results across the tested
 positions and camera angles.
+
+The shadow fixture renders a floor and an edited six-block column with the real
+terrain renderer. It checks that a positive-X light darkens the left receiver,
+that removing the column refreshes the depth map, and that reversing the live
+day/night light moves the shadow to the right receiver. It also checks stable
+frames, initial shadow submissions, and restoration of the caller's framebuffer,
+depth, blend, cull, scissor, polygon, and clear-depth state.
 
 The independent material fixture uses separate 2D textures and tabulated face
 irradiance, keeping texture mapping separate from the production texture array

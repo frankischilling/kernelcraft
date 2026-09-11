@@ -145,6 +145,28 @@ void mat4_identity(Mat4 result) {
   }
 }
 
+void mat4_orthographic(Mat4 result, float left, float right, float bottom, float top, float near, float far) {
+  result[0] = 2.0f / (right - left);
+  result[1] = 0.0f;
+  result[2] = 0.0f;
+  result[3] = 0.0f;
+
+  result[4] = 0.0f;
+  result[5] = 2.0f / (top - bottom);
+  result[6] = 0.0f;
+  result[7] = 0.0f;
+
+  result[8] = 0.0f;
+  result[9] = 0.0f;
+  result[10] = -2.0f / (far - near);
+  result[11] = 0.0f;
+
+  result[12] = -(right + left) / (right - left);
+  result[13] = -(top + bottom) / (top - bottom);
+  result[14] = -(far + near) / (far - near);
+  result[15] = 1.0f;
+}
+
 void mat4_perspective(Mat4 result, float fovy, float aspect, float near, float far) {
   float tanHalfFovy = tanf(toRadians(fovy) / 2.0f);
 

@@ -50,6 +50,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 - **Rendering**:
   - Basic rendering of cubes with lighting effects using shaders.
   - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun and full moon, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
+  - Opaque terrain casts filtered directional shadows that follow the current sun or moon and refresh after terrain edits. See [terrain lighting and shadow checks](docs/terrain-lighting.md).
   - Drifting blocky clouds with shaded sides, world parallax, and day/night lighting.
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
@@ -296,7 +297,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Implement conservative chunk occlusion culling during camera movement ([behavior and measurements](docs/occlusion-culling.md))
   - [x] Implement chunk-based rendering system
   - [x] Add basic shaders for lighting
-  - [ ] Implement shadows
+  - [x] Implement filtered directional shadows for opaque terrain
   - [ ] Implement basic post-processing effects
   - [x] Toggle terrain wireframe with F4 while keeping the HUD filled
   - [x] Toggle F3 diagnostics for FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time

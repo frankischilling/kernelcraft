@@ -13,6 +13,7 @@ typedef struct {
   int chunksConsidered, chunksRendered, chunksRebuilt;
   int chunksOccluded;                        // Bounds proven hidden in this frame's software depth buffer.
   int terrainDrawCalls;                      // Excludes the chunk grid and overlays.
+  int shadowDrawCalls;                       // Chunks submitted when the shadow depth map was refreshed.
   size_t submittedQuads, submittedTriangles; // Merged rectangles, not unit block faces.
   double meshUpdateMilliseconds;             // CPU mesh construction and GL submission; no GPU wait.
 } RenderResult;

@@ -29,8 +29,8 @@ native Windows builds. Work continues on `fix/build-and-input-foundation`.
 The renderer already caches indexed exposed-face meshes, batches four separate
 textures, caches uniform locations, and culls occupied chunk bounds using the
 rendering projection. Grass top, side, and bottom material and triangle winding
-have CPU tests. There is no greedy mesher, integrated atlas, shadow map, or true
-occlusion culling. `atlast.py` has a stale input path and no stable tile ordering;
+have CPU tests. At this historical checkpoint there was no greedy mesher,
+integrated atlas, shadow map, or true occlusion culling. `atlast.py` has a stale input path and no stable tile ordering;
 its generated image is unused. Existing textures and attribution are retained.
 
 Framebuffer dimensions already control projection, viewport, and text coordinates;

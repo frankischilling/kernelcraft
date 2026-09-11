@@ -34,7 +34,10 @@ Sky colors are display colors and bypass terrain lighting. Terrain diffuse light
 the sun or moon, with warm twilight fill and dim purple-blue night fill.
 The directional intensity fades to zero at the horizon before changing
 bodies. Night retains enough ambient light to navigate. This remains
-unshadowed lighting: enclosed rooms receive the same fill as exposed faces.
+shadowed lighting for opaque terrain: the renderer refreshes a filtered depth map
+when terrain changes or the active sun/moon direction moves, while the ambient
+fill keeps enclosed rooms readable. Clouds and decorative overlays do not cast
+terrain shadows. See [terrain lighting and shadow checks](terrain-lighting.md).
 
 Stars form a deterministic decorative field fixed to world directions.
 They fade in after sunset, fade out before sunrise, and soften near the

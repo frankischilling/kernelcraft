@@ -66,6 +66,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
+#include "shadow_render_checks.h"
 #include "sky_render_checks.h"
 #include "cloud_render_checks.h"
 #include "occlusion_render_checks.h"
@@ -97,7 +98,7 @@ static bool testWireframe(GLuint shader) {
     glGetIntegerv(GL_POLYGON_MODE, modes);
     success &= modes[0] == GL_POINT && modes[1] == GL_LINE;
     success &= result.success && result.submittedQuads == 6 && result.submittedTriangles == 12 && result.terrainDrawCalls == 1;
-    success &= result.chunksRebuilt == 0 && draws == 2 && uploads == 0 && lookups == 0;
+    success &= result.chunksRebuilt == 0 && draws == (unsigned long)result.shadowDrawCalls + 2 && uploads == 0 && lookups == 0;
     glReadPixels(432, 222, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, pixels[pass]);
     int lit = 0;
     for (size_t i = 0; i < sizeof(pixels[pass]); i += 3)
@@ -872,6 +873,8 @@ int main(int argc, char** argv) {
     return 20;
   if (!testTerrainLighting(shader))
     return 23;
+  if (!testTerrainShadows(shader))
+    return 27;
   if (!testTerrainVariants(shader))
     return 21;
   for (int pattern = 0; pattern < 9; pattern++)

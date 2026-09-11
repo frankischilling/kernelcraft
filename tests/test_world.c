@@ -95,6 +95,14 @@ static void test_frustum(void) {
   CHECK(!frustum_cube_visible(&frustum, &side, 1, NULL));
 }
 
+static void test_orthographic(void) {
+  Mat4 matrix;
+  mat4_orthographic(matrix, -2, 2, -3, 3, 1, 11);
+  CHECK(fabsf(matrix[0] - 0.5f) < 0.00001f && fabsf(matrix[5] - 1.0f / 3) < 0.00001f);
+  CHECK(fabsf(matrix[10] + 0.2f) < 0.00001f && fabsf(matrix[12]) < 0.00001f && fabsf(matrix[13]) < 0.00001f);
+  CHECK(fabsf(matrix[14] + 1.2f) < 0.00001f && matrix[15] == 1.0f);
+}
+
 #ifndef KERNELCRAFT_BASELINE
 static void clear_world(void) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
@@ -485,6 +493,7 @@ int main(void) {
   test_coordinates();
   test_occlusion();
   test_frustum();
+  test_orthographic();
 #ifndef KERNELCRAFT_BASELINE
   test_mesh();
   test_greedy_shapes();
