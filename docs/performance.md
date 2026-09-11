@@ -1,5 +1,8 @@
 # Rendering performance
 
+For conservative cloud-pass bounds and current native Windows measurements,
+see the [cloud rendering report](cloud-performance.md).
+
 For the complete sky/cloud/terrain/HUD frame and CPU meshing improvements in
 PR #60, see the [current performance review and measurements](pr60-performance.md).
 
