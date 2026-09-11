@@ -73,6 +73,26 @@ The sky owns its shader, vertex array, and five images and releases them
 while the GL context is current. The HUD and selection retain their own
 rendering paths.
 
+## Clouds
+
+Clouds form connected, square-edged patches in a four-block-thick layer from
+Y=120 to Y=124. Each cell is 12 blocks wide. Tops are white in daylight;
+undersides and sides are shaded. They turn warm at twilight and dark blue-gray
+at night. Clouds have world parallax and drift in +X at 0.6 blocks per second.
+Their deterministic pattern repeats every 768 blocks, including across negative
+coordinates. Drift pauses under the same conditions as the cycle, ignores the
+first resumed frame, and limits stalls to 0.1 seconds. `/time set` changes
+their lighting without jumping their position. Drift resets on launch.
+
+`src/graphics/clouds.c` draws after terrain and selection, before the HUD.
+Its shader traces the first occupied cell in the horizontal layer, including
+views from above and inside clouds. Projected hit depth lets nearby terrain
+hide clouds; the pass blends over the sky without writing terrain depth.
+Clouds are 92% opaque nearby and fade between 480 and 768 blocks from the eye.
+This is a decorative cloud layer with no collision, weather, or cloud shadows.
+The bounded shader traversal uses one full-screen triangle and creates no
+terrain meshes. Supplied sky colors and celestial artwork are unchanged.
+
 ## Checks
 
 The CPU world suite includes timing at 20/60 frames per second, full-cycle
@@ -88,6 +108,14 @@ without mesh uploads. The application harness checks the live sky
 pass and pause/resume alongside movement, editing, wireframe, HUD, and
 normal shutdown. Its wireframe and selection checks compare against the
 actual sky background.
+
+Cloud framebuffer checks cover patches and gaps, darker night lighting, visible
+tops, world parallax, drift, seamless negative-coordinate repetition, near/far
+depth planes bracketing the cloud surface, views inside the layer and along the
+horizon, untouched depth, and restored GL state. Timing checks cover pauses,
+invalid elapsed values, stalls, and wraparound. The application harness also
+compares live cloud pixels against the sky before the HUD is drawn. Optional
+`KERNELCRAFT_CLOUD_CAPTURE` captures day, dusk, night, and above-cloud views.
 
 These are scripted CPU and OpenGL checks, not a physical keyboard/mouse
 playtest or a claim about appearance on every display.

@@ -67,6 +67,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
 #include "sky_render_checks.h"
+#include "cloud_render_checks.h"
 #include "occlusion_render_checks.h"
 #include "render_profile.h"
 
@@ -889,6 +890,8 @@ int main(int argc, char** argv) {
     return 18;
   if (!testSkyRendering(shader))
     return 25;
+  if (!testCloudRendering(shader))
+    return 26;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

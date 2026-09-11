@@ -23,6 +23,7 @@ static bool sawCompactHUD, sawDebugHUD;
 static unsigned char skyProbe[3], skyTint[3], skyWall[96 * 96 * 3];
 static float lastSunY;
 static int lastSkyFrame = -1;
+static unsigned char cloudSky[1280 * 360 * 3];
 static Vec3 beforeMinimize;
 static float yawBeforeMinimize, pitchBeforeMinimize;
 static const Vec3i editFixture = {-1, 40, 6};
@@ -980,7 +981,18 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     wireframeFrame(window);
   if (frame >= 74 && frame < 84)
     chatFrame(window);
-  return frame >= 84;
+  if (frame == 84) {
+    InputState* input = glfwGetWindowUserPointer(window);
+    input->chat.open = false;
+    input->flying = true;
+    pressedKey = -1;
+    input->camera->position = (Vec3){0, 40, 0};
+    input->camera->yaw = 0;
+    input->camera->pitch = 37;
+    updateCameraVectors(input->camera);
+    input->clock.tick = 6000;
+  }
+  return frame >= 85;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1069,6 +1081,8 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
     glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyTint);
   if (frame >= 70)
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
+  if (frame == 84)
+    glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, cloudSky);
 }
 
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
@@ -1078,6 +1092,14 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
   CHECK(data->crouched == input->player.crouched && data->running == input->player.running);
   sawCompactHUD |= !data->showDebug;
   sawDebugHUD |= data->showDebug;
+  if (frame == 84) {
+    static unsigned char pixels[sizeof(cloudSky)];
+    glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    unsigned covered = 0;
+    for (size_t i = 0; i < sizeof(pixels); i += 3)
+      covered += abs(pixels[i] - cloudSky[i]) > 20 && pixels[i] > 170 && abs(pixels[i] - pixels[i + 2]) < 25;
+    CHECK(covered > 20000);
+  }
   if (frame == 60) {
     // This selected face interior is away from mesh diagonals and the outline.
     // The gold tint must still fill it when the terrain itself is unfilled.
@@ -1132,6 +1154,12 @@ static void captureFrame(int width, int height, const unsigned char* pixels) {
 void __real_glfwSwapBuffers(GLFWwindow* window);
 
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
+  if (frame == 84) {
+    CHECK(glGetError() == GL_NO_ERROR);
+    swaps++;
+    __real_glfwSwapBuffers(window);
+    return;
+  }
   if (frame >= 74) {
     InputState* input = glfwGetWindowUserPointer(window);
     CHECK(frame < 84 && glGetError() == GL_NO_ERROR);
@@ -1271,7 +1299,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 82 && waits == 2);
+    CHECK(swaps == 83 && waits == 2);
+    puts("Application cloud layer pixels checked through the live game loop");
     puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");
     CHECK(sawCompactHUD && sawDebugHUD);
     puts("Application walking, crouching, running, jumping, flight, editing, wireframe, selection pixels, pause, framebuffer, and shutdown tests passed");
