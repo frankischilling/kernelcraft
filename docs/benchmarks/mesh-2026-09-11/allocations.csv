@@ -1,0 +1,11 @@
+variant,scenario,calls_per_build,peak_requested_bytes,live_bytes
+base,generated,2,77616,0
+base,empty,0,0,0
+base,sparse,2,1008,0
+base,solid,2,1008,0
+base,checkerboard,2,8257536,0
+candidate,generated,3,84105,0
+candidate,empty,0,0,0
+candidate,sparse,3,1050,0
+candidate,solid,3,33264,0
+candidate,checkerboard,3,8601600,0
