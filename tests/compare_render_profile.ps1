@@ -35,6 +35,8 @@ $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
     scene = $env:KERNELCRAFT_PROFILE_SCENE
     atmosphere = [bool]$env:KERNELCRAFT_PROFILE_ATMOSPHERE
     phase = $env:KERNELCRAFT_PROFILE_PHASE
+    requestedWidth = $env:KERNELCRAFT_PROFILE_WIDTH
+    requestedHeight = $env:KERNELCRAFT_PROFILE_HEIGHT
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $outputRoot 'environment.json') -Encoding UTF8
 $columns = @('scenario', 'fps', 'frame_mean_ms', 'frame_median_ms', 'frame_p95_ms', 'frame_p99_ms', 'one_percent_low_fps',
     'cpu_submit_mean_ms', 'gpu_mean_ms', 'terrain_draws', 'triangles', 'surface_blocks', 'queries', 'rebuild_mean_ms',
