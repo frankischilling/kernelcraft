@@ -27,6 +27,10 @@ static DebugEntry entryMovement;
 static DebugEntry entrySave;
 static GLuint itemTextures[HOTBAR_SLOT_COUNT];
 
+// Bitmap glyphs carry a small atlas offset below their visible ink. Lift text
+// inside its dark panel so the ink has balanced top and bottom breathing room.
+enum { TEXT_BOX_TEXT_LIFT = 2, CHAT_CARET_LIFT = 4 };
+
 static void UpdateEntries(DebugData* data);
 
 /* HUD positions use framebuffer pixels and top-origin text baselines. Reserve
@@ -68,7 +72,7 @@ static void drawLabel(const TextState* state, const char* text, float x, float b
   glVertex2f(x - 2, y + state->fontHeight);
   glEnd();
   glColor3f(1, 1, 1);
-  renderText(state, fitted, x, baseline);
+  renderText(state, fitted, x, baseline - TEXT_BOX_TEXT_LIFT);
 }
 
 static void drawTopLabel(const TextState* state, const char* text, float* baseline) {
@@ -212,9 +216,29 @@ static void drawChatText(const TextState* state, const char* text, float baselin
   if (!fitLabel(state, text, availableWidth, fitted))
     return;
   glColor3f(0.12f, 0.12f, 0.12f);
-  renderText(state, fitted, 7, baseline + 1);
+  renderText(state, fitted, 7, baseline + 1 - TEXT_BOX_TEXT_LIFT);
   glColor3f(1, 1, 1);
-  renderText(state, fitted, 6, baseline);
+  renderText(state, fitted, 6, baseline - TEXT_BOX_TEXT_LIFT);
+}
+
+static void drawChatInput(const TextState* state, const char* text, float baseline, int availableWidth) {
+  char fitted[CHAT_MESSAGE_CAPACITY];
+  if (!fitLabel(state, text, availableWidth, fitted))
+    return;
+  size_t length = strlen(fitted);
+  if (!length || fitted[length - 1] != '_') {
+    drawChatText(state, fitted, baseline, availableWidth);
+    return;
+  }
+
+  fitted[--length] = '\0';
+  int textOffset = textWidth(state, fitted);
+  glColor3f(0.12f, 0.12f, 0.12f);
+  renderText(state, fitted, 7, baseline + 1 - TEXT_BOX_TEXT_LIFT);
+  renderText(state, "_", 7 + textOffset, baseline + 1 - TEXT_BOX_TEXT_LIFT - CHAT_CARET_LIFT);
+  glColor3f(1, 1, 1);
+  renderText(state, fitted, 6, baseline - TEXT_BOX_TEXT_LIFT);
+  renderText(state, "_", 6 + textOffset, baseline - TEXT_BOX_TEXT_LIFT - CHAT_CARET_LIFT);
 }
 
 static void drawChatHistory(const TextState* state, const Chat* chat, int bottom) {
@@ -249,7 +273,7 @@ static void drawChat(const TextState* state, const Chat* chat) {
     tail++;
   } while (true);
   drawChatPanel(2, (float)(width - 4), (float)(state->fontHeight + 8), 0.55f);
-  drawChatText(state, line, baseline, width - 14);
+  drawChatInput(state, line, baseline, width - 14);
   drawChatHistory(state, chat, state->fontHeight + 14);
 }
 
