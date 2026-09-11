@@ -438,19 +438,20 @@ static bool testSkyRendering(GLuint shader) {
   SKY_CHECK(!glIsEnabled(GL_DEPTH_TEST));
   glEnable(GL_DEPTH_TEST);
 
-  // Terrain in front of the sky must stay opaque and dim at night without
-  // uploads or dirty meshes. A uniform tile gives a readable lighting probe.
+  // Terrain in front of the sky must stay opaque and readable at night without
+  // uploads or dirty meshes. A uniform tile gives top and side lighting probes.
   clearTerrainFixture();
   Vec3i block = {0, 20, 0};
   SKY_CHECK(setBlock(&block, BLOCK_STONE) && initWorld(shader));
-  unsigned char noonPixel[3], nightPixel[3];
+  unsigned char noonPixel[3], nightPixel[3], nightSidePixel[3];
   DayNightState noon = sampleDayNight(0.25);
   setWorldDayNight(&noon);
   SKY_CHECK(lightingProbe(block, TOP, 0, 180, noonPixel));
   uploads = 0;
   setWorldDayNight(&night);
   SKY_CHECK(lightingProbe(block, TOP, 0, 180, nightPixel));
-  SKY_CHECK(uploads == 0 && nightPixel[0] > 20 && noonPixel[0] > nightPixel[0] * 2);
+  SKY_CHECK(lightingProbe(block, FRONT, 0, 180, nightSidePixel));
+  SKY_CHECK(uploads == 0 && nightPixel[0] >= 72 && nightSidePixel[0] >= 40 && noonPixel[0] > nightPixel[0] * 2);
   camera = (Camera){.position = {0.5f, 24, 0.5f}, .front = {0, -1, 0}, .up = {0, 0, 1}, .fov = 70};
   Mat4 view, projection;
   Vec3 target = {0.5f, 20.5f, 0.5f};

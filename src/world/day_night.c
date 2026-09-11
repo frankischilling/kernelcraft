@@ -45,8 +45,8 @@ DayNightState sampleDayNight(double phase) {
   // between opposite bodies never causes a discontinuity in face brightness.
   float sun = smoothstep(0, 0.2f, altitude);
   float moon = smoothstep(0, 0.2f, -altitude);
-  state.lightColor = (Vec3){0.62f * sun + 0.055f * moon, 0.60f * sun + 0.06f * moon, 0.56f * sun + 0.09f * moon};
-  state.skyFill = blendFill((Vec3){0.36f, 0.39f, 0.44f}, (Vec3){0.24f, 0.13f, 0.16f}, (Vec3){0.045f, 0.035f, 0.075f}, state);
-  state.groundFill = blendFill((Vec3){0.18f, 0.16f, 0.14f}, (Vec3){0.10f, 0.055f, 0.07f}, (Vec3){0.022f, 0.018f, 0.035f}, state);
+  state.lightColor = (Vec3){0.62f * sun + 0.075f * moon, 0.60f * sun + 0.08f * moon, 0.56f * sun + 0.115f * moon};
+  state.skyFill = blendFill((Vec3){0.36f, 0.39f, 0.44f}, (Vec3){0.24f, 0.13f, 0.16f}, (Vec3){0.070f, 0.055f, 0.100f}, state);
+  state.groundFill = blendFill((Vec3){0.18f, 0.16f, 0.14f}, (Vec3){0.10f, 0.055f, 0.07f}, (Vec3){0.040f, 0.032f, 0.055f}, state);
   return state;
 }

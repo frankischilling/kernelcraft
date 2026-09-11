@@ -36,6 +36,12 @@ areas, and clouds, selection, and HUD geometry do not cast terrain shadows.
 Day/night simulation and sun/full-moon rendering remain implemented in the cycle
 module.
 
+The nighttime balance keeps blocks readable under the moon and in shadowed areas:
+the moon diffuse term and blue-purple sky/ground fills are raised together. The
+graphical fixture requires a uniform 180/255 gray stone top to reach at least
+72/255 at midnight and a side to reach at least 40/255, while the noon top stays
+more than twice as bright.
+
 ## Regression checks
 
 `tests/lighting_render_checks.h` runs through the real terrain renderer in the
