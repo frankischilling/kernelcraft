@@ -21,14 +21,15 @@ and `/time set 0` through `/time set 23999` to change the live cycle.
 The three supplied palettes blend smoothly with solar elevation. Day and
 night are fully established when their respective body is about 20 degrees
 above the horizon; the dawn/dusk palette is exact at sunrise and sunset.
-Day and night use the same five color heights: -6, 18, 42, 66, and 90 degrees
-of elevation, with the same smooth interpolation between them. Day's pale
-colors sit near the horizon and gradually deepen to blue overhead. Night
-follows the same layout with its purple colors. Their PNG rows run in
-opposite orders, so the shader reverses night's sampling order to align
-the gradients. Day keeps blending through the upper sky instead of reaching
-a solid-blue cap early. Dawn/dusk uses those same heights with orange just
-below the horizon. Every swatch color is retained unchanged.
+Day and night retain the same 24-degree spacing and smooth interpolation.
+Day's five color heights are -30, -6, 18, 42, and 66 degrees: one band lower
+than night's -6, 18, 42, 66, and 90 degrees. This narrows the pale daytime
+horizon strip and gives cyan and blue more visible coverage. The true
+horizon blends the second and third day colors, while the strongest blue
+is reached at 66 degrees. Their PNG rows run in opposite orders, so the
+shader reverses night's sampling order to keep blue and purple overhead.
+Dawn/dusk retains night's heights with orange just below the horizon.
+Every swatch color is retained unchanged.
 Sky colors are display colors and bypass terrain lighting. Terrain diffuse light follows
 the sun or moon, with warm twilight fill and dim purple-blue night fill.
 The directional intensity fades to zero at the horizon before changing
@@ -78,7 +79,7 @@ The CPU world suite includes timing at 20/60 frames per second, full-cycle
 wraparound, pause/resume, invalid elapsed values, bounded stalls, phase
 weights, orbit directions, and continuity. The graphical benchmark checks
 all five bands of all three palettes against independently recorded RGB
-values, matching day/night midpoint blends, nighttime star pixels, repeatability after camera translation,
+values, day/night midpoint blends, the cyan daytime horizon, nighttime star pixels, repeatability after camera translation,
 sun/full-moon visibility, halo colors and falloff, square halo shape and pixel steps,
 forward glare beyond the pixel halo, original body colors,
 perspective alignment in landscape and portrait views, horizon clipping,

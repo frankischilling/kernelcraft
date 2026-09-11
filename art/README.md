@@ -24,13 +24,13 @@ and `full-moon.png` supply the visible bodies. Their runtime copies live in
 `src/assets/sky/`. Keep each export and its runtime copy identical.
 
 The sky samples the five palette colors and smoothly interpolates between
-them. Day and night share color heights at -6, 18, 42, 66, and 90 degrees,
-and the same smooth blends between those heights. Day uses top-to-bottom
-rows from the pale horizon to blue overhead. Night reverses its PNG row
-order so its purple colors follow the same layout. Day's blue builds
-gradually toward the zenith rather than forming a large solid-color cap.
-Dawn/dusk uses top-to-bottom rows at the same heights, placing orange just
-below the horizon. The supplied colors and PNGs remain unchanged.
+them. Day and night share 24-degree band spacing and smooth blends. Day uses
+top-to-bottom rows at -30, -6, 18, 42, and 66 degrees, one band lower than
+night, so its pale horizon strip is narrower and cyan/blue cover more sky.
+Night reverses its PNG row order at -6, 18, 42, 66, and 90 degrees, keeping
+dark purple overhead. Dawn/dusk uses top-to-bottom rows at night's heights,
+placing orange just below the horizon. The supplied colors and PNGs remain
+unchanged.
 The three palettes blend as time advances.
 The sun and full moon retain their square outlines and nearest sampling.
 The sky shader draws pixel-stepped square halos behind both bodies, tinted

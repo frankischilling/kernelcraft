@@ -79,12 +79,13 @@ static bool testSkyRendering(GLuint shader) {
   const double phases[] = {0.25, 0, 0.75};
   // Lower the bottom anchor six degrees while keeping the zenith fixed.
   const float elevations[] = {-6, 18, 42, 66, 90};
+  const float dayElevations[] = {-30, -6, 18, 42, 66};
   for (int phase = 0; phase < 3; phase++) {
     DayNightState state = sampleDayNight(phases[phase]);
     state.stars = 0;
     state.sunDirection = state.moonDirection = (Vec3){0, -1, 0};
     for (int band = 0; band < 5; band++) {
-      float angle = toRadians(elevations[phase == 2 ? 4 - band : band]);
+      float angle = toRadians(phase == 0 ? dayElevations[band] : elevations[phase == 2 ? 4 - band : band]);
       camera.front = (Vec3){0, sinf(angle), cosf(angle)};
       camera.up = fabsf(camera.front.y) > 0.99f ? (Vec3){0, 0, 1} : (Vec3){0, 1, 0};
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -99,7 +100,7 @@ static bool testSkyRendering(GLuint shader) {
     }
   }
 
-  // Day and night share band spacing and smooth interpolation. At each
+  // Day sits one band lower, retaining night's spacing and interpolation. At each
   // band's midpoint, both must be halfway between their own original colors.
   const float midpoints[] = {6, 30, 54, 78};
   for (int phase = 0; phase < 3; phase += 2) {
@@ -107,7 +108,7 @@ static bool testSkyRendering(GLuint shader) {
     state.stars = 0;
     state.sunDirection = state.moonDirection = (Vec3){0, -1, 0};
     for (int band = 0; band < 4; band++) {
-      float angle = toRadians(midpoints[band]);
+      float angle = toRadians(midpoints[band] - (phase == 0 ? 24 : 0));
       unsigned char pixel[3];
       skyDirectionPixel(&sky, &state, (Vec3){0, sinf(angle), cosf(angle)}, pixel);
       int color = phase == 2 ? 3 - band : band;
@@ -117,6 +118,16 @@ static bool testSkyRendering(GLuint shader) {
       }
     }
   }
+
+  // Keep the true horizon cyan rather than almost white. These values are
+  // the expected blend of the unchanged second and third day swatch colors.
+  DayNightState horizon = sampleDayNight(0.25);
+  horizon.sunDirection = horizon.moonDirection = (Vec3){0, -1, 0};
+  unsigned char horizonPixel[3];
+  const unsigned char horizonColor[] = {208, 250, 255};
+  skyDirectionPixel(&sky, &horizon, (Vec3){0, 0, 1}, horizonPixel);
+  for (int channel = 0; channel < 3; channel++)
+    SKY_CHECK(abs(horizonPixel[channel] - horizonColor[channel]) <= 1);
 
   static unsigned char plain[960 * 540 * 3], stars[sizeof(plain)], moved[sizeof(plain)];
   camera.front = (Vec3){0, 0.70710678f, 0.70710678f};
@@ -210,7 +221,9 @@ static bool testSkyRendering(GLuint shader) {
       }
     } else {
       SKY_CHECK(halo[0][0] > base[0][0] + 15 && halo[0][2] < base[0][2] - 20);
-      SKY_CHECK(halo[0][0] > halo[0][1] && halo[0][1] > halo[0][2]);
+      // Yellow has equal red/green; allow one byte of framebuffer rounding
+      // as the unchanged warm halo blends over different cyan sky colors.
+      SKY_CHECK(halo[0][0] + 1 >= halo[0][1] && halo[0][1] > halo[0][2] + 20);
     }
     SKY_CHECK(halo[0][0] - base[0][0] > halo[1][0] - base[1][0] + 5);
     SKY_CHECK(memcmp(halo[2], base[2], 3) == 0);

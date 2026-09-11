@@ -65,14 +65,13 @@ vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 glowColo
 
 void main() {
     vec3 ray = normalize(cameraFront + screenPosition.x * viewScale.x * cameraRight + screenPosition.y * viewScale.y * cameraUp);
-    // Lower the gradient's bottom anchor by six degrees, keeping the zenith
-    // and the physical horizon used by celestial bodies and stars in place.
+    // Night and twilight begin six degrees below the physical horizon.
     float angle = asin(clamp(ray.y, -1.0, 1.0));
-    float elevation = clamp((angle + radians(6.0)) / radians(96.0), 0.0, 1.0);
-    // Day and night share spacing and interpolation. Their supplied swatches
-    // have opposite row order, so reverse night to keep blue/purple overhead.
-    // Sunrise/sunset's strongest orange sits just below the horizon.
-    vec3 color = palette(dayPalette, elevation) * weights.x
+    float elevation = (angle + radians(6.0)) / radians(96.0);
+    // Keep the same spacing, but move day one band lower to narrow its pale
+    // horizon strip. Clamp inside palette after shifting, retaining all colors.
+    // Reverse night's opposite swatch order to keep blue/purple overhead.
+    vec3 color = palette(dayPalette, elevation + 0.25) * weights.x
                + palette(twilightPalette, elevation) * weights.y
                + palette(nightPalette, 1.0 - elevation) * weights.z;
     if (starBrightness > 0.0 && ray.y > 0.0) {
