@@ -380,6 +380,65 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add chunk compression to reduce memory footprint
   - [x] Serialize and validate complete finite worlds (uncompressed)
 
+  Follow-up tasks below are unimplemented candidates, not measured speedups.
+  Start with profiling, then small changes before introducing worker threads,
+  new mesh layouts, or save formats. Keep the existing greedy mesher, texture
+  array, visibility cache, and HUD/sky/cloud improvements as the baseline; see
+  [rebuild measurements](docs/mesh-rebuild-performance.md),
+  [occlusion measurements](docs/occlusion-benchmark.md), and
+  [whole-frame measurements](docs/pr60-performance.md).
+
+  - **Measure first and prevent regressions**:
+    - [ ] Extend the existing profiler with separate CPU timings for input/physics, selection, dirty-mesh construction, visibility, upload submission, and each rendering pass
+    - [ ] Add optional rolling frame-time and delayed GPU-query telemetry without blocking the normal loop; reuse bounded query slots and read results only when available
+    - [ ] Measure real application frame pacing and edit-to-visible latency alongside the hidden-window benchmark; report median, p95, p99, hitch counts, and presentation waits separately from GPU drains
+    - [ ] Extend repeatable scenarios to cover rapid seam edits, sustained walking/running, F3 and open chat, save requests, and pause/minimize/restore transitions
+    - [ ] Compare alternating baseline/candidate runs with identical seeds, camera paths, resolution, atmosphere, visual settings, and Release flags on native Windows and Linux; record the actual GPU/driver and keep software-renderer results separate
+    - [ ] Track requested allocations, retained CPU/GPU buffer bytes, upload bytes, and future queue high-water marks; distinguish these counters from measured process memory
+    - [ ] Add deterministic work-count regression checks and archived benchmark artifacts to CI; treat noisy timing changes as review evidence rather than unsupported fixed-FPS promises
+
+  - **Chunk editing and mesh construction**:
+    - [ ] Benchmark a deduplicated dirty-chunk work list instead of scanning every chunk each frame; preserve seam-neighbor invalidation, no-op edits, and an allocation-free idle path
+    - [ ] Reuse bounded meshing scratch storage for masks and retained greedy rectangles; measure allocator savings, empty-chunk overhead, peak memory, and failure cleanup
+    - [ ] Evaluate occupancy and column-height metadata to skip empty or fully solid mesh regions; maintain it correctly for edits, world replacement, and negative-coordinate seams
+    - [ ] Profile visibility/occluder metadata construction and evaluate deriving it directly from greedy rectangle records without losing conservative coverage
+    - [ ] Prototype vertical subchunks or dirty-slice rebuilds for isolated edits; compare extra draw calls, metadata, and seam handling against whole-chunk rebuild cost
+    - [ ] Introduce measured rebuild-time and upload-byte budgets with nearby-edit priority, starvation prevention, coherent seam publication, and a defined edit-to-visible latency bound
+    - [ ] Move CPU meshing to bounded worker jobs only after measuring the synchronous path; use immutable chunk/neighbor snapshots and revision checks, reject stale results, cancel safely on world replacement, and keep GL work on the context-owning thread
+
+  - **Terrain uploads, visibility, and draw submission**:
+    - [ ] Benchmark compact chunk-local vertex formats with packed normals/material IDs; preserve world-space variant selection, repeating UVs, winding, and position precision
+    - [ ] Use 16-bit mesh indices where the maximum vertex index fits, retaining a checked 32-bit fallback and worst-case checkerboard tests
+    - [ ] Compare the current full buffer uploads with bounded capacity reuse, orphaning, and mapped-range streaming; prevent overwriting in-flight GPU data and keep the OpenGL 3.3 path
+    - [ ] Reclaim oversized or long-empty chunk GPU buffers under a measured memory budget without causing allocation churn during repeated break/place edits
+    - [ ] Audit redundant GL state queries, binds, and uniform updates; introduce explicit pass ownership where it reduces measured cost while preserving HUD, selection, sky, cloud, and wireframe state
+    - [ ] Restrict moving-camera visibility candidates to the render-radius neighborhood and benchmark sorting alternatives; retain the existing unchanged-view cache and test world edges
+    - [ ] Bound software-occlusion work according to measured cost versus saved draws; conservatively render uncertain or untested chunks rather than hiding them using stale camera/mesh results
+
+  - **Frame pacing, interaction, and overlays**:
+    - [ ] Add user-selectable VSync and frame limits with a non-busy-wait limiter; measure pacing and input responsiveness while retaining an explicit uncapped benchmark mode
+    - [ ] Reduce rendering work in visible but unfocused or paused windows with timed event waits or a lower redraw rate; preserve responsive chat, resizing, save feedback, and pause/resume clock behavior
+    - [ ] Audit duplicate DDA selection work and reuse results only for the same camera and world revision; invalidate immediately after edits so breaking, placement, and highlighting stay correct
+    - [ ] Share or cache unchanged camera/projection calculations where profiling supports it; invalidate on movement, FOV changes, framebuffer resize, and world replacement
+    - [ ] Profile repeated collision/support queries and benchmark chunk-local lookup reuse or occupancy broad phases without reducing the 120 Hz physics rate or changing crouch, run, and ledge behavior
+    - [ ] Benchmark a batched glyph/overlay renderer against the existing cached FreeGLUT path, especially with F3 and chat; preserve small-window layout and do not switch to a core profile while legacy rendering remains
+    - [ ] For the planned astronomical sky, upload static star-catalog data once and cache slowly changing calendar/orbit terms; interpolate visual motion instead of rebuilding catalog geometry every frame
+
+  - **Startup, saving, and memory lifetime**:
+    - [ ] Extend cold/warm startup measurements to distinguish asset decoding, shader compilation, generation, meshing, uploads, and time to the first playable frame
+    - [ ] Evaluate prioritizing spawn-visible meshes during startup and scheduling the remainder with bounded work; keep collision data ready and define readiness rules that prevent visible holes
+    - [ ] Profile terrain generation for repeated per-column noise/biome work and cache or hoist invariants only when useful; retain seed fingerprints and deterministic output
+    - [ ] Move save encoding and file I/O off the frame loop using consistent immutable snapshots, bounded/coalesced requests, truthful completion status, and a clean-exit drain; preserve the previous save on failure
+    - [ ] Benchmark palette/RLE or other lossless chunk encoding for a versioned save format; measure compression ratio, encode/decode time, temporary memory, malformed-input handling, and legacy-save migration
+    - [ ] Evaluate incremental dirty-chunk persistence separately from render-dirty state; include player-only changes, chunk checksums, crash recovery, and checked replacement rather than unsafe in-place writes
+    - [ ] Add long-running edit/reload/save stress tests that track CPU allocations, GPU objects, retained empty meshes, caches, and future job queues; enforce cleanup and bounded retained memory
+
+  Accept performance changes only with matched before/after evidence and the
+  relevant CPU, sanitizer, rendering, persistence, and manual-input checks from
+  [CONTRIBUTING.md](CONTRIBUTING.md). Preserve default visual quality, finite-world
+  behavior, save safety, and OpenGL 3.3 compatibility. Treat LOD or reduced-quality
+  modes as explicit options, not as equivalent-work speedups.
+
 ### Phase 3: Gameplay Features
 - **World Interaction**:
   - [ ] Add inventory system
