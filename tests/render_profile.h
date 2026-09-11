@@ -52,6 +52,14 @@ static int profileCompare(const void* left, const void* right) {
 }
 
 static int profileRendering(GLuint shader) {
+  const char* widthText = getenv("KERNELCRAFT_PROFILE_WIDTH");
+  const char* heightText = getenv("KERNELCRAFT_PROFILE_HEIGHT");
+  char *widthEnd = NULL, *heightEnd = NULL;
+  long requestedWidth = widthText ? strtol(widthText, &widthEnd, 10) : 1280;
+  long requestedHeight = heightText ? strtol(heightText, &heightEnd, 10) : 720;
+  if ((widthText && (widthEnd == widthText || *widthEnd)) || (heightText && (heightEnd == heightText || *heightEnd)) || requestedWidth < 1 || requestedWidth > 8192 ||
+      requestedHeight < 1 || requestedHeight > 8192)
+    return 30;
   bool atmosphere = getenv("KERNELCRAFT_PROFILE_ATMOSPHERE") != NULL;
   const char* phaseText = getenv("KERNELCRAFT_PROFILE_PHASE");
   char* phaseEnd = NULL;
@@ -73,13 +81,18 @@ static int profileRendering(GLuint shader) {
   printf("PROFILE_ATMOSPHERE enabled=%d phase=%.6f\n", atmosphere, phase);
   GLFWwindow* window = glfwGetCurrentContext();
   glfwSwapInterval(0);
-  glfwSetWindowSize(window, 1280, 720);
+  // Decorations can clamp a 1080-high client area on a 1080-high desktop.
+  // This hidden profiling window must keep the requested framebuffer size.
+  glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
+  glfwSetWindowSize(window, (int)requestedWidth, (int)requestedHeight);
   glfwPollEvents();
   glfwSwapBuffers(window);
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
-  if (width != 1280 || height != 720)
+  if (width != requestedWidth || height != requestedHeight) {
+    fprintf(stderr, "Profile framebuffer mismatch: requested=%ldx%ld actual=%dx%d\n", requestedWidth, requestedHeight, width, height);
     return 30;
+  }
   glViewport(0, 0, width, height);
   printf("PROFILE_ENV renderer=%s version=%s resolution=%dx%d warmup=%d frames=%d seed=0 mode=%s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION), width, height,
          PROFILE_WARMUP, PROFILE_FRAMES, pipelined ? "pipelined" : "serialized");

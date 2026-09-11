@@ -1,5 +1,8 @@
 # Rendering performance
 
+For the current measured chunk-edit and startup optimization, see
+[chunk rebuild performance](mesh-rebuild-performance.md).
+
 For the complete sky/cloud/terrain/HUD frame and CPU meshing improvements in
 PR #60, see the [current performance review and measurements](pr60-performance.md).
 

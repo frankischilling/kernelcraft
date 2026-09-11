@@ -1,0 +1,431 @@
+{
+  "baseline": "a1deaf43028c75e0a5a7a15520255514dfa83697",
+  "production_candidate": "0ac85a2dcde4ef76ff7d0ab821e67a167407099e",
+  "final_profiler": "a9ae23d2f785ab570859acf8e6fbb030102cc33e",
+  "active_renderer": "Intel(R) UHD Graphics",
+  "gl_version": "4.6.0 - Build 32.0.101.7077",
+  "compiler": "MinGW GCC 13.2.0",
+  "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+  "hashes": {
+    "base": {
+      "benchmark_sha256": "db82b260f0af80267ab275134243e787b83e6f2632712ee678e10cdb9fe1aed4",
+      "assets_sha256": "c74f60857bdb18d2e07846bb107a815a8630a66d4d6df16a7fb3b62ba678a1d7",
+      "mesh_profile_sha256": "eb04065206aa6ce245a6bf7968564c2de1e8dc51e3d49ab8cda2f987ceaf104c"
+    },
+    "candidate": {
+      "benchmark_sha256": "83ae617fc28fd4078416abb6e86941153f83d21e2beddd696c75767eb036226a",
+      "assets_sha256": "c74f60857bdb18d2e07846bb107a815a8630a66d4d6df16a7fb3b62ba678a1d7",
+      "mesh_profile_sha256": "eb04065206aa6ce245a6bf7968564c2de1e8dc51e3d49ab8cda2f987ceaf104c"
+    }
+  },
+  "suites": {
+    "day1080": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:36:40.3106599Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "1080",
+      "scene": null,
+      "harnessSha256": "82516D86F6D29B47FD9F329C9088D56CAB09A3CBA06FA69F3F3FD17A14E1C5C8"
+    },
+    "day1080-final": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:41:49.5477177Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "1080",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "day720": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:34:33.8689666Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "82516D86F6D29B47FD9F329C9088D56CAB09A3CBA06FA69F3F3FD17A14E1C5C8"
+    },
+    "day720-final": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:40:00.5299735Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "day720-repeat": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 5,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:46:31.8964993Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "f3-1080-final": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": true,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:44:27.5589449Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "1080",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "f3-1080-seam-repeat": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 5,
+      "debug": true,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:50:07.5977890Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.125",
+      "requestedHeight": "1080",
+      "scene": "seam_edits",
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "night1080-final": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:43:06.1342297Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.625",
+      "requestedHeight": "1080",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "night1080-seam-repeat": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 5,
+      "debug": false,
+      "requestedWidth": "1920",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:50:39.6630217Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.625",
+      "requestedHeight": "1080",
+      "scene": "seam_edits",
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "night720": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:35:49.3425036Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.625",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "82516D86F6D29B47FD9F329C9088D56CAB09A3CBA06FA69F3F3FD17A14E1C5C8"
+    },
+    "night720-final": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 3,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:40:56.0474758Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.625",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    },
+    "night720-repeat": {
+      "skipText": false,
+      "atmosphere": true,
+      "pairs": 5,
+      "debug": false,
+      "requestedWidth": "1280",
+      "cpu": [
+        {
+          "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+        }
+      ],
+      "utc": "2026-09-11T01:48:03.4977699Z",
+      "mode": "pipelined",
+      "os": [
+        {
+          "Caption": "Microsoft Windows 11 Pro",
+          "Version": "10.0.22621"
+        }
+      ],
+      "graphics": [
+        {
+          "Name": "Intel(R) UHD Graphics",
+          "DriverVersion": "32.0.101.7077"
+        },
+        {
+          "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+          "DriverVersion": "32.0.15.7371"
+        }
+      ],
+      "phase": "0.625",
+      "requestedHeight": "720",
+      "scene": null,
+      "harnessSha256": "16E987644001317AB7625B2489EEDD6791757C4196AC58EF492EA7F705CDA524"
+    }
+  }
+}
