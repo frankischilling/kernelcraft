@@ -24,29 +24,59 @@ vec3 palette(sampler2D image, float position) {
     return mix(a, b, smoothstep(0.0, 1.0, band - float(low)));
 }
 
-vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture) {
+vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 glowColor, float pixelStrength, float mieStrength) {
     // A world-oriented square subtending about nine degrees. The fixed Z axis
     // stays perpendicular to the east/west orbit, including at the zenith.
     vec3 right = vec3(0.0, 0.0, 1.0);
     vec3 up = cross(direction, right);
     float facing = dot(ray, direction);
-    if (facing <= 0.0 || ray.y <= 0.0)
+    // All three glow terms and the sprite are zero outside this cone.
+    if (facing <= cos(radians(35.0)) || ray.y <= 0.0)
         return color;
-    vec2 uv = vec2(dot(ray, right), -dot(ray, up)) / (facing * 0.16) + 0.5;
+    vec2 offset = vec2(dot(ray, right), -dot(ray, up)) / facing;
+    float horizonFade = smoothstep(0.0, 0.025, ray.y);
+    // A coarse, world-oriented mask supplies the stepped square glow of a
+    // nearest-sampled sprite. It remains fixed to the body, not screen pixels.
+    vec2 cell = (floor(offset / 0.02) + 0.5) * 0.02;
+    // A fourth-power radius rounds the corners in pixel steps instead of
+    // producing a stack of large, uniformly opaque rectangular borders.
+    float squareRadius = sqrt(length(cell * cell));
+    float pixelHalo = 1.0 - smoothstep(0.075, 0.23, squareRadius);
+    pixelHalo *= pixelHalo;
+
+    // Peak-normalized Henyey-Greenstein forward lobe approximates Mie glare.
+    // Both ray and direction point toward the sky, so forward is dot = +1.
+    const float g = 0.8;
+    float mie = pow((1.0 - g) * (1.0 - g) / (1.0 + g * g - 2.0 * g * facing), 1.5);
+    float atmosphere = mix(1.5, 1.0, smoothstep(0.0, 0.5, direction.y));
+    float extent = smoothstep(cos(radians(35.0)), cos(radians(20.0)), facing);
+    // A soft bloom skirt follows the square emitter. This is celestial glow
+    // inside the sky pass, not a full-scene HDR postprocessing pipeline.
+    vec2 outside = max(abs(offset) - 0.08, vec2(0.0));
+    float bloom = exp(-dot(outside, outside) / 0.008);
+    float visibility = horizonFade * (1.0 - smoothstep(0.0, 0.08, -direction.y));
+    color = mix(color, glowColor, (mie * mieStrength * atmosphere + bloom * 0.12 * pixelStrength) * extent * visibility);
+    color = mix(color, glowColor, pixelHalo * pixelStrength * visibility);
+    vec2 uv = offset / 0.16 + 0.5;
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
         return color;
     vec4 pixel = texture(picture, uv);
-    return mix(color, pixel.rgb, pixel.a * smoothstep(0.0, 0.025, ray.y));
+    return mix(color, pixel.rgb, pixel.a * horizonFade);
 }
 
 void main() {
     vec3 ray = normalize(cameraFront + screenPosition.x * viewScale.x * cameraRight + screenPosition.y * viewScale.y * cameraUp);
-    float elevation = asin(clamp(ray.y, 0.0, 1.0)) / 1.57079632679;
-    // Blue daylight and dark purple night sit overhead. Sunrise/sunset's
-    // strongest orange sits at the horizon, below its paler pinks.
-    vec3 color = palette(dayPalette, elevation) * weights.x
-               + palette(twilightPalette, elevation) * weights.y
-               + palette(nightPalette, 1.0 - elevation) * weights.z;
+    // Night and twilight begin six degrees below the physical horizon.
+    float angle = asin(clamp(ray.y, -1.0, 1.0));
+    float elevation = (angle + radians(6.0)) / radians(96.0);
+    // Keep the same spacing, but move day one band lower to narrow its pale
+    // horizon strip. Clamp inside palette after shifting, retaining all colors.
+    // Reverse night's opposite swatch order to keep blue/purple overhead.
+    vec3 color = vec3(0.0);
+    // Phase weights are uniform across the frame: do not sample inactive palettes.
+    if (weights.x > 0.0) color += palette(dayPalette, elevation + 0.25) * weights.x;
+    if (weights.y > 0.0) color += palette(twilightPalette, elevation) * weights.y;
+    if (weights.z > 0.0) color += palette(nightPalette, 1.0 - elevation) * weights.z;
     if (starBrightness > 0.0 && ray.y > 0.0) {
         // Fixed spherical cells form a repeatable decorative field. Equal-area
         // latitude coordinates avoid crowding at the poles. A later milestone
@@ -65,7 +95,7 @@ void main() {
         float star = (h % 100u < 2u) ? 1.0 - smoothstep(0.4, 1.2, length(offset)) : 0.0;
         color = mix(color, vec3(1.0, 0.97, 0.91), star * starBrightness * smoothstep(0.0, 0.15, ray.y));
     }
-    color = body(color, ray, sunDirection, sunImage);
-    color = body(color, ray, moonDirection, moonImage);
+    color = body(color, ray, sunDirection, sunImage, vec3(1.0, 0.84, 0.42), 0.85, 0.18);
+    color = body(color, ray, moonDirection, moonImage, vec3(1.0), 0.45, 0.10);
     FragColor = vec4(color, 1.0);
 }

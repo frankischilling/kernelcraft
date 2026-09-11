@@ -31,13 +31,12 @@ static void UpdateEntries(DebugData* data);
 
 /* HUD positions use framebuffer pixels and top-origin text baselines. Reserve
  * a band around the crosshair; diagnostic rows may use only the upper half. */
-static void drawLabel(const TextState* state, const char* text, float x, float baseline, int availableWidth) {
-  char fitted[CHAT_MESSAGE_CAPACITY];
+static bool fitLabel(const TextState* state, const char* text, int availableWidth, char fitted[CHAT_MESSAGE_CAPACITY]) {
   if (availableWidth <= 0)
-    return;
+    return false;
   size_t length = strlen(text);
-  snprintf(fitted, sizeof(fitted), "%s", text);
-  bool shortened = length >= sizeof(fitted);
+  snprintf(fitted, CHAT_MESSAGE_CAPACITY, "%s", text);
+  bool shortened = length >= CHAT_MESSAGE_CAPACITY;
   length = strlen(fitted);
   while (length && textWidth(state, fitted) > availableWidth) {
     fitted[--length] = '\0';
@@ -46,13 +45,18 @@ static void drawLabel(const TextState* state, const char* text, float x, float b
 
   if (shortened) {
     int dots = textWidth(state, "...");
-    while (length && (length + 3 >= sizeof(fitted) || textWidth(state, fitted) + dots > availableWidth))
+    while (length && (length + 3 >= CHAT_MESSAGE_CAPACITY || textWidth(state, fitted) + dots > availableWidth))
       fitted[--length] = '\0';
     if (dots <= availableWidth)
       memcpy(fitted + length, "...", 4);
   }
 
-  if (!fitted[0])
+  return fitted[0] != '\0';
+}
+
+static void drawLabel(const TextState* state, const char* text, float x, float baseline, int availableWidth) {
+  char fitted[CHAT_MESSAGE_CAPACITY];
+  if (!fitLabel(state, text, availableWidth, fitted))
     return;
   int width = textWidth(state, fitted);
   float y = state->viewport[3] - baseline;
@@ -72,6 +76,14 @@ static void drawTopLabel(const TextState* state, const char* text, float* baseli
     return;
   drawLabel(state, text, 8, *baseline, state->viewport[2] - 16);
   *baseline += state->fontHeight + 6;
+}
+
+static int hotbarPitch(int width, int height) {
+  int pitch = (width - 16) / HOTBAR_SLOT_COUNT;
+  if (pitch > 48)
+    pitch = 48;
+  int verticalPitch = height / 2 - glutBitmapHeight(GLUT_BITMAP_HELVETICA_10) - 26;
+  return pitch < verticalPitch ? pitch : verticalPitch;
 }
 
 static void DrawControls(const TextState* state, const DebugData* data) {
@@ -116,13 +128,8 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   TextState numbers = *state;
   numbers.font = GLUT_BITMAP_HELVETICA_10;
   numbers.fontHeight = glutBitmapHeight(numbers.font);
-  int pitch = (width - 16) / HOTBAR_SLOT_COUNT;
-  if (pitch > 48)
-    pitch = 48;
   // Wide, short windows still need a clear band around the crosshair.
-  int verticalPitch = height / 2 - numbers.fontHeight - 26;
-  if (pitch > verticalPitch)
-    pitch = verticalPitch;
+  int pitch = hotbarPitch(width, height);
   int slotWidth = pitch - 2, barHeight = pitch + numbers.fontHeight + 4;
   // Prefer whole multiples of the 16-pixel tiles when there is room.
   int iconSize = pitch >= 40 ? 32 : pitch >= 24 ? 16 : pitch - 8;
@@ -175,11 +182,11 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   const char* selectedName = names[hotbarBlock(data->selectedSlot)];
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
+  if (data->chat && data->chat->count)
+    return; // Chat history occupies the hint area above the hotbar.
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14) {
     const char* hint = data->captured ? "Hold left: break | Right: place | Enter: chat" : "Esc: capture mouse | Enter: chat";
-    if (data->chat && data->chat->count)
-      hint = data->chat->messages[data->chat->count - 1];
     drawLabel(state, hint, 8, baseline, width - 16);
   }
   baseline -= state->fontHeight + 6;
@@ -190,27 +197,60 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     drawLabel(state, "Shift: crouch | Double-tap W: run", 8, baseline, width - 16);
 }
 
+static void drawChatPanel(float bottom, float width, float height, float opacity) {
+  glColor4f(0, 0, 0, opacity);
+  glBegin(GL_QUADS);
+  glVertex2f(2, bottom);
+  glVertex2f(2 + width, bottom);
+  glVertex2f(2 + width, bottom + height);
+  glVertex2f(2, bottom + height);
+  glEnd();
+}
+
+static void drawChatText(const TextState* state, const char* text, float baseline, int availableWidth) {
+  char fitted[CHAT_MESSAGE_CAPACITY];
+  if (!fitLabel(state, text, availableWidth, fitted))
+    return;
+  glColor3f(0.12f, 0.12f, 0.12f);
+  renderText(state, fitted, 7, baseline + 1);
+  glColor3f(1, 1, 1);
+  renderText(state, fitted, 6, baseline);
+}
+
+static void drawChatHistory(const TextState* state, const Chat* chat, int bottom) {
+  int width = state->viewport[2], height = state->viewport[3];
+  int rowHeight = state->fontHeight + 6;
+  int rows = (height / 2 - 14 - bottom) / rowHeight;
+  if (width < 32 || rows <= 0 || !chat->count)
+    return;
+  if ((size_t)rows > chat->count)
+    rows = (int)chat->count;
+  int panelWidth = width - 4 < 640 ? width - 4 : 640;
+  // One shared rectangle makes short and long messages align without gaps.
+  drawChatPanel((float)bottom, (float)panelWidth, (float)(rows * rowHeight), 0.45f);
+  float baseline = (float)(height - bottom - 6);
+  for (int row = 0; row < rows; row++) {
+    drawChatText(state, chat->messages[chat->count - 1 - (size_t)row], baseline, panelWidth - 10);
+    baseline -= rowHeight;
+  }
+}
+
 static void drawChat(const TextState* state, const Chat* chat) {
   int width = state->viewport[2], height = state->viewport[3];
   if (width < 32 || height < state->fontHeight + 16)
     return;
-  float baseline = height - 10;
+  float baseline = height - 6;
   char line[CHAT_INPUT_CAPACITY + 4];
   const char* tail = chat->input;
   do {
     snprintf(line, sizeof(line), "> %s_", tail);
-    if (textWidth(state, line) <= width - 16 || !*tail)
+    if (textWidth(state, line) <= width - 14 || !*tail)
       break;
     tail++;
   } while (true);
-  drawLabel(state, line, 8, baseline, width - 16);
-  baseline -= state->fontHeight + 8;
-  for (size_t i = chat->count; i > 0 && baseline - state->fontHeight >= height * 0.5f + 14; i--) {
-    drawLabel(state, chat->messages[i - 1], 8, baseline, width - 16);
-    baseline -= state->fontHeight + 8;
-  }
-  if (baseline - state->fontHeight >= height * 0.5f + 14)
-    drawLabel(state, "Enter: send | Esc: cancel | /time set day|night|0..23999", 8, baseline, width - 16);
+  drawChatPanel(2, (float)(width - 4), (float)(state->fontHeight + 8), 0.55f);
+  drawChatText(state, line, baseline, width - 14);
+  drawChatHistory(state, chat, state->fontHeight + 14);
 }
 
 static const char* movementStatus(const DebugData* data) {
@@ -231,7 +271,9 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
     return;
   UpdateEntries(data);
   Ray cast = data->selection;
-  snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y, cast.blockCoords.z);
+  if (data->showDebug && cast.hit)
+    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y,
+             cast.blockCoords.z);
 
   TextState state;
   GLint activeTexture;
@@ -270,8 +312,13 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
 
   if (data->chat && data->chat->open)
     drawChat(&state, data->chat);
-  else
+  else {
     DrawControls(&state, data);
+    if (data->chat && data->chat->count && viewport[2] >= 192 && viewport[3] >= 120) {
+      int bottom = hotbarPitch(viewport[2], viewport[3]) + glutBitmapHeight(GLUT_BITMAP_HELVETICA_10) + 32 + state.fontHeight;
+      drawChatHistory(&state, data->chat, bottom);
+    }
+  }
   endText(&state);
   glPopAttrib();
   glActiveTexture((GLenum)activeTexture);
@@ -279,6 +326,8 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
 
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
+  if (!data->showDebug)
+    return;
   snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d", movementStatus(data), data->simulationSteps);
   snprintf(entryFPS.text, sizeof(entryFPS.text), "FPS: %.1f", data->fps);
   snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(data->camera->position.x, data->camera->position.z));

@@ -65,11 +65,3 @@ static const CubeFace cubeFaces[6] = {
 const float* getCubeFaceVertices(int face) {
   return face >= 0 && face < 6 ? cubeFaces[face].vertices : NULL;
 }
-
-bool blockIDValid(int id) {
-  return id >= BLOCK_AIR && id <= BLOCK_STONE_BRICKS;
-}
-
-bool blockIsSolid(int id) {
-  return blockIDValid(id) && id != BLOCK_AIR;
-}

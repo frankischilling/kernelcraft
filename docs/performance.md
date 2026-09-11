@@ -1,5 +1,8 @@
 # Rendering performance
 
+For the complete sky/cloud/terrain/HUD frame and CPU meshing improvements in
+PR #60, see the [current performance review and measurements](pr60-performance.md).
+
 The discussion and timings below record earlier renderer checkpoints. See
 [current-view occlusion](occlusion-culling.md) and its
 [paired benchmark report](occlusion-benchmark.md) for the current visibility

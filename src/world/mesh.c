@@ -22,7 +22,10 @@ static enum Material faceMaterial(uint8_t block, int face) {
  * Only equal materials on the same oriented plane merge. Lighting is evaluated
  * per fragment from world position and the constant face normal, so it does not
  * add a vertex-lighting constraint to the merge key. */
-static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE], size_t slots[MATERIAL_COUNT], ChunkMesh* output) {
+enum { MESH_SLICES = CHUNK_HEIGHT > CHUNK_SIZE ? CHUNK_HEIGHT : CHUNK_SIZE };
+
+static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE], const bool slices[6][MESH_SLICES], size_t slots[MATERIAL_COUNT],
+                           ChunkMesh* output) {
   const int corners[4] = {0, 1, 2, 4};
   const uint32_t outward[6] = {0, 1, 2, 2, 3, 0};
   const uint32_t reversed[6] = {0, 2, 1, 2, 0, 3};
@@ -33,6 +36,8 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
     int u = axis == 0 ? 2 : 0, v = axis == 1 ? 2 : 1;
     int columns = dimensions[u], rows = dimensions[v];
     for (int slice = 0; slice < dimensions[axis]; slice++) {
+      if (!slices[face][slice])
+        continue;
       uint8_t mask[CHUNK_SIZE * CHUNK_HEIGHT] = {0};
       for (int row = 0; row < rows; row++)
         for (int col = 0; col < columns; col++) {
@@ -99,24 +104,50 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
 bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   memset(mesh, 0, sizeof(*mesh));
   uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE] = {0};
+  bool slices[6][MESH_SLICES] = {{false}};
+  // Cache solidity once. The one-cell border preserves cross-chunk/world edges
+  // without repeating world coordinate lookup for every interior neighbor.
+  bool solid[CHUNK_SIZE + 2][CHUNK_HEIGHT + 2][CHUNK_SIZE + 2] = {{{false}}};
   size_t faceCounts[MATERIAL_COUNT] = {0};
   int originX = chunk->position.a * CHUNK_SIZE;
   int originZ = chunk->position.b * CHUNK_SIZE;
   mesh->min = (Vec3){FLT_MAX, FLT_MAX, FLT_MAX};
   mesh->max = (Vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
+  bool anySolid = false;
+  for (int x = 0; x < CHUNK_SIZE; x++)
+    for (int y = 0; y < CHUNK_HEIGHT; y++)
+      for (int z = 0; z < CHUNK_SIZE; z++) {
+        solid[x + 1][y + 1][z + 1] = blockIsSolid(chunk->blocks[x][y][z].id);
+        anySolid |= solid[x + 1][y + 1][z + 1];
+      }
+  if (!anySolid) {
+    mesh->min = mesh->max = (Vec3)VEC3_ZERO;
+    return true;
+  }
+  for (int y = 0; y < CHUNK_HEIGHT; y++)
+    for (int edge = 0; edge < CHUNK_SIZE; edge++) {
+      const Block* left = getBlock(&(Vec3i){originX - 1, y, originZ + edge});
+      const Block* right = getBlock(&(Vec3i){originX + CHUNK_SIZE, y, originZ + edge});
+      const Block* back = getBlock(&(Vec3i){originX + edge, y, originZ - 1});
+      const Block* front = getBlock(&(Vec3i){originX + edge, y, originZ + CHUNK_SIZE});
+      solid[0][y + 1][edge + 1] = left && blockIsSolid(left->id);
+      solid[CHUNK_SIZE + 1][y + 1][edge + 1] = right && blockIsSolid(right->id);
+      solid[edge + 1][y + 1][0] = back && blockIsSolid(back->id);
+      solid[edge + 1][y + 1][CHUNK_SIZE + 1] = front && blockIsSolid(front->id);
+    }
+
   for (int x = 0; x < CHUNK_SIZE; x++) {
     for (int y = 0; y < CHUNK_HEIGHT; y++) {
       for (int z = 0; z < CHUNK_SIZE; z++) {
-        uint8_t id = chunk->blocks[x][y][z].id;
-        if (!blockIsSolid(id))
+        if (!solid[x + 1][y + 1][z + 1])
           continue;
         for (int face = 0; face < 6; face++) {
-          Vec3i pos = {originX + x + vec3iFaceMap[face].x, y + vec3iFaceMap[face].y, originZ + z + vec3iFaceMap[face].z};
-          const Block* neighbor = getBlock(&pos);
-          if (neighbor && blockIsSolid(neighbor->id))
+          if (solid[x + 1 + vec3iFaceMap[face].x][y + 1 + vec3iFaceMap[face].y][z + 1 + vec3iFaceMap[face].z])
             continue;
           exposed[x][y][z] |= (uint8_t)(1u << face);
+          int slice = face == RIGHT || face == LEFT ? x : face == TOP || face == BOTTOM ? y : z;
+          slices[face][slice] = true;
         }
 
         if (!exposed[x][y][z])
@@ -133,7 +164,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   }
 
   // Count first, then allocate exact buffers and repeat the deterministic sweep.
-  meshRectangles(chunk, exposed, faceCounts, NULL);
+  meshRectangles(chunk, exposed, slices, faceCounts, NULL);
   size_t nextFace[MATERIAL_COUNT];
   size_t totalFaces = 0;
   for (int material = 0; material < MATERIAL_COUNT; material++) {
@@ -156,7 +187,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
     return false;
   }
 
-  meshRectangles(chunk, exposed, nextFace, mesh);
+  meshRectangles(chunk, exposed, slices, nextFace, mesh);
   return true;
 }
 

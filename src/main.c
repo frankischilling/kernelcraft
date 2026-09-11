@@ -8,6 +8,7 @@
 #include "graphics/world_renderer.h"
 #include "graphics/selection.h"
 #include "graphics/sky.h"
+#include "graphics/clouds.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/options.h"
@@ -193,7 +194,9 @@ int main(int argc, char** argv) {
   }
 
   SkyRenderer sky = {0};
-  if (!initSky(&sky) || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+  CloudRenderer clouds = {0};
+  if (!initSky(&sky) || !initClouds(&clouds) || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+    cleanupClouds(&clouds);
     cleanupSky(&sky);
     cleanupWorld();
     cleanupChunks();
@@ -206,6 +209,7 @@ int main(int argc, char** argv) {
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
+    cleanupClouds(&clouds);
     cleanupSky(&sky);
     HUDCleanup();
     cleanupWorld();
@@ -249,6 +253,7 @@ int main(int argc, char** argv) {
     // Iconification is independent of framebuffer size on some window systems.
     if (width <= 0 || height <= 0 || glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
       advanceDayNight(&input.clock, 0, false);
+      advanceClouds(&clouds, 0, false);
       pauseInput(&input);
       glfwWaitEvents();
       lastFrame = glfwGetTime();
@@ -258,6 +263,7 @@ int main(int argc, char** argv) {
     processInput(window, &input, deltaTime);
     bool active = !input.chat.open && glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
     advanceDayNight(&input.clock, deltaTime, active);
+    advanceClouds(&clouds, deltaTime, active);
     DayNightState daylight = sampleDayNight(dayNightPhase(&input.clock));
     processBlockBreaking(window, &input, deltaTime);
     if (input.saveRequested) {
@@ -284,6 +290,7 @@ int main(int argc, char** argv) {
 
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
     drawSelection(&selection, view, projection);
+    renderClouds(&clouds, &camera, (float)width / height, projection, &daylight);
     DebugData data = {.camera = &camera,
                       .fps = fps,
                       .visibleBlocks = result.surfaceBlocks,
@@ -311,6 +318,7 @@ int main(int argc, char** argv) {
   if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
     exitStatus = EXIT_FAILURE;
   HUDCleanup();
+  cleanupClouds(&clouds);
   cleanupSky(&sky);
   cleanupWorld();
   cleanupChunks();
