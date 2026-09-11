@@ -5,13 +5,14 @@ param(
     [Parameter(Mandatory = $true)][string]$CandidateDirectory,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [ValidateRange(1, 20)][int]$Pairs = 5,
-    [switch]$Pipelined
+    [switch]$Pipelined,
+    [switch]$BaseSkyFirst
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $roots = @{ base = (Resolve-Path -LiteralPath $BaseDirectory).Path; candidate = (Resolve-Path -LiteralPath $CandidateDirectory).Path }
 $harnessHashes = [ordered]@{}
-foreach ($path in @('tests/render_profile.h', 'tests/render_benchmark.c', 'tests/cloud_render_checks.h')) {
+foreach ($path in @('tests/render_profile.h', 'tests/render_benchmark.c', 'tests/cloud_render_checks.h', 'tests/sky_render_checks.h')) {
     $baseHash = Get-FileHash -LiteralPath (Join-Path $roots.base $path)
     $candidateHash = Get-FileHash -LiteralPath (Join-Path $roots.candidate $path)
     if ($baseHash.Hash -ne $candidateHash.Hash) { throw "Both builds must use the same $path." }
@@ -35,8 +36,10 @@ $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
     directories = $roots
     pairs = $Pairs
     mode = if ($Pipelined) { 'pipelined' } else { 'serialized' }
+    baseSkyFirst = [bool]$BaseSkyFirst
     debug = [bool]$env:KERNELCRAFT_PROFILE_DEBUG
     skipText = [bool]$env:KERNELCRAFT_PROFILE_SKIP_TEXT
+    chat = $env:KERNELCRAFT_PROFILE_CHAT
     scene = $env:KERNELCRAFT_PROFILE_SCENE
     atmosphere = [bool]$env:KERNELCRAFT_PROFILE_ATMOSPHERE
     phase = $env:KERNELCRAFT_PROFILE_PHASE
@@ -51,12 +54,14 @@ $expectedScenes = if ($env:KERNELCRAFT_PROFILE_SCENE) { 1 } else { 10 }
 $previousProfile = $env:KERNELCRAFT_RENDER_PROFILE
 $previousCSV = $env:KERNELCRAFT_PROFILE_CSV
 $previousPipeline = $env:KERNELCRAFT_PROFILE_PIPELINED
+$previousSkyFirst = $env:KERNELCRAFT_PROFILE_SKY_FIRST
 try {
     $env:KERNELCRAFT_RENDER_PROFILE = '1'
     $env:KERNELCRAFT_PROFILE_PIPELINED = if ($Pipelined) { '1' } else { $null }
     for ($pair = 1; $pair -le $Pairs; $pair++) {
         $order = if ($pair % 2) { @('base', 'candidate') } else { @('candidate', 'base') }
         foreach ($variant in $order) {
+            $env:KERNELCRAFT_PROFILE_SKY_FIRST = if ($variant -eq 'base' -and $BaseSkyFirst) { '1' } else { $null }
             $name = "pair-$pair-$variant"
             $log = Join-Path $outputRoot "$name.log"
             $env:KERNELCRAFT_PROFILE_CSV = Join-Path $outputRoot "$name-frames.csv"
@@ -68,8 +73,10 @@ try {
             } finally { Pop-Location }
             $lines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_RESULT ') })
             $cloudLines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_CLOUD ') })
+            $passLines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_PASS ') })
             if ($lines.Count -ne $expectedScenes) { throw "Expected $expectedScenes complete scenes in $log" }
             if ($cloudLines.Count -ne $expectedScenes) { throw "Expected $expectedScenes cloud measurements in $log" }
+            if ($passLines.Count -ne $expectedScenes * 3) { throw "Expected three pass measurements per scene in $log" }
             foreach ($line in $lines) {
                 $values = $line.Substring('PROFILE_RESULT '.Length).Split(',')
                 if ($values.Count -ne $columns.Count) { throw "Unexpected result schema in $log" }
@@ -81,6 +88,14 @@ try {
                 if ($cloudValues.Count -ne 6) { throw 'Unexpected cloud result schema' }
                 $cloudColumns = @('cloud_gpu_mean_ms', 'cloud_gpu_p95_ms', 'cloud_gpu_p99_ms', 'cloud_cpu_mean_ms', 'cloud_draws')
                 for ($column = 0; $column -lt $cloudColumns.Count; $column++) { $row[$cloudColumns[$column]] = $cloudValues[$column + 1] }
+                foreach ($pass in @('sky', 'terrain', 'hud')) {
+                    $passLine = @($passLines | Where-Object { $_.StartsWith("PROFILE_PASS $($values[0]),$pass,") })
+                    if ($passLine.Count -ne 1) { throw "Missing $pass measurement for $($values[0])" }
+                    $passValues = $passLine[0].Substring('PROFILE_PASS '.Length).Split(',')
+                    if ($passValues.Count -ne 6) { throw 'Unexpected pass result schema' }
+                    $passColumns = @('gpu_mean_ms', 'cpu_mean_ms', 'gpu_p95_ms', 'gpu_p99_ms')
+                    for ($column = 0; $column -lt $passColumns.Count; $column++) { $row["$($pass)_$($passColumns[$column])"] = $passValues[$column + 2] }
+                }
                 $results += [pscustomobject]$row
             }
             $results | Export-Csv -LiteralPath (Join-Path $outputRoot 'runs.csv') -NoTypeInformation -Encoding UTF8
@@ -91,5 +106,6 @@ try {
     $env:KERNELCRAFT_RENDER_PROFILE = $previousProfile
     $env:KERNELCRAFT_PROFILE_CSV = $previousCSV
     $env:KERNELCRAFT_PROFILE_PIPELINED = $previousPipeline
+    $env:KERNELCRAFT_PROFILE_SKY_FIRST = $previousSkyFirst
 }
 Write-Host "Completed $Pairs alternating pairs: $outputRoot"

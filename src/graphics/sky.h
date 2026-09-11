@@ -14,7 +14,8 @@ typedef struct {
 // it with the context current.
 bool initSky(SkyRenderer* sky);
 void cleanupSky(SkyRenderer* sky);
-// Draw before opaque terrain. No depth writes; camera translation has no effect.
+// Draw after opaque terrain, before selection/clouds/HUD. The depth buffer must
+// be cleared to 1. No depth writes; camera translation has no effect.
 void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state);
 
 #endif

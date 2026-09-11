@@ -1054,9 +1054,30 @@ void __real_HUDDraw(GLuint program, DebugData* data);
 void __real_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state);
 
 void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state) {
-  // Observe the actual sky pass before terrain, so wireframe tests compare
-  // coverage against the background even when its color changes.
-  __real_renderSky(sky, camera, aspect, state);
+  // Sample an unobstructed background separately: the production sky is now
+  // submitted after terrain. Keep the wireframe and lighting coverage probes
+  // independent of the terrain they are meant to check.
+  bool probe = frame < 4 || frame == 60 || frame >= 70;
+  GLuint framebuffer = 0, texture = 0;
+  GLint drawFramebuffer = 0, readFramebuffer = 0, binding = 0;
+  if (probe) {
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFramebuffer);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFramebuffer);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, viewport[2], viewport[3], 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindTexture(GL_TEXTURE_2D, binding);
+    __real_renderSky(sky, camera, aspect, state);
+  }
   if (frame == 0)
     CHECK(fabsf(state->sunDirection.y - 0.70710678f) < 0.00001f);
   if (lastSkyFrame >= 0 && frame < 74) {
@@ -1083,6 +1104,13 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
   if (frame == 84)
     glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, cloudSky);
+  if (probe) {
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+    glDeleteTextures(1, &texture);
+    glDeleteFramebuffers(1, &framebuffer);
+  }
+  __real_renderSky(sky, camera, aspect, state);
 }
 
 void __wrap_HUDDraw(GLuint program, DebugData* data) {

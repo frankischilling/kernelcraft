@@ -65,9 +65,12 @@ static void uniformVec(GLint location, Vec3 v) {
 }
 
 void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state) {
-  GLint program, vao, activeTexture, bindings[5], polygon[2];
+  GLint program, vao, activeTexture, bindings[5], polygon[2], depthFunc;
+  GLdouble depthRange[2];
   GLboolean depth = glIsEnabled(GL_DEPTH_TEST), blend = glIsEnabled(GL_BLEND), cull = glIsEnabled(GL_CULL_FACE), depthMask;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+  glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+  glGetDoublev(GL_DEPTH_RANGE, depthRange);
   glGetIntegerv(GL_CURRENT_PROGRAM, &program);
   glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
@@ -77,7 +80,11 @@ void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &bindings[i]);
     glBindTexture(GL_TEXTURE_2D, sky->textures[i]);
   }
-  glDisable(GL_DEPTH_TEST);
+  // Only shade background pixels left by opaque terrain. Map the shared
+  // fullscreen triangle to the far depth without changing cloud projection.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(1, 1);
   glDisable(GL_BLEND);
   glDisable(GL_CULL_FACE);
   glDepthMask(GL_FALSE);
@@ -101,8 +108,10 @@ void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const
   glBindVertexArray(vao);
   glUseProgram(program);
   glDepthMask(depthMask);
-  if (depth)
-    glEnable(GL_DEPTH_TEST);
+  glDepthFunc(depthFunc);
+  glDepthRange(depthRange[0], depthRange[1]);
+  if (!depth)
+    glDisable(GL_DEPTH_TEST);
   if (blend)
     glEnable(GL_BLEND);
   if (cull)
