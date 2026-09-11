@@ -271,7 +271,9 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
     return;
   UpdateEntries(data);
   Ray cast = data->selection;
-  snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y, cast.blockCoords.z);
+  if (data->showDebug && cast.hit)
+    snprintf(entryLookingAtBlockCoords.text, sizeof(entryLookingAtBlockCoords.text), "Block coordinates: X:%d Y:%d Z:%d", cast.blockCoords.x, cast.blockCoords.y,
+             cast.blockCoords.z);
 
   TextState state;
   GLint activeTexture;
@@ -324,6 +326,8 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
 
 static void UpdateEntries(DebugData* data) {
   snprintf(entrySave.text, sizeof(entrySave.text), "Seed: %u | F5: %s", (unsigned)worldSeed(), data->saveStatus ? data->saveStatus : "Save");
+  if (!data->showDebug)
+    return;
   snprintf(entryMovement.text, sizeof(entryMovement.text), "%s | Steps/frame: %d", movementStatus(data), data->simulationSteps);
   snprintf(entryFPS.text, sizeof(entryFPS.text), "FPS: %.1f", data->fps);
   snprintf(entryBiome.text, sizeof(entryBiome.text), "Current biome: %s", getCurrentBiomeText(data->camera->position.x, data->camera->position.z));

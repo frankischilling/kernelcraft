@@ -1,0 +1,72 @@
+{
+  "skipText": false,
+  "atmosphere": true,
+  "pairs": 3,
+  "directories": {
+    "base": "C:\\Users\\imike\\AppData\\Local\\Temp\\kernelcraft-performance-base-954b61e",
+    "candidate": "C:\\Users\\imike\\kernelcraft"
+  },
+  "debug": false,
+  "cpu": [
+    {
+      "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+    }
+  ],
+  "utc": "2026-09-11T00:50:32.1861082Z",
+  "mode": "pipelined",
+  "os": [
+    {
+      "Caption": "Microsoft Windows 11 Pro",
+      "Version": "10.0.22621"
+    }
+  ],
+  "graphics": [
+    {
+      "Name": "Intel(R) UHD Graphics",
+      "DriverVersion": "32.0.101.7077"
+    },
+    {
+      "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+      "DriverVersion": "32.0.15.7371"
+    }
+  ],
+  "phase": null,
+  "scene": null,
+  "harnessSha256": "3E4567E96C7D08D1FE5023796C47E8C6F9F34FF142DA335E2B46A81703803CC1",
+  "baseline": "954b61e0980274c411da6572929f1788c764ae64",
+  "candidateSources": {
+    "src/graphics/clouds.c": "7a21413fad97655b1abf9ed0b87d5ce9a6787db4bc85dacda536bb2920a12160",
+    "src/graphics/hud.c": "fb0fb91135f8912468c3c83c6f55c9766898ef7f51e4fde1626fc7dc90655714",
+    "src/assets/shaders/cloud_fragment.glsl": "8c03af38226c765d8906ec83432cbaccb4aa220d90fdbe0ec352f4e5bac3ddda",
+    "src/assets/shaders/sky_fragment.glsl": "ac95ac73ef00dfdf3523355dc8b5bf59c3778549a0124c453188d9055be72e0f",
+    "src/world/cube.c": "6082d5da7806a79fae4533df306ea0245067d4b093fc8a8369f5bcf1806877b4",
+    "src/world/cube.h": "38a898d8062161e1872fa17805be345a4a795f35ec0a8aa31203e8725ba1f6ec",
+    "src/world/mesh.c": "2dbbc147fab91eb60e115440c6e09aa93ae45376469c5c2976ec9f393f4540c8",
+    "tests/mesh_profile.c": "8c037e27efacfe2665ea02a37e8597038911db27182874e38d0c8dd4a84e5951"
+  },
+  "sets": {
+    "day": {
+      "phase": 0.125,
+      "pairs": 3
+    },
+    "night": {
+      "phase": 0.625,
+      "pairs": 3
+    },
+    "f3": {
+      "phase": 0.125,
+      "pairs": 3,
+      "scene": "surface_still"
+    },
+    "night-surface-repeat": {
+      "phase": 0.625,
+      "pairs": 5,
+      "scene": "surface_still"
+    },
+    "night-sky-repeat": {
+      "phase": 0.625,
+      "pairs": 5,
+      "scene": "sky_moving"
+    }
+  }
+}

@@ -30,7 +30,8 @@ vec3 body(vec3 color, vec3 ray, vec3 direction, sampler2D picture, vec3 glowColo
     vec3 right = vec3(0.0, 0.0, 1.0);
     vec3 up = cross(direction, right);
     float facing = dot(ray, direction);
-    if (facing <= 0.0 || ray.y <= 0.0)
+    // All three glow terms and the sprite are zero outside this cone.
+    if (facing <= cos(radians(35.0)) || ray.y <= 0.0)
         return color;
     vec2 offset = vec2(dot(ray, right), -dot(ray, up)) / facing;
     float horizonFade = smoothstep(0.0, 0.025, ray.y);
@@ -71,9 +72,11 @@ void main() {
     // Keep the same spacing, but move day one band lower to narrow its pale
     // horizon strip. Clamp inside palette after shifting, retaining all colors.
     // Reverse night's opposite swatch order to keep blue/purple overhead.
-    vec3 color = palette(dayPalette, elevation + 0.25) * weights.x
-               + palette(twilightPalette, elevation) * weights.y
-               + palette(nightPalette, 1.0 - elevation) * weights.z;
+    vec3 color = vec3(0.0);
+    // Phase weights are uniform across the frame: do not sample inactive palettes.
+    if (weights.x > 0.0) color += palette(dayPalette, elevation + 0.25) * weights.x;
+    if (weights.y > 0.0) color += palette(twilightPalette, elevation) * weights.y;
+    if (weights.z > 0.0) color += palette(nightPalette, 1.0 - elevation) * weights.z;
     if (starBrightness > 0.0 && ray.y > 0.0) {
         // Fixed spherical cells form a repeatable decorative field. Equal-area
         // latitude coordinates avoid crowding at the poles. A later milestone

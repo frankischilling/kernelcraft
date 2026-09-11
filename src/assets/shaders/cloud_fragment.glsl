@@ -3,25 +3,14 @@ in vec2 screenPosition;
 out vec4 fragmentColor;
 uniform vec3 cameraFront, cameraRight, cameraUp, cloudOrigin, weights;
 uniform vec2 viewScale, depthProjection;
+uniform uvec2 cloudRows[64];
 
-// Correlated cells give connected, square-edged patches instead of isolated cubes.
-// Sixteen coarse nodes, four cells per node, twelve blocks per cell: 768 blocks.
-float node(ivec2 p) {
-    uvec2 wrapped = uvec2(p) & uvec2(15u);
-    uint h = wrapped.x * 374761393u + wrapped.y * 668265263u + 1447u;
-    h = (h ^ (h >> 13u)) * 1274126177u;
-    h ^= h >> 16u;
-    return float(h & 65535u) / 65535.0;
-}
-
+// The original correlated shape is precomputed once. Wrap before indexing so
+// negative world coordinates and drifting cells use the same repeating field.
 bool occupied(ivec2 cell) {
-    vec2 p = (vec2(cell) + 0.5) / 4.0;
-    ivec2 base = ivec2(floor(p));
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float value = mix(mix(node(base), node(base + ivec2(1, 0)), f.x),
-                      mix(node(base + ivec2(0, 1)), node(base + ivec2(1, 1)), f.x), f.y);
-    return value > 0.50;
+    uvec2 p = uvec2(cell) & uvec2(63u);
+    uint word = p.x < 32u ? cloudRows[p.y].x : cloudRows[p.y].y;
+    return (word & (1u << (p.x & 31u))) != 0u;
 }
 
 void main() {

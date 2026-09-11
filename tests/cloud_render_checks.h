@@ -64,6 +64,25 @@ static bool captureCloudViews(const CloudRenderer* clouds, GLuint shader) {
 static bool testCloudRendering(GLuint shader) {
   CloudRenderer clouds = {0};
   CLOUD_CHECK(initClouds(&clouds));
+  // View every cell in one period straight down. This fingerprint was recorded
+  // from the original GPU noise implementation before caching its occupancy.
+  Camera maskCamera = {.position = {384, 508, 384}, .front = {0, -1, 0}, .up = {0, 0, 1}, .fov = 90};
+  Mat4 maskProjection;
+  mat4_perspective(maskProjection, 90, 1, 0.1f, 1000);
+  DayNightState maskDay = sampleDayNight(0.25);
+  unsigned char maskPixels[64 * 64 * 3];
+  glViewport(0, 0, 64, 64);
+  glClearColor(0, 0, 0, 1);
+  glDepthMask(GL_TRUE);
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  renderClouds(&clouds, &maskCamera, 1, maskProjection, &maskDay);
+  glReadPixels(0, 0, 64, 64, GL_RGB, GL_UNSIGNED_BYTE, maskPixels);
+  uint64_t maskHash = UINT64_C(14695981039346656037);
+  for (size_t i = 0; i < sizeof(maskPixels); i += 3)
+    maskHash = (maskHash ^ (maskPixels[i] != 0)) * UINT64_C(1099511628211);
+  printf("Cloud mask fingerprint: %llu\n", (unsigned long long)maskHash);
+  CLOUD_CHECK(maskHash == UINT64_C(12639864285259775753));
   Camera camera = {.position = {0, 40, 0}, .front = {0.8f, 0.6f, 0}, .up = {0, 1, 0}, .fov = 90};
   Mat4 projection;
   mat4_perspective(projection, camera.fov, 960.0f / 540, 0.1f, 1000);

@@ -386,6 +386,23 @@ static void test_generated_meshes(void) {
 }
 #endif
 
+#ifndef KERNELCRAFT_BASELINE
+static void test_detached_mesh(void) {
+  cleanupChunks();
+  Chunk chunk = {0};
+  chunk.blocks[0][0][0].id = BLOCK_STONE;
+  chunk.blocks[1][0][0].id = BLOCK_STONE;
+  chunk.blocks[2][0][0].id = UINT8_MAX; // Invalid IDs remain nonsolid.
+  ChunkMesh mesh;
+  CHECK(buildChunkMesh(&chunk, &mesh));
+  CHECK(mesh.surfaceBlocks == 2 && mesh.indexCount == 36);
+  CHECK(mesh.min.x == 0 && mesh.min.y == 0 && mesh.min.z == 0);
+  CHECK(mesh.max.x == 2 && mesh.max.y == 1 && mesh.max.z == 1);
+  check_mesh_geometry(&mesh);
+  freeChunkMesh(&mesh);
+}
+#endif
+
 int main(void) {
   initChunks();
 #ifndef KERNELCRAFT_BASELINE
@@ -401,6 +418,7 @@ int main(void) {
 #ifndef KERNELCRAFT_BASELINE
   test_mesh();
   test_greedy_shapes();
+  test_detached_mesh();
 #endif
   cleanupChunks();
   if (failures) {

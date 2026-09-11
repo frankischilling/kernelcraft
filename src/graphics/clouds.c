@@ -1,6 +1,29 @@
 #include "clouds.h"
 #include "shader.h"
+#include <stdint.h>
 #include <string.h>
+
+static float cloudNode(unsigned x, unsigned z) {
+  uint32_t h = (x & 15u) * UINT32_C(374761393) + (z & 15u) * UINT32_C(668265263) + 1447u;
+  h = (h ^ (h >> 13u)) * UINT32_C(1274126177);
+  h ^= h >> 16u;
+  return (float)(h & 65535u) / 65535.0f;
+}
+
+static void cloudPattern(GLuint rows[64][2]) {
+  memset(rows, 0, 64 * 2 * sizeof(GLuint));
+  for (unsigned z = 0; z < 64; z++)
+    for (unsigned x = 0; x < 64; x++) {
+      float fx = ((x & 3u) + 0.5f) / 4, fz = ((z & 3u) + 0.5f) / 4;
+      fx = fx * fx * (3 - 2 * fx);
+      fz = fz * fz * (3 - 2 * fz);
+      unsigned bx = x / 4, bz = z / 4;
+      float a = cloudNode(bx, bz) * (1 - fx) + cloudNode(bx + 1, bz) * fx;
+      float b = cloudNode(bx, bz + 1) * (1 - fx) + cloudNode(bx + 1, bz + 1) * fx;
+      if (a * (1 - fz) + b * fz > 0.50f)
+        rows[z][x / 32] |= (GLuint)1u << (x & 31u);
+    }
+}
 
 bool initClouds(CloudRenderer* clouds) {
   clouds->program = loadShaders("assets/shaders/sky_vertex.glsl", "assets/shaders/cloud_fragment.glsl");
@@ -14,6 +37,15 @@ bool initClouds(CloudRenderer* clouds) {
   clouds->origin = glGetUniformLocation(clouds->program, "cloudOrigin");
   clouds->projection = glGetUniformLocation(clouds->program, "depthProjection");
   clouds->weights = glGetUniformLocation(clouds->program, "weights");
+  // The shape never changes: upload a 512-byte occupancy bitset once instead of
+  // hashing and interpolating four noise nodes at every ray-march step.
+  GLuint rows[64][2];
+  cloudPattern(rows);
+  GLint previousProgram;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+  glUseProgram(clouds->program);
+  glUniform2uiv(glGetUniformLocation(clouds->program, "cloudRows[0]"), 64, &rows[0][0]);
+  glUseProgram(previousProgram);
   if (!clouds->vao || glGetError() != GL_NO_ERROR) {
     cleanupClouds(clouds);
     return false;

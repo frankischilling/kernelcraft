@@ -92,6 +92,11 @@ Clouds are 92% opaque nearby and fade between 480 and 768 blocks from the eye.
 This is a decorative cloud layer with no collision, weather, or cloud shadows.
 The bounded shader traversal uses one full-screen triangle and creates no
 terrain meshes. Supplied sky colors and celestial artwork are unchanged.
+The repeating occupancy pattern is calculated once at initialization and sent
+to the shader as a 512-byte bitset. Rendering reads those bits rather than
+recalculating noise for every visited cell. The sky also skips inactive palette
+samples and celestial glow calculations outside their visible extent. See the
+[PR #60 performance measurements](pr60-performance.md).
 
 ## Checks
 

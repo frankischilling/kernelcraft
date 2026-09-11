@@ -52,11 +52,25 @@ static int profileCompare(const void* left, const void* right) {
 }
 
 static int profileRendering(GLuint shader) {
+  bool atmosphere = getenv("KERNELCRAFT_PROFILE_ATMOSPHERE") != NULL;
+  const char* phaseText = getenv("KERNELCRAFT_PROFILE_PHASE");
+  char* phaseEnd = NULL;
+  double phase = phaseText ? strtod(phaseText, &phaseEnd) : 0.125;
+  if ((phaseText && (phaseEnd == phaseText || *phaseEnd)) || !isfinite(phase) || phase < 0 || phase >= 1)
+    return 33;
+  SkyRenderer sky = {0};
+  CloudRenderer clouds = {0};
+  if (atmosphere && (!initSky(&sky) || !initClouds(&clouds))) {
+    cleanupClouds(&clouds);
+    cleanupSky(&sky);
+    return 34;
+  }
   bool pipelined = getenv("KERNELCRAFT_PROFILE_PIPELINED") != NULL;
   bool debug = getenv("KERNELCRAFT_PROFILE_DEBUG") != NULL;
   const char* onlyScene = getenv("KERNELCRAFT_PROFILE_SCENE");
   profileSkipText = getenv("KERNELCRAFT_PROFILE_SKIP_TEXT") != NULL;
   printf("PROFILE_HUD debug=%d skip_text=%d scene=%s\n", debug, profileSkipText, onlyScene ? onlyScene : "all");
+  printf("PROFILE_ATMOSPHERE enabled=%d phase=%.6f\n", atmosphere, phase);
   GLFWwindow* window = glfwGetCurrentContext();
   glfwSwapInterval(0);
   glfwSetWindowSize(window, 1280, 720);
@@ -97,7 +111,7 @@ static int profileRendering(GLuint shader) {
   success = success && playerFindSpawn(&player, (Vec3){0, 0, 3});
   Vec3 eye = playerEyePosition(&player);
   printf("PROFILE_SPAWN x=%.3f y=%.3f z=%.3f\n", eye.x, eye.y, eye.z);
-  const char* scenarios[] = {"underground", "surface_still", "overview", "sky", "translate", "rotate", "seam_edits", "sky_moving", "wall_moving"};
+  const char* scenarios[] = {"underground", "surface_still", "overview", "sky", "translate", "rotate", "seam_edits", "sky_moving", "wall_moving", "cloud_layer"};
   // One changing block on an X chunk seam, visible from the spawned eye.
   Vec3i edit = {-1, (int)floorf(player.position.y), 6};
   const Block* original = getBlock(&edit);
@@ -161,6 +175,10 @@ static int profileRendering(GLuint shader) {
 
       if (scenario == 8)
         camera.position = (Vec3){8.5f + sinf(step * 0.01f), 20, 3.5f};
+      if (scenario == 9) {
+        camera.position = (Vec3){step * 0.75f - 128, 122, 3.5f};
+        camera.pitch = 0;
+      }
       updateCameraVectors(&camera);
       if (scenario == 6)
         success = setBlock(&edit, step % 2 ? originalID : changedID);
@@ -179,11 +197,21 @@ static int profileRendering(GLuint shader) {
       start = glfwGetTime();
       glBeginQuery(GL_TIME_ELAPSED, timer);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      DayNightState daylight = {0};
+      if (atmosphere) {
+        daylight = sampleDayNight(phase + step / 72000.0);
+        renderSky(&sky, &camera, (float)width / height, &daylight);
+        setWorldDayNight(&daylight);
+      }
       RenderResult result = renderWorld(&camera, view, projection, false);
       DebugData data = {
           .camera = &camera, .fps = 60 + (step % 100) * 0.1f, .visibleBlocks = result.surfaceBlocks, .captured = true, .selectedSlot = 0, .stats = &result, .showDebug = debug};
       data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
       drawSelection(&data.selection, view, projection);
+      if (atmosphere) {
+        clouds.offset = step * 0.01;
+        renderClouds(&clouds, &camera, (float)width / height, projection, &daylight);
+      }
       HUDDraw(shader, &data);
       glEndQuery(GL_TIME_ELAPSED);
       double cpuMs = (glfwGetTime() - start) * 1000;
@@ -209,7 +237,7 @@ static int profileRendering(GLuint shader) {
       }
 
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
-                draws == (unsigned long)result.terrainDrawCalls + 1;
+                draws == (unsigned long)result.terrainDrawCalls + 1 + (atmosphere ? 2 : 0);
       if (scenario != 6)
         success = success && result.chunksRebuilt == 0 && uploads == 0 && lookups == 0;
       else
@@ -291,6 +319,8 @@ static int profileRendering(GLuint shader) {
     success = false;
   success = success && matchedScene;
   profileSkipText = false;
+  cleanupClouds(&clouds);
+  cleanupSky(&sky);
   if (!success)
     fprintf(stderr, "Rendering profile failed its GL, draw-count, or rebuild checks\n");
   return success ? 0 : 32;
