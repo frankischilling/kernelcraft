@@ -18,7 +18,7 @@ static const char* expectedMaterial;
 static const char* expectedWireframe;
 static bool sawWireframe;
 static bool chatLayout, sawChatPrompt, sawChatMessage, sawChatTail;
-static int modeBaseline = -1, chatPromptBaseline = -1, chatHistoryBaseline = -1;
+static int modeBaseline = -1, chatPromptBaseline = -1, chatHistoryBaseline = -1, chatCaretBaseline = -1;
 static const char* failTexture;
 static GLuint partialTextures[6];
 static int partialCount;
@@ -86,7 +86,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawWireframe |= expectedWireframe && strstr(text, expectedWireframe) != NULL;
   sawChatPrompt |= strncmp(text, "> ", 2) == 0;
   sawChatMessage |= strstr(text, "[Local]") != NULL;
-  sawChatTail |= strstr(text, "z_") != NULL;
+  sawChatTail |= strstr(text, "z_") != NULL || !strcmp(text, "_");
   // Chat's shadow is a second draw of the same label, offset one pixel.
   GLfloat tint[4];
   glGetFloatv(GL_CURRENT_COLOR, tint);
@@ -95,6 +95,8 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
       modeBaseline = (int)y;
     if (chatLayout && strncmp(text, "> ", 2) == 0 && chatPromptBaseline < 0)
       chatPromptBaseline = (int)y;
+    if (chatLayout && strcmp(text, "_") == 0 && chatCaretBaseline < 0)
+      chatCaretBaseline = (int)y;
     if (chatLayout && strstr(text, "[Local]") && chatHistoryBaseline < 0)
       chatHistoryBaseline = (int)y;
   }
@@ -497,7 +499,7 @@ int main(int argc, char** argv) {
     labels = 0;
     sawChatPrompt = sawChatMessage = sawChatTail = false;
     if (width == 640 && height == 480)
-      chatPromptBaseline = chatHistoryBaseline = -1;
+      chatPromptBaseline = chatHistoryBaseline = chatCaretBaseline = -1;
     glClear(GL_COLOR_BUFFER_BIT);
     HUDDraw(0, &data);
     if (width >= 32 && height >= 64)
@@ -507,6 +509,7 @@ int main(int argc, char** argv) {
     if (width == 640 && height == 480) {
       CHECK(chatPromptBaseline == height - 8);
       CHECK(chatHistoryBaseline == height - glutBitmapHeight(GLUT_BITMAP_HELVETICA_18) - 22);
+      CHECK(chatCaretBaseline == height - 12);
     }
     CHECK(glGetError() == GL_NO_ERROR);
   }
