@@ -279,7 +279,6 @@ int main(int argc, char** argv) {
     vec3_add(&target, &camera.position, &camera.front);
     mat4_lookAt(view, &camera.position, &target, &camera.up);
     mat4_perspective(projection, camera.fov, (float)width / height, 0.1f, 1000.0f);
-    renderSky(&sky, &camera, (float)width / height, &daylight);
     setWorldDayNight(&daylight);
     RenderResult result = renderWorld(&camera, view, projection, input.wireframe);
 
@@ -288,6 +287,7 @@ int main(int argc, char** argv) {
       break;
     }
 
+    renderSky(&sky, &camera, (float)width / height, &daylight);
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
     drawSelection(&selection, view, projection);
     renderClouds(&clouds, &camera, (float)width / height, projection, &daylight);

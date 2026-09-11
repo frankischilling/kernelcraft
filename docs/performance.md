@@ -1,5 +1,8 @@
 # Rendering performance
 
+For the review of the day/night additions and measured sky depth rejection,
+see the [sky performance report](sky-performance.md).
+
 For conservative cloud-pass bounds and current native Windows measurements,
 see the [cloud rendering report](cloud-performance.md).
 

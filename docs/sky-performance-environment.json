@@ -1,0 +1,2034 @@
+[
+  {
+    "suite": "order-day1080",
+    "cohort": "diagnostic",
+    "phase": "0.125",
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "requestedHeight": "1080",
+    "pairs": 3,
+    "harnessSha256": "60B757571F6E7FB25BFD7307FCAA16D476F4A79534BF1157273E7171AA8F8ABE",
+    "mode": "pipelined",
+    "requestedWidth": "1920",
+    "scene": null,
+    "utc": "2026-09-11T03:14:05.2539330Z",
+    "baseSkyFirst": true,
+    "debug": false,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "60B757571F6E7FB25BFD7307FCAA16D476F4A79534BF1157273E7171AA8F8ABE",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544"
+    },
+    "atmosphere": true,
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "order-isolation",
+    "cohort": "diagnostic",
+    "scene": "seam_edits",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:37:01.1823962Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "diagnostic": "candidate_first uses the candidate binary with legacy sky-first ordering; candidate uses new production order",
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "order-layout-padding",
+    "cohort": "diagnostic",
+    "scene": "seam_edits",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:43:18.946057+00:00",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": false,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "diagnostic": "Both variants use baseline production objects. baseline_padded inserts 96 unexecuted text bytes after sky.o, matching candidate mesh/renderer code addresses.",
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "utcSource": "Original environment file write time",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "order-mesh-alignment",
+    "cohort": "diagnostic",
+    "scene": "seam_edits",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:45:41.865011+00:00",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": false,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "diagnostic": "Both variants use candidate production sources. candidate_aligned recompiles only mesh.c with -falign-functions=64; all other objects and flags are unchanged.",
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "utcSource": "Original environment file write time",
+    "meshCompilerOverride": "-falign-functions=64 (experimental binary only)",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "order-no-atmosphere",
+    "cohort": "diagnostic",
+    "scene": "seam_edits",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:39:07.9242487Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": false,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "chat-empty",
+    "cohort": "diagnostic",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "empty",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:18:18.3038708Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "chat-history",
+    "cohort": "diagnostic",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "history",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:18:30.1299940Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "chat-narrow",
+    "cohort": "diagnostic",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "320",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:18:54.8978329Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "chat-open",
+    "cohort": "diagnostic",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:18:42.7543366Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-chat-history",
+    "cohort": "depth-only",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "history",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:31:17.4106114Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-chat-narrow",
+    "cohort": "depth-only",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "320",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:31:46.2947907Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-chat-open",
+    "cohort": "depth-only",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:31:32.3395647Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-dawn1080",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:28:54.6918290Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-day1080",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:27:04.1278047Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-day720",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:25:46.5221821Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-day720-repeat",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:33:44.3356112Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-debug1080",
+    "cohort": "depth-only",
+    "scene": "surface_still",
+    "phase": "0.625",
+    "debug": true,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:31:02.2212902Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-dusk1080",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.5",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:29:56.6216576Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night1080",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:27:57.6847126Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night1080-overview-repeat",
+    "cohort": "depth-only",
+    "scene": "overview",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:35:16.6244344Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night1080-translate-repeat",
+    "cohort": "depth-only",
+    "scene": "translate",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:35:36.8671643Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night1080-wall_moving-repeat",
+    "cohort": "depth-only",
+    "scene": "wall_moving",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:35:59.1499658Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night720",
+    "cohort": "depth-only",
+    "scene": null,
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:26:25.0305394Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "final-night720-edits-repeat",
+    "cohort": "depth-only",
+    "scene": "seam_edits",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:34:53.4392199Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "09b7d19ce984724ae0d359e623de6a1558c87a28",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70
+  },
+  {
+    "suite": "accepted-chat-history",
+    "cohort": "final",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "history",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:56:10.9760227Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-chat-narrow",
+    "cohort": "final",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "320",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:56:40.8433648Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-chat-open",
+    "cohort": "final",
+    "scene": "surface_still",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": "open",
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:56:26.3039948Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-dawn1080",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:53:46.8191218Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-day1080",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:51:45.7911337Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-day1080-cloud-layer-repeat",
+    "cohort": "final",
+    "scene": "cloud_layer",
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:58:32.5826978Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-day720",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0.125",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:50:22.9087919Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-debug1080",
+    "cohort": "final",
+    "scene": "surface_still",
+    "phase": "0.625",
+    "debug": true,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:55:55.5731899Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-dusk1080",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0.5",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:54:49.5236314Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-night1080",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:52:44.3516031Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-night1080-sky-moving-repeat",
+    "cohort": "final",
+    "scene": "sky_moving",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1920",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:58:51.7494131Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "1080",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-night720",
+    "cohort": "final",
+    "scene": null,
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 3,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:51:03.9013153Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-night720-cloud-layer-repeat",
+    "cohort": "final",
+    "scene": "cloud_layer",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:59:10.6688426Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  },
+  {
+    "suite": "accepted-night720-edits-repeat",
+    "cohort": "final",
+    "scene": "seam_edits",
+    "phase": "0.625",
+    "debug": false,
+    "requestedWidth": "1280",
+    "baseSkyFirst": true,
+    "pairs": 5,
+    "chat": null,
+    "mode": "pipelined",
+    "utc": "2026-09-11T03:59:27.6854398Z",
+    "harnessSha256": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+    "benchmarkSourcesSha256": {
+      "tests/render_profile.h": "E7C63E9B143D8494DDE1618917EB1F027CCD1EC0FA7AD9CB1FAA23366D750FB2",
+      "tests/render_benchmark.c": "2BA892270D71F00BC8108A2761CA23A9E1B93B317044527D2B2CF3D9308B5C36",
+      "tests/cloud_render_checks.h": "C5C7E30C7D7D03C4472B34F59CFD9C8DD95261027942981B029EE7CA171C6544",
+      "tests/sky_render_checks.h": "9FE8A6B228E474873BBF484D5DF0D790782CFD1C9BB2BA8AD2FC5F926173A79F"
+    },
+    "graphics": [
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "DriverVersion": "32.0.101.7077"
+      },
+      {
+        "Name": "NVIDIA RTX 2000 Ada Generation Laptop GPU",
+        "DriverVersion": "32.0.15.7371"
+      }
+    ],
+    "requestedHeight": "720",
+    "atmosphere": true,
+    "skipText": false,
+    "os": [
+      {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.22621"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "13th Gen Intel(R) Core(TM) i7-13700H"
+      }
+    ],
+    "baselineProduction": "23ccb2857d1b8331375ca5731d4d70021fa0e8d5",
+    "candidateProduction": "b52153a828c90d764b5ca4ba7a33f7d72cf0d88a",
+    "compiler": "MinGW GCC 13.2.0",
+    "flags": "-std=c11 -O2 -Wall -Wformat=2 -Wstrict-prototypes -Werror",
+    "warmupFrames": 120,
+    "measuredFrames": 600,
+    "seed": 0,
+    "fov": 70,
+    "executableSha256": {
+      "base": "47e6e453952e9d08b7c18bdb3c6c58130a41376b1938dc3c94ad7f51e66d5272",
+      "candidate": "5237c84a149a025fde2e09d2fd59ec5ebc028de3d86929a22abb4578528a3c85"
+    }
+  }
+]

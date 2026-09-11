@@ -15,6 +15,25 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
 
 enum { PROFILE_WARMUP = 120, PROFILE_FRAMES = 600 };
 
+typedef struct {
+  GLuint queries[PROFILE_FRAMES * 2];
+  double gpu[PROFILE_FRAMES], cpu[PROFILE_FRAMES], start;
+} ProfilePass;
+
+static void profilePassBegin(ProfilePass* pass, int frame) {
+  if (frame < 0)
+    return;
+  glQueryCounter(pass->queries[frame * 2], GL_TIMESTAMP);
+  pass->start = glfwGetTime();
+}
+
+static void profilePassEnd(ProfilePass* pass, int frame) {
+  if (frame < 0)
+    return;
+  pass->cpu[frame] = (glfwGetTime() - pass->start) * 1000;
+  glQueryCounter(pass->queries[frame * 2 + 1], GL_TIMESTAMP);
+}
+
 static size_t profileUploadBytes;
 static unsigned profileQueries, profileQueryObjects;
 static PFNGLBUFFERDATAPROC profilePreviousBufferData;
@@ -61,6 +80,8 @@ static int profileRendering(GLuint shader) {
       requestedHeight < 1 || requestedHeight > 8192)
     return 30;
   bool atmosphere = getenv("KERNELCRAFT_PROFILE_ATMOSPHERE") != NULL;
+  // Match older production revisions when measuring a pre-reordering baseline.
+  bool skyFirst = getenv("KERNELCRAFT_PROFILE_SKY_FIRST") != NULL;
   const char* phaseText = getenv("KERNELCRAFT_PROFILE_PHASE");
   char* phaseEnd = NULL;
   double phase = phaseText ? strtod(phaseText, &phaseEnd) : 0.125;
@@ -75,10 +96,28 @@ static int profileRendering(GLuint shader) {
   }
   bool pipelined = getenv("KERNELCRAFT_PROFILE_PIPELINED") != NULL;
   bool debug = getenv("KERNELCRAFT_PROFILE_DEBUG") != NULL;
+  const char* chatMode = getenv("KERNELCRAFT_PROFILE_CHAT");
+  if (chatMode && strcmp(chatMode, "empty") && strcmp(chatMode, "history") && strcmp(chatMode, "open"))
+    return 35;
+  Chat chat = {0};
+  if (chatMode && strcmp(chatMode, "empty")) {
+    chat.count = CHAT_HISTORY_CAPACITY;
+    for (size_t row = 0; row < chat.count; row++) {
+      memset(chat.messages[row], 'W', CHAT_MESSAGE_CAPACITY - 1);
+      chat.messages[row][CHAT_MESSAGE_CAPACITY - 1] = '\0';
+    }
+    chat.open = strcmp(chatMode, "open") == 0;
+    memset(chat.input, 'W', CHAT_INPUT_CAPACITY - 1);
+    chat.input[CHAT_INPUT_CAPACITY - 1] = '\0';
+    chat.length = CHAT_INPUT_CAPACITY - 1;
+  }
   const char* onlyScene = getenv("KERNELCRAFT_PROFILE_SCENE");
   profileSkipText = getenv("KERNELCRAFT_PROFILE_SKIP_TEXT") != NULL;
   printf("PROFILE_HUD debug=%d skip_text=%d scene=%s\n", debug, profileSkipText, onlyScene ? onlyScene : "all");
+  printf("PROFILE_CHAT mode=%s\n", chatMode ? chatMode : "empty");
   printf("PROFILE_ATMOSPHERE enabled=%d phase=%.6f\n", atmosphere, phase);
+  printf("PROFILE_FEATURES sky=%d clouds=%d\n", sky.program != 0, clouds.program != 0);
+  printf("PROFILE_ORDER sky_first=%d\n", skyFirst);
   GLFWwindow* window = glfwGetCurrentContext();
   glfwSwapInterval(0);
   // Decorations can clamp a 1080-high client area on a 1080-high desktop.
@@ -102,7 +141,7 @@ static int profileRendering(GLuint shader) {
     return 31;
   if (raw)
     fputs("scenario,frame,frame_ms,cpu_submit_ms,gpu_ms,terrain_draws,triangles,surface_blocks,queries,rebuild_ms,chunks_rebuilt,upload_calls,upload_bytes,cloud_gpu_ms,cloud_cpu_"
-          "ms\n",
+          "ms,sky_gpu_ms,sky_cpu_ms,terrain_gpu_ms,terrain_cpu_ms,hud_gpu_ms,hud_cpu_ms\n",
           raw);
   profilePreviousBufferData = __glewBufferData;
   profilePreviousBeginQuery = __glewBeginQuery;
@@ -125,6 +164,10 @@ static int profileRendering(GLuint shader) {
   GLuint cloudTimers[PROFILE_FRAMES * 2];
   if (atmosphere)
     profilePreviousGenQueries(PROFILE_FRAMES * 2, cloudTimers);
+  ProfilePass passes[3] = {0};
+  const char* passNames[] = {"sky", "terrain", "hud"};
+  for (int pass = 0; pass < 3; pass++)
+    profilePreviousGenQueries(PROFILE_FRAMES * 2, passes[pass].queries);
   Player player = {0};
   success = success && playerFindSpawn(&player, (Vec3){0, 0, 3});
   Vec3 eye = playerEyePosition(&player);
@@ -219,15 +262,32 @@ static int profileRendering(GLuint shader) {
       glBeginQuery(GL_TIME_ELAPSED, timer);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       DayNightState daylight = {0};
+      unsigned long skyDraws = 0;
       if (atmosphere) {
         daylight = sampleDayNight(phase + step / 72000.0);
-        renderSky(&sky, &camera, (float)width / height, &daylight);
+        if (skyFirst) {
+          unsigned long beforeSky = draws;
+          profilePassBegin(&passes[0], frame);
+          renderSky(&sky, &camera, (float)width / height, &daylight);
+          profilePassEnd(&passes[0], frame);
+          skyDraws = draws - beforeSky;
+        }
         setWorldDayNight(&daylight);
       }
+      profilePassBegin(&passes[1], frame);
       RenderResult result = renderWorld(&camera, view, projection, false);
+      profilePassEnd(&passes[1], frame);
+      if (atmosphere && !skyFirst) {
+        unsigned long beforeSky = draws;
+        profilePassBegin(&passes[0], frame);
+        renderSky(&sky, &camera, (float)width / height, &daylight);
+        profilePassEnd(&passes[0], frame);
+        skyDraws = draws - beforeSky;
+      }
       DebugData data = {
           .camera = &camera, .fps = 60 + (step % 100) * 0.1f, .visibleBlocks = result.surfaceBlocks, .captured = true, .selectedSlot = 0, .stats = &result, .showDebug = debug};
       data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
+      data.chat = &chat;
       drawSelection(&data.selection, view, projection);
       unsigned long cloudDraws = 0;
       if (atmosphere) {
@@ -243,7 +303,9 @@ static int profileRendering(GLuint shader) {
         }
         cloudDraws = draws - beforeClouds;
       }
+      profilePassBegin(&passes[2], frame);
       HUDDraw(shader, &data);
+      profilePassEnd(&passes[2], frame);
       glEndQuery(GL_TIME_ELAPSED);
       double cpuMs = (glfwGetTime() - start) * 1000;
       if (pipelined) {
@@ -268,7 +330,7 @@ static int profileRendering(GLuint shader) {
       }
 
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
-                cloudDraws <= 1 && draws == (unsigned long)result.terrainDrawCalls + 1 + (atmosphere ? 1 : 0) + cloudDraws;
+                cloudDraws <= 1 && skyDraws <= 1 && draws == (unsigned long)result.terrainDrawCalls + 1 + skyDraws + cloudDraws;
       if (scenario != 6)
         success = success && result.chunksRebuilt == 0 && uploads == 0 && lookups == 0;
       else
@@ -325,11 +387,20 @@ static int profileRendering(GLuint shader) {
       }
       totalCloudGPU += cloudGPU[frame];
       totalCloudCPU += cloudCPU[frame];
+      for (int pass = 0; pass < 3; pass++) {
+        if (pass == 0 && !atmosphere)
+          continue;
+        GLuint64 begin, end;
+        glGetQueryObjectui64v(passes[pass].queries[frame * 2], GL_QUERY_RESULT, &begin);
+        glGetQueryObjectui64v(passes[pass].queries[frame * 2 + 1], GL_QUERY_RESULT, &end);
+        passes[pass].gpu[frame] = (double)(end - begin) / 1000000;
+      }
       const ProfileFrame* sample = &samples[frame];
       if (raw)
-        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu,%.6f,%.6f\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs, gpuTimes[frame], sample->draws,
-                sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls, sample->uploadBytes, cloudGPU[frame],
-                cloudCPU[frame]);
+        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs,
+                gpuTimes[frame], sample->draws, sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls,
+                sample->uploadBytes, cloudGPU[frame], cloudCPU[frame], passes[0].gpu[frame], passes[0].cpu[frame], passes[1].gpu[frame], passes[1].cpu[frame], passes[2].gpu[frame],
+                passes[2].cpu[frame]);
     }
 
     success = glGetError() == GL_NO_ERROR;
@@ -337,6 +408,16 @@ static int profileRendering(GLuint shader) {
       break;
     if (pipelined)
       printf("PROFILE_PIPELINE scenario=%s batch_ms=%.6f final_drain_ms=%.6f\n", scenarios[scenario], (frameBoundary - batchStart) * 1000, drainMs);
+    for (int pass = 0; pass < 3; pass++) {
+      double gpu = 0, cpu = 0;
+      for (int frame = 0; frame < PROFILE_FRAMES; frame++) {
+        gpu += passes[pass].gpu[frame];
+        cpu += passes[pass].cpu[frame];
+      }
+      qsort(passes[pass].gpu, PROFILE_FRAMES, sizeof(double), profileCompare);
+      printf("PROFILE_PASS %s,%s,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], passNames[pass], gpu / PROFILE_FRAMES, cpu / PROFILE_FRAMES,
+             passes[pass].gpu[(PROFILE_FRAMES * 95 + 99) / 100 - 1], passes[pass].gpu[(PROFILE_FRAMES * 99 + 99) / 100 - 1]);
+    }
     qsort(frameTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(cpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(gpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
@@ -358,6 +439,8 @@ static int profileRendering(GLuint shader) {
   glDeleteQueries(timerCount, timers);
   if (atmosphere)
     glDeleteQueries(PROFILE_FRAMES * 2, cloudTimers);
+  for (int pass = 0; pass < 3; pass++)
+    glDeleteQueries(PROFILE_FRAMES * 2, passes[pass].queries);
   __glewBufferData = profilePreviousBufferData;
   __glewBeginQuery = profilePreviousBeginQuery;
   __glewGenQueries = profilePreviousGenQueries;

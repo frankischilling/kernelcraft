@@ -115,6 +115,12 @@ static void emitRectangles(const Chunk* chunk, const MeshRectangle* rectangles, 
   }
 }
 
+// Keep the hot mesh builder's entry alignment independent of other code size.
+// Native paired tests exposed substantial edit-cost sensitivity to text layout.
+// This is only a placement hint; other compilers retain the same C11 algorithm.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((aligned(64)))
+#endif
 bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   memset(mesh, 0, sizeof(*mesh));
   uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE] = {0};

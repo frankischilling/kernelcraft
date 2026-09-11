@@ -1,4 +1,109 @@
 #include "graphics/sky.h"
+#include "graphics/clouds.h"
+
+// Original sky-first submission, independent of renderSky's depth handling.
+// Keep the same shader: this comparison isolates ordering and state changes.
+static void referenceSkyDraw(const SkyRenderer* sky, const Camera* camera, float aspect, const DayNightState* state) {
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDepthMask(GL_FALSE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glUseProgram(sky->program);
+  for (int i = 0; i < 5; i++) {
+    glActiveTexture(GL_TEXTURE0 + i);
+    glBindTexture(GL_TEXTURE_2D, sky->textures[i]);
+  }
+  Vec3 right, up;
+  vec3_cross(&right, &camera->front, &camera->up);
+  vec3_normalize(&right, &right);
+  vec3_cross(&up, &right, &camera->front);
+  glUniform3f(sky->front, camera->front.x, camera->front.y, camera->front.z);
+  glUniform3f(sky->right, right.x, right.y, right.z);
+  glUniform3f(sky->up, up.x, up.y, up.z);
+  float scale = tanf(toRadians(camera->fov) * 0.5f);
+  glUniform2f(sky->scale, scale * aspect, scale);
+  glUniform3f(sky->weights, state->day, state->twilight, state->night);
+  glUniform3f(sky->sun, state->sunDirection.x, state->sunDirection.y, state->sunDirection.z);
+  glUniform3f(sky->moon, state->moonDirection.x, state->moonDirection.y, state->moonDirection.z);
+  glUniform1f(sky->stars, state->stars);
+  glBindVertexArray(sky->vao);
+  __real_glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+  glActiveTexture(GL_TEXTURE0);
+}
+
+static bool testSkyOrder(const SkyRenderer* sky, GLuint shader) {
+  static unsigned char reference[960 * 540 * 3], actual[sizeof(reference)];
+  static float depthBefore[960 * 540], depthAfter[960 * 540];
+  CloudRenderer clouds = {0};
+  bool ok = initClouds(&clouds) && initChunksSeeded(42) && initWorld(shader);
+  const float heights[] = {-8, 13.62f, 24, 80, 119.99f, 122, 124.01f, 180};
+  const float pitches[] = {-80, -20, 0, 25, 55, 85, -25, -55};
+  unsigned cases = 0;
+  for (int phase = 0; phase < 8 && ok; phase++)
+    for (int pose = 0; pose < 8 && ok; pose++)
+      for (int wireframe = 0; wireframe < 2 && ok; wireframe++) {
+        int width = pose % 2 ? 960 : 400;
+        float aspect = (float)width / 540;
+        Camera camera = {.position = {0.5f, heights[pose], 3.5f}, .up = {0, 1, 0}, .fov = pose % 3 ? 70 : 115, .yaw = (float)phase * 45, .pitch = pitches[pose]};
+        updateCameraVectors(&camera);
+        Vec3 target;
+        vec3_add(&target, &camera.position, &camera.front);
+        Mat4 view, projection;
+        mat4_lookAt(view, &camera.position, &target, &camera.up);
+        mat4_perspective(projection, camera.fov, aspect, 0.1f, 1000);
+        DayNightState state = sampleDayNight(phase * 0.125);
+        clouds.offset = phase * 97.25;
+        for (int candidate = 0; candidate < 2 && ok; candidate++) {
+          glViewport(0, 0, width, 540);
+          glDepthMask(GL_TRUE);
+          glDepthFunc(GL_LESS);
+          glDepthRange(0, 1);
+          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+          if (!candidate)
+            referenceSkyDraw(sky, &camera, aspect, &state);
+          setWorldDayNight(&state);
+          RenderResult result = renderWorld(&camera, view, projection, wireframe != 0);
+          ok = result.success;
+          if (candidate) {
+            glReadPixels(0, 0, width, 540, GL_DEPTH_COMPONENT, GL_FLOAT, depthBefore);
+            renderSky(sky, &camera, aspect, &state);
+            glReadPixels(0, 0, width, 540, GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
+            ok = ok && memcmp(depthBefore, depthAfter, (size_t)width * 540 * sizeof(float)) == 0;
+          }
+          Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
+          drawSelection(&selection, view, projection);
+          renderClouds(&clouds, &camera, aspect, projection, &state);
+          glReadPixels(0, 0, width, 540, GL_RGB, GL_UNSIGNED_BYTE, candidate ? actual : reference);
+        }
+        ok = ok && memcmp(actual, reference, (size_t)width * 540 * 3) == 0;
+        if (!ok)
+          fprintf(stderr, "Sky order mismatch: phase %d, pose %d, wireframe %d\n", phase, pose, wireframe);
+        cases++;
+      }
+  // A fully covered depth buffer must reject every sample, not merely paint
+  // the same color. This is a deterministic work check, not a timing limit.
+  glViewport(0, 0, 960, 540);
+  glDepthMask(GL_TRUE);
+  glClearDepth(0.5);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glClearDepth(1);
+  Camera camera = {.front = {1, 0, 0}, .up = {0, 1, 0}, .fov = 70};
+  DayNightState state = sampleDayNight(0.125);
+  GLuint query, samples = 1;
+  glGenQueries(1, &query);
+  glBeginQuery(GL_SAMPLES_PASSED, query);
+  renderSky(sky, &camera, 960.0f / 540, &state);
+  glEndQuery(GL_SAMPLES_PASSED);
+  glGetQueryObjectuiv(query, GL_QUERY_RESULT, &samples);
+  glDeleteQueries(1, &query);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  cleanupClouds(&clouds);
+  printf("Sky order: %u exact color/depth comparisons, covered samples=%u\n", cases, samples);
+  return ok && samples == 0;
+}
 
 static void skyDirectionPixel(const SkyRenderer* sky, const DayNightState* state, Vec3 direction, unsigned char pixel[3]) {
   Camera camera = {.front = direction, .up = {0, 1, 0}, .fov = 1};
@@ -296,6 +401,8 @@ static bool testSkyRendering(GLuint shader) {
   glEnable(GL_CULL_FACE);
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
+  glDepthFunc(GL_GREATER);
+  glDepthRange(0.2, 0.8);
   glPolygonMode(GL_FRONT, GL_LINE);
   glPolygonMode(GL_BACK, GL_POINT);
   glActiveTexture(GL_TEXTURE3);
@@ -313,11 +420,23 @@ static bool testSkyRendering(GLuint shader) {
   SKY_CHECK(program == (GLint)shader && active == GL_TEXTURE3 && binding == (GLint)sentinel);
   SKY_CHECK(glIsEnabled(GL_DEPTH_TEST) && glIsEnabled(GL_BLEND) && glIsEnabled(GL_CULL_FACE) && mask);
   SKY_CHECK(polygon[0] == GL_LINE && polygon[1] == GL_POINT);
+  GLint depthFunc;
+  GLdouble depthRange[2];
+  glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+  glGetDoublev(GL_DEPTH_RANGE, depthRange);
+  SKY_CHECK(depthFunc == GL_GREATER && fabs(depthRange[0] - 0.2) < 1e-6 && fabs(depthRange[1] - 0.8) < 1e-6);
+  glDepthFunc(GL_LESS);
+  glDepthRange(0, 1);
   glDeleteTextures(1, &sentinel);
   glActiveTexture(GL_TEXTURE0);
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   glDisable(GL_BLEND);
   glDisable(GL_CULL_FACE);
+
+  glDisable(GL_DEPTH_TEST);
+  renderSky(&sky, &camera, 960.0f / 540, &night);
+  SKY_CHECK(!glIsEnabled(GL_DEPTH_TEST));
+  glEnable(GL_DEPTH_TEST);
 
   // Terrain in front of the sky must stay opaque and dim at night without
   // uploads or dirty meshes. A uniform tile gives a readable lighting probe.
@@ -366,8 +485,13 @@ static bool testSkyRendering(GLuint shader) {
     result = renderWorld(&camera, view, projection, false);
     glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, opaque);
     SKY_CHECK(result.success && result.chunksRebuilt == 0 && memcmp(opaque, terrain, 3) == 0);
+    // A background pass submitted after opaque terrain must reject this pixel.
+    renderSky(&sky, &camera, 960.0f / 540, &state);
+    glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, opaque);
+    SKY_CHECK(memcmp(opaque, terrain, 3) == 0);
   }
   SKY_CHECK(captureSkyViews(&sky, shader));
+  SKY_CHECK(testSkyOrder(&sky, shader));
   cleanupSky(&sky);
   cleanupSky(&sky);
   SKY_CHECK(glGetError() == GL_NO_ERROR);
