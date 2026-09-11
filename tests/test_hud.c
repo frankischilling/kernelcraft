@@ -18,6 +18,7 @@ static const char* expectedMaterial;
 static const char* expectedWireframe;
 static bool sawWireframe;
 static bool chatLayout, sawChatPrompt, sawChatMessage, sawChatTail;
+static int modeBaseline = -1, chatPromptBaseline = -1, chatHistoryBaseline = -1;
 static const char* failTexture;
 static GLuint partialTextures[6];
 static int partialCount;
@@ -89,6 +90,14 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   // Chat's shadow is a second draw of the same label, offset one pixel.
   GLfloat tint[4];
   glGetFloatv(GL_CURRENT_COLOR, tint);
+  if (tint[0] > 0.9f) {
+    if (!chatLayout && strstr(text, " | F3:") && modeBaseline < 0)
+      modeBaseline = (int)y;
+    if (chatLayout && strncmp(text, "> ", 2) == 0 && chatPromptBaseline < 0)
+      chatPromptBaseline = (int)y;
+    if (chatLayout && strstr(text, "[Local]") && chatHistoryBaseline < 0)
+      chatHistoryBaseline = (int)y;
+  }
   if (chatLayout && tint[0] < 0.3f) {
     __real_renderText(state, text, x, y);
     return;
@@ -437,6 +446,7 @@ int main(int argc, char** argv) {
   glViewport(0, 0, 640, 480);
   const char* states[] = {"Crouching: grounded", "Crouching: airborne", "Running: grounded", "Running: airborne", "Debug flight"};
   data.modeBlocked = false;
+  modeBaseline = -1;
   for (int mode = 0; mode < 5; mode++) {
     labels = 0;
     sawMovement = false;
@@ -447,6 +457,8 @@ int main(int argc, char** argv) {
     data.flying = mode == 4;
     HUDDraw(0, &data);
     CHECK(sawMovement && glGetError() == GL_NO_ERROR);
+    if (mode == 0)
+      CHECK(modeBaseline == 2 * glutBitmapHeight(GLUT_BITMAP_HELVETICA_18) + 12);
   }
 
   const char* names[] = {"Cobblestone", "Oak planks", "Stone bricks"};
@@ -484,12 +496,18 @@ int main(int argc, char** argv) {
     glViewport(0, 0, width, height);
     labels = 0;
     sawChatPrompt = sawChatMessage = sawChatTail = false;
+    if (width == 640 && height == 480)
+      chatPromptBaseline = chatHistoryBaseline = -1;
     glClear(GL_COLOR_BUFFER_BIT);
     HUDDraw(0, &data);
     if (width >= 32 && height >= 64)
       CHECK(sawChatPrompt && sawChatTail);
     if (width >= 240 && height >= 320)
       CHECK(sawChatMessage);
+    if (width == 640 && height == 480) {
+      CHECK(chatPromptBaseline == height - 8);
+      CHECK(chatHistoryBaseline == height - glutBitmapHeight(GLUT_BITMAP_HELVETICA_18) - 22);
+    }
     CHECK(glGetError() == GL_NO_ERROR);
   }
   cancelChat(&chat);
