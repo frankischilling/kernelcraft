@@ -101,7 +101,9 @@ static int profileRendering(GLuint shader) {
   if (rawPath && !raw)
     return 31;
   if (raw)
-    fputs("scenario,frame,frame_ms,cpu_submit_ms,gpu_ms,terrain_draws,triangles,surface_blocks,queries,rebuild_ms,chunks_rebuilt,upload_calls,upload_bytes\n", raw);
+    fputs("scenario,frame,frame_ms,cpu_submit_ms,gpu_ms,terrain_draws,triangles,surface_blocks,queries,rebuild_ms,chunks_rebuilt,upload_calls,upload_bytes,cloud_gpu_ms,cloud_cpu_"
+          "ms\n",
+          raw);
   profilePreviousBufferData = __glewBufferData;
   profilePreviousBeginQuery = __glewBeginQuery;
   profilePreviousGenQueries = __glewGenQueries;
@@ -120,6 +122,9 @@ static int profileRendering(GLuint shader) {
   GLuint timers[PROFILE_FRAMES + 1];
   int timerCount = pipelined ? PROFILE_FRAMES + 1 : 1;
   profilePreviousGenQueries(timerCount, timers);
+  GLuint cloudTimers[PROFILE_FRAMES * 2];
+  if (atmosphere)
+    profilePreviousGenQueries(PROFILE_FRAMES * 2, cloudTimers);
   Player player = {0};
   success = success && playerFindSpawn(&player, (Vec3){0, 0, 3});
   Vec3 eye = playerEyePosition(&player);
@@ -136,6 +141,9 @@ static int profileRendering(GLuint shader) {
       continue;
     matchedScene = true;
     double frameTimes[PROFILE_FRAMES], cpuTimes[PROFILE_FRAMES], gpuTimes[PROFILE_FRAMES];
+    double cloudGPU[PROFILE_FRAMES] = {0}, cloudCPU[PROFILE_FRAMES] = {0};
+    double totalCloudGPU = 0, totalCloudCPU = 0;
+    unsigned long totalCloudDraws = 0;
     ProfileFrame samples[PROFILE_FRAMES];
     double drainMs = 0, batchStart = 0, frameBoundary = 0;
     double totalFrame = 0, totalCPU = 0, totalGPU = 0, rebuildMs = 0;
@@ -221,9 +229,19 @@ static int profileRendering(GLuint shader) {
           .camera = &camera, .fps = 60 + (step % 100) * 0.1f, .visibleBlocks = result.surfaceBlocks, .captured = true, .selectedSlot = 0, .stats = &result, .showDebug = debug};
       data.selection = rayCast(camera.position, camera.front, EDIT_REACH);
       drawSelection(&data.selection, view, projection);
+      unsigned long cloudDraws = 0;
       if (atmosphere) {
         clouds.offset = step * 0.01;
+        double cloudStart = glfwGetTime();
+        unsigned long beforeClouds = draws;
+        if (frame >= 0)
+          glQueryCounter(cloudTimers[frame * 2], GL_TIMESTAMP);
         renderClouds(&clouds, &camera, (float)width / height, projection, &daylight);
+        if (frame >= 0) {
+          glQueryCounter(cloudTimers[frame * 2 + 1], GL_TIMESTAMP);
+          cloudCPU[frame] = (glfwGetTime() - cloudStart) * 1000;
+        }
+        cloudDraws = draws - beforeClouds;
       }
       HUDDraw(shader, &data);
       glEndQuery(GL_TIME_ELAPSED);
@@ -250,7 +268,7 @@ static int profileRendering(GLuint shader) {
       }
 
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
-                draws == (unsigned long)result.terrainDrawCalls + 1 + (atmosphere ? 2 : 0);
+                cloudDraws <= 1 && draws == (unsigned long)result.terrainDrawCalls + 1 + (atmosphere ? 1 : 0) + cloudDraws;
       if (scenario != 6)
         success = success && result.chunksRebuilt == 0 && uploads == 0 && lookups == 0;
       else
@@ -281,6 +299,7 @@ static int profileRendering(GLuint shader) {
       totalRebuilt += result.chunksRebuilt;
       totalUploads += uploads;
       totalBytes += profileUploadBytes;
+      totalCloudDraws += cloudDraws;
       samples[frame] = (ProfileFrame){
           frameMs,        cpuMs,  result.meshUpdateMilliseconds, result.submittedTriangles, profileUploadBytes, result.terrainDrawCalls, result.surfaceBlocks, result.chunksRebuilt,
           profileQueries, uploads};
@@ -298,10 +317,19 @@ static int profileRendering(GLuint shader) {
       }
 
       totalGPU += gpuTimes[frame];
+      if (atmosphere) {
+        GLuint64 begin, end;
+        glGetQueryObjectui64v(cloudTimers[frame * 2], GL_QUERY_RESULT, &begin);
+        glGetQueryObjectui64v(cloudTimers[frame * 2 + 1], GL_QUERY_RESULT, &end);
+        cloudGPU[frame] = (double)(end - begin) / 1000000;
+      }
+      totalCloudGPU += cloudGPU[frame];
+      totalCloudCPU += cloudCPU[frame];
       const ProfileFrame* sample = &samples[frame];
       if (raw)
-        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs, gpuTimes[frame], sample->draws,
-                sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls, sample->uploadBytes);
+        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu,%.6f,%.6f\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs, gpuTimes[frame], sample->draws,
+                sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls, sample->uploadBytes, cloudGPU[frame],
+                cloudCPU[frame]);
     }
 
     success = glGetError() == GL_NO_ERROR;
@@ -312,6 +340,9 @@ static int profileRendering(GLuint shader) {
     qsort(frameTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(cpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(gpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
+    qsort(cloudGPU, PROFILE_FRAMES, sizeof(double), profileCompare);
+    printf("PROFILE_CLOUD %s,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], totalCloudGPU / PROFILE_FRAMES, cloudGPU[(PROFILE_FRAMES * 95 + 99) / 100 - 1],
+           cloudGPU[(PROFILE_FRAMES * 99 + 99) / 100 - 1], totalCloudCPU / PROFILE_FRAMES, (double)totalCloudDraws / PROFILE_FRAMES);
     double slowest = 0;
     for (int frame = PROFILE_FRAMES - PROFILE_FRAMES / 100; frame < PROFILE_FRAMES; frame++)
       slowest += frameTimes[frame];
@@ -325,6 +356,8 @@ static int profileRendering(GLuint shader) {
 
   setBlock(&edit, originalID);
   glDeleteQueries(timerCount, timers);
+  if (atmosphere)
+    glDeleteQueries(PROFILE_FRAMES * 2, cloudTimers);
   __glewBufferData = profilePreviousBufferData;
   __glewBeginQuery = profilePreviousBeginQuery;
   __glewGenQueries = profilePreviousGenQueries;

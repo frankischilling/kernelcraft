@@ -1,5 +1,8 @@
 # Rendering performance
 
+For conservative cloud-pass bounds and current native Windows measurements,
+see the [cloud rendering report](cloud-performance.md).
+
 For the current measured chunk-edit and startup optimization, see
 [chunk rebuild performance](mesh-rebuild-performance.md).
 
