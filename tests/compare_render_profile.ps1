@@ -10,9 +10,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $roots = @{ base = (Resolve-Path -LiteralPath $BaseDirectory).Path; candidate = (Resolve-Path -LiteralPath $CandidateDirectory).Path }
-$baseHarness = Get-FileHash -LiteralPath (Join-Path $roots.base 'tests/render_profile.h')
-$candidateHarness = Get-FileHash -LiteralPath (Join-Path $roots.candidate 'tests/render_profile.h')
-if ($baseHarness.Hash -ne $candidateHarness.Hash) { throw 'Both builds must use the same render_profile.h.' }
+$harnessHashes = [ordered]@{}
+foreach ($path in @('tests/render_profile.h', 'tests/render_benchmark.c', 'tests/cloud_render_checks.h')) {
+    $baseHash = Get-FileHash -LiteralPath (Join-Path $roots.base $path)
+    $candidateHash = Get-FileHash -LiteralPath (Join-Path $roots.candidate $path)
+    if ($baseHash.Hash -ne $candidateHash.Hash) { throw "Both builds must use the same $path." }
+    $harnessHashes[$path] = $baseHash.Hash
+}
 foreach ($root in $roots.Values) {
     if (-not (Test-Path -LiteralPath (Join-Path $root 'bin/windows/Release/benchmark.exe'))) {
         throw "Build the Release benchmark before measuring: $root"
@@ -26,7 +30,8 @@ $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
     cpu = @(Get-CimInstance Win32_Processor | Select-Object Name)
     graphics = @(Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion)
     os = @(Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version)
-    harnessSha256 = $baseHarness.Hash
+    harnessSha256 = $harnessHashes['tests/render_profile.h']
+    benchmarkSourcesSha256 = $harnessHashes
     directories = $roots
     pairs = $Pairs
     mode = if ($Pipelined) { 'pipelined' } else { 'serialized' }
@@ -35,6 +40,8 @@ $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
     scene = $env:KERNELCRAFT_PROFILE_SCENE
     atmosphere = [bool]$env:KERNELCRAFT_PROFILE_ATMOSPHERE
     phase = $env:KERNELCRAFT_PROFILE_PHASE
+    requestedWidth = $env:KERNELCRAFT_PROFILE_WIDTH
+    requestedHeight = $env:KERNELCRAFT_PROFILE_HEIGHT
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $outputRoot 'environment.json') -Encoding UTF8
 $columns = @('scenario', 'fps', 'frame_mean_ms', 'frame_median_ms', 'frame_p95_ms', 'frame_p99_ms', 'one_percent_low_fps',
     'cpu_submit_mean_ms', 'gpu_mean_ms', 'terrain_draws', 'triangles', 'surface_blocks', 'queries', 'rebuild_mean_ms',
@@ -60,12 +67,20 @@ try {
                 if ($LASTEXITCODE -ne 0) { throw "Profile failed; see $log" }
             } finally { Pop-Location }
             $lines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_RESULT ') })
+            $cloudLines = @(Get-Content -LiteralPath $log | Where-Object { $_.StartsWith('PROFILE_CLOUD ') })
             if ($lines.Count -ne $expectedScenes) { throw "Expected $expectedScenes complete scenes in $log" }
+            if ($cloudLines.Count -ne $expectedScenes) { throw "Expected $expectedScenes cloud measurements in $log" }
             foreach ($line in $lines) {
                 $values = $line.Substring('PROFILE_RESULT '.Length).Split(',')
                 if ($values.Count -ne $columns.Count) { throw "Unexpected result schema in $log" }
                 $row = [ordered]@{ pair = $pair; variant = $variant }
                 for ($column = 0; $column -lt $columns.Count; $column++) { $row[$columns[$column]] = $values[$column] }
+                $cloud = @($cloudLines | Where-Object { $_.StartsWith("PROFILE_CLOUD $($values[0]),") })
+                if ($cloud.Count -ne 1) { throw "Missing cloud measurement for $($values[0])" }
+                $cloudValues = $cloud[0].Substring('PROFILE_CLOUD '.Length).Split(',')
+                if ($cloudValues.Count -ne 6) { throw 'Unexpected cloud result schema' }
+                $cloudColumns = @('cloud_gpu_mean_ms', 'cloud_gpu_p95_ms', 'cloud_gpu_p99_ms', 'cloud_cpu_mean_ms', 'cloud_draws')
+                for ($column = 0; $column -lt $cloudColumns.Count; $column++) { $row[$cloudColumns[$column]] = $cloudValues[$column + 1] }
                 $results += [pscustomobject]$row
             }
             $results | Export-Csv -LiteralPath (Join-Path $outputRoot 'runs.csv') -NoTypeInformation -Encoding UTF8

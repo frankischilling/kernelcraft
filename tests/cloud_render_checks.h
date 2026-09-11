@@ -1,5 +1,90 @@
 #include "graphics/clouds.h"
 
+// Submit the unchanged shader over the full viewport, independently of the CPU
+// bounds. This also respects the caller's scissor, providing a pixel reference.
+static void referenceCloudDraw(const CloudRenderer* clouds, const Camera* camera, float aspect, const Mat4 projection, const DayNightState* state) {
+  Vec3 right, up;
+  vec3_cross(&right, &camera->front, &camera->up);
+  vec3_normalize(&right, &right);
+  vec3_cross(&up, &right, &camera->front);
+  float scale = tanf(toRadians(camera->fov) * 0.5f);
+  double x = fmod((double)camera->position.x - clouds->offset, 768.0), z = fmod(camera->position.z, 768.0);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_FALSE);
+  glEnable(GL_BLEND);
+  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glDisable(GL_CULL_FACE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glUseProgram(clouds->program);
+  glUniform3f(clouds->front, camera->front.x, camera->front.y, camera->front.z);
+  glUniform3f(clouds->right, right.x, right.y, right.z);
+  glUniform3f(clouds->up, up.x, up.y, up.z);
+  glUniform2f(clouds->scale, scale * aspect, scale);
+  glUniform3f(clouds->origin, (float)(x < 0 ? x + 768 : x), camera->position.y, (float)(z < 0 ? z + 768 : z));
+  glUniform2f(clouds->projection, projection[10], projection[14]);
+  glUniform3f(clouds->weights, state->day, state->twilight, state->night);
+  glBindVertexArray(clouds->vao);
+  __real_glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
+static bool testCloudBounds(const CloudRenderer* clouds, GLuint shader) {
+  static unsigned char reference[960 * 540 * 3], actual[sizeof(reference)];
+  const float heights[] = {40, 119.999f, 120, 122, 124, 124.001f, 204, 1000};
+  const float pitches[] = {-1.5f, -0.4f, -0.000001f, 0, 0.000001f, 0.4f, 1.5f};
+  bool ok = true;
+  unsigned cases = 0;
+  for (size_t h = 0; h < sizeof(heights) / sizeof(*heights) && ok; h++)
+    for (size_t p = 0; p < sizeof(pitches) / sizeof(*pitches) && ok; p++)
+      for (int roll = 0; roll < 2 && ok; roll++) {
+        unsigned index = cases++;
+        GLint viewport[4] = {13, 17, index % 3 ? 880 : 360, 500};
+        GLint box[4] = {-7, 211, 701, index % 5 ? 290 : 0};
+        if (index % 7 == 0)
+          viewport[0] = viewport[1] = -17;
+        if (index % 11 == 0)
+          box[0] = 1000; // Nonempty scissor entirely outside the viewport.
+        bool clipped = (index / 3) % 2;
+        Camera camera = {
+            .position = {-769 + (float)index, heights[h], -24}, .front = {cosf(pitches[p]), sinf(pitches[p]), 0}, .up = {0, 1, roll ? 0.8f : 0}, .fov = index % 3 ? 90 : 20};
+        float aspect = (float)viewport[2] / viewport[3];
+        Mat4 projection;
+        mat4_perspective(projection, camera.fov, aspect, 0.1f, 1000);
+        DayNightState state = sampleDayNight((index % 4) * 0.25);
+        for (int candidate = 0; candidate < 2; candidate++) {
+          glDisable(GL_SCISSOR_TEST);
+          glDepthMask(GL_TRUE);
+          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+          glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+          glScissor(box[0], box[1], box[2], box[3]);
+          if (clipped)
+            glEnable(GL_SCISSOR_TEST);
+          if (candidate)
+            renderClouds(clouds, &camera, aspect, projection, &state);
+          else
+            referenceCloudDraw(clouds, &camera, aspect, projection, &state);
+          GLint restored[4];
+          glGetIntegerv(GL_SCISSOR_BOX, restored);
+          ok = ok && memcmp(restored, box, sizeof(box)) == 0 && (glIsEnabled(GL_SCISSOR_TEST) != 0) == clipped;
+          glGetIntegerv(GL_VIEWPORT, restored);
+          ok = ok && memcmp(restored, viewport, sizeof(viewport)) == 0;
+          glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, candidate ? actual : reference);
+        }
+        ok = ok && memcmp(actual, reference, sizeof(actual)) == 0;
+        if (!ok)
+          fprintf(stderr, "Cloud bounds pixel/state mismatch: case %u, height %.6f, pitch %.6f, roll %d\n", index, camera.position.y, pitches[p], roll);
+      }
+  glDisable(GL_SCISSOR_TEST);
+  glViewport(0, 0, 960, 540);
+  glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND);
+  glBindVertexArray(0);
+  glUseProgram(shader);
+  printf("Cloud bounds: %u full-shader pixel comparisons %s\n", cases, ok ? "passed" : "failed");
+  return ok;
+}
+
 #define CLOUD_CHECK(condition)                                                                                                                                                     \
   do {                                                                                                                                                                             \
     if (!(condition)) {                                                                                                                                                            \
@@ -150,7 +235,9 @@ static bool testCloudRendering(GLuint shader) {
   camera.fov = 20;
   mat4_perspective(projection, camera.fov, 960.0f / 540, 0.1f, 1000);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  unsigned long beforeInvisibleClouds = draws;
   renderClouds(&clouds, &camera, 960.0f / 540, projection, &day);
+  CLOUD_CHECK(draws == beforeInvisibleClouds);
   glReadPixels(0, 0, 960, 540, GL_RGB, GL_UNSIGNED_BYTE, pixels);
   for (size_t i = 0; i < sizeof(pixels); i++)
     CLOUD_CHECK(pixels[i] == 0);
@@ -189,6 +276,7 @@ static bool testCloudRendering(GLuint shader) {
   renderClouds(&clouds, &camera, 960.0f / 540, projection, &day);
   glReadPixels(480, 270, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, center);
   CLOUD_CHECK(center[0] == 0); // Horizontal rays below the layer miss it.
+  CLOUD_CHECK(testCloudBounds(&clouds, shader));
 
   // Restore all state even when called from a nonstandard rendering pass.
   glUseProgram(shader);

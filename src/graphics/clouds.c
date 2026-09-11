@@ -1,5 +1,6 @@
 #include "clouds.h"
 #include "shader.h"
+#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -69,7 +70,76 @@ void advanceClouds(CloudRenderer* clouds, double seconds, bool active) {
   clouds->offset = fmod(clouds->offset + fmin(seconds, 0.1) * 0.6, 768.0);
 }
 
+// Outside the layer, a ray must point toward it. Its unnormalized Y component
+// is linear across the screen. Bound that half-plane without changing the
+// fullscreen triangle or the shader's interpolation, depth, or ray march.
+static bool cloudBounds(const Camera* camera, const Vec3* right, const Vec3* up, float scaleX, float scaleY, double bounds[4]) {
+  bounds[0] = bounds[1] = -1;
+  bounds[2] = bounds[3] = 1;
+  if (!(camera->position.y < 120 || camera->position.y > 124))
+    return true;
+  double sign = camera->position.y < 120 ? 1 : -1;
+  double a = sign * camera->front.y, b = sign * right->y * scaleX, c = sign * up->y * scaleY;
+  if (!isfinite(a) || !isfinite(b) || !isfinite(c))
+    return true;
+  // Include a margin for the shader's float arithmetic near the horizon.
+  a += 1e-5 * (1 + fabs(a) + fabs(b) + fabs(c));
+  if (a + fabs(b) + fabs(c) < 0)
+    return false;
+  if (b > 0)
+    bounds[0] = fmax(-1, -(a + fabs(c)) / b);
+  else if (b < 0)
+    bounds[2] = fmin(1, -(a + fabs(c)) / b);
+  if (c > 0)
+    bounds[1] = fmax(-1, -(a + fabs(b)) / c);
+  else if (c < 0)
+    bounds[3] = fmin(1, -(a + fabs(b)) / c);
+  return true;
+}
+
 void renderClouds(const CloudRenderer* clouds, const Camera* camera, float aspect, const Mat4 projection, const DayNightState* state) {
+  Vec3 right, up;
+  vec3_cross(&right, &camera->front, &camera->up);
+  vec3_normalize(&right, &right);
+  vec3_cross(&up, &right, &camera->front);
+  float scale = tanf(toRadians(camera->fov) * 0.5f);
+  double bounds[4];
+  if (!cloudBounds(camera, &right, &up, scale * aspect, scale, bounds))
+    return;
+  bool cropped = bounds[0] > -1 || bounds[1] > -1 || bounds[2] < 1 || bounds[3] < 1;
+  GLboolean scissor = GL_FALSE;
+  GLint oldBox[4];
+  if (cropped) {
+    GLint viewport[4], box[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, oldBox);
+    scissor = glIsEnabled(GL_SCISSOR_TEST);
+    for (int axis = 0; axis < 2; axis++) {
+      // Expand by a pixel as well as the angular margin. Intersect in 64 bits
+      // so a caller's scissor origin plus width cannot overflow a GLint.
+      int64_t low = viewport[axis] + (int64_t)fmax(0, floor((bounds[axis] + 1) * 0.5 * viewport[axis + 2]) - 1);
+      int64_t high = viewport[axis] + (int64_t)fmin(viewport[axis + 2], ceil((bounds[axis + 2] + 1) * 0.5 * viewport[axis + 2]) + 1);
+      if (scissor) {
+        if (low < oldBox[axis])
+          low = oldBox[axis];
+        int64_t end = (int64_t)oldBox[axis] + oldBox[axis + 2];
+        if (high > end)
+          high = end;
+      }
+      if (low >= high)
+        return;
+      if (low > INT_MAX || high - low > INT_MAX) {
+        cropped = false;
+        break;
+      }
+      box[axis] = (GLint)low;
+      box[axis + 2] = (GLint)(high - low);
+    }
+    if (cropped) {
+      glEnable(GL_SCISSOR_TEST);
+      glScissor(box[0], box[1], box[2], box[3]);
+    }
+  }
   GLint program, vao, polygon[2], depthFunc, sourceRGB, destRGB, sourceAlpha, destAlpha, equationRGB, equationAlpha;
   GLboolean depth = glIsEnabled(GL_DEPTH_TEST), blend = glIsEnabled(GL_BLEND), cull = glIsEnabled(GL_CULL_FACE), depthMask;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
@@ -92,14 +162,9 @@ void renderClouds(const CloudRenderer* clouds, const Camera* camera, float aspec
   glDisable(GL_CULL_FACE);
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   glUseProgram(clouds->program);
-  Vec3 right, up;
-  vec3_cross(&right, &camera->front, &camera->up);
-  vec3_normalize(&right, &right);
-  vec3_cross(&up, &right, &camera->front);
   glUniform3f(clouds->front, camera->front.x, camera->front.y, camera->front.z);
   glUniform3f(clouds->right, right.x, right.y, right.z);
   glUniform3f(clouds->up, up.x, up.y, up.z);
-  float scale = tanf(toRadians(camera->fov) * 0.5f);
   glUniform2f(clouds->scale, scale * aspect, scale);
   // Positive modulo keeps the repeating field stable across negative coordinates.
   double x = fmod((double)camera->position.x - clouds->offset, 768.0);
@@ -123,4 +188,9 @@ void renderClouds(const CloudRenderer* clouds, const Camera* camera, float aspec
   glBlendEquationSeparate(equationRGB, equationAlpha);
   glPolygonMode(GL_FRONT, polygon[0]);
   glPolygonMode(GL_BACK, polygon[1]);
+  if (cropped) {
+    glScissor(oldBox[0], oldBox[1], oldBox[2], oldBox[3]);
+    if (!scissor)
+      glDisable(GL_SCISSOR_TEST);
+  }
 }
