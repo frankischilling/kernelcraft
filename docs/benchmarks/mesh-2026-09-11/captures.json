@@ -1,0 +1,128 @@
+[
+  {
+    "view": "cloud-above.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "967a001fa55638a957c932cd7790cb5af359f2ec28ebfc9dd0cd6cde0710ab74",
+    "candidate_sha256": "967a001fa55638a957c932cd7790cb5af359f2ec28ebfc9dd0cd6cde0710ab74"
+  },
+  {
+    "view": "cloud-day.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "f0c13ebc1c02d6cf755fc787d762042c862490455437953eb0a8faa55b8cd496",
+    "candidate_sha256": "f0c13ebc1c02d6cf755fc787d762042c862490455437953eb0a8faa55b8cd496"
+  },
+  {
+    "view": "cloud-dusk.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "0a9e28a94816b861f189bd7aa3c06e2eced50f15d4292e076167a7d3fc13a139",
+    "candidate_sha256": "0a9e28a94816b861f189bd7aa3c06e2eced50f15d4292e076167a7d3fc13a139"
+  },
+  {
+    "view": "cloud-night.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "98b9d50a52814ad956594fba20800b857edf3cc4531bf592d19890f04952725a",
+    "candidate_sha256": "98b9d50a52814ad956594fba20800b857edf3cc4531bf592d19890f04952725a"
+  },
+  {
+    "view": "sky-dawn.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "d8d1259bf9aef097955c43a6c70facd5579205038eb14e4ffac86e0ab436c698",
+    "candidate_sha256": "d8d1259bf9aef097955c43a6c70facd5579205038eb14e4ffac86e0ab436c698"
+  },
+  {
+    "view": "sky-day.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "0b73cf334856828377cd532e4211a342902cc4457298057be22be5aa34b9840c",
+    "candidate_sha256": "0b73cf334856828377cd532e4211a342902cc4457298057be22be5aa34b9840c"
+  },
+  {
+    "view": "sky-moon-glow.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "2c104c18bf60de1975d4ff30983549a0d32b732bdef896fd3c0135efc78dfa71",
+    "candidate_sha256": "2c104c18bf60de1975d4ff30983549a0d32b732bdef896fd3c0135efc78dfa71"
+  },
+  {
+    "view": "sky-night.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "953fd85aeecff73cab3028ad93be10d31b736494d778ef6be1ea3b6802bbe73e",
+    "candidate_sha256": "953fd85aeecff73cab3028ad93be10d31b736494d778ef6be1ea3b6802bbe73e"
+  },
+  {
+    "view": "sky-sun-glow.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "e70a826e296ebcee4db9c4b794d19e40e19f263fccb7874bb7aaee933db06f31",
+    "candidate_sha256": "e70a826e296ebcee4db9c4b794d19e40e19f263fccb7874bb7aaee933db06f31"
+  },
+  {
+    "view": "terrain-0.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 174,
+    "baseline_sha256": "f2efc87106d939d1fc4e7b282d234b7c3843c64092632dedb9cc8bdc133214ee",
+    "candidate_sha256": "4c09bd27aa956130f9ac94854d82bcc49ba337d9575904758f4f26dc47129d31",
+    "difference_bounds_xy": [
+      195,
+      134,
+      202,
+      146
+    ],
+    "difference_reason": "Live HUD mesh-update time digit (0.01 versus 0.00 ms); all other pixels match."
+  },
+  {
+    "view": "terrain-1.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 141,
+    "baseline_sha256": "cbc2ebe6c066ab9d1c678f1938e51477b97885a8f0d9b03a3541e393c1967d4c",
+    "candidate_sha256": "7fe213976c9c954993fd508b14d88f819b629218b686cc93dd9d905bbf21370b",
+    "difference_bounds_xy": [
+      195,
+      134,
+      202,
+      146
+    ],
+    "difference_reason": "Live HUD mesh-update time digit (0.01 versus 0.00 ms); all other pixels match."
+  },
+  {
+    "view": "terrain-2.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 174,
+    "baseline_sha256": "5f3c5dde44634282d782388020f905e6a1ccd678f2af13c5659fe3ad39bb2919",
+    "candidate_sha256": "3533771bc491f4d731cfb3f492465fe43ead59ce1f3db24ab9c2ce33cf18cb91",
+    "difference_bounds_xy": [
+      195,
+      134,
+      202,
+      146
+    ],
+    "difference_reason": "Live HUD mesh-update time digit (0.01 versus 0.00 ms); all other pixels match."
+  },
+  {
+    "view": "terrain-3.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 174,
+    "baseline_sha256": "9f2f7493634a4d2df8bdfe6352c5c20348af0ccfaf03f7bcae21f191fe07bb85",
+    "candidate_sha256": "350182c6445d8ef5d9249020e115c2eaa3ccc311e2b600a257731cef8c287df9",
+    "difference_bounds_xy": [
+      195,
+      134,
+      202,
+      146
+    ],
+    "difference_reason": "Live HUD mesh-update time digit (0.01 versus 0.00 ms); all other pixels match."
+  },
+  {
+    "view": "terrain-selection-neighbors.ppm",
+    "bytes": 1555215,
+    "differing_bytes": 0,
+    "baseline_sha256": "a16bacf7873a7c739dad152517626f388eba75e3cf70040ef2d733f1c92987af",
+    "candidate_sha256": "a16bacf7873a7c739dad152517626f388eba75e3cf70040ef2d733f1c92987af"
+  }
+]
