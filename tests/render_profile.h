@@ -81,13 +81,18 @@ static int profileRendering(GLuint shader) {
   printf("PROFILE_ATMOSPHERE enabled=%d phase=%.6f\n", atmosphere, phase);
   GLFWwindow* window = glfwGetCurrentContext();
   glfwSwapInterval(0);
+  // Decorations can clamp a 1080-high client area on a 1080-high desktop.
+  // This hidden profiling window must keep the requested framebuffer size.
+  glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
   glfwSetWindowSize(window, (int)requestedWidth, (int)requestedHeight);
   glfwPollEvents();
   glfwSwapBuffers(window);
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
-  if (width != requestedWidth || height != requestedHeight)
+  if (width != requestedWidth || height != requestedHeight) {
+    fprintf(stderr, "Profile framebuffer mismatch: requested=%ldx%ld actual=%dx%d\n", requestedWidth, requestedHeight, width, height);
     return 30;
+  }
   glViewport(0, 0, width, height);
   printf("PROFILE_ENV renderer=%s version=%s resolution=%dx%d warmup=%d frames=%d seed=0 mode=%s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION), width, height,
          PROFILE_WARMUP, PROFILE_FRAMES, pipelined ? "pipelined" : "serialized");
