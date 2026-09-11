@@ -9,6 +9,26 @@
 #endif
 
 static int failures;
+static bool trackMeshAllocations;
+static size_t meshAllocationCalls, failMeshAllocation, liveMeshAllocations;
+void* __real_malloc(size_t size);
+void __real_free(void* pointer);
+
+void* __wrap_malloc(size_t size) {
+  if (trackMeshAllocations && ++meshAllocationCalls == failMeshAllocation)
+    return NULL;
+  void* pointer = __real_malloc(size);
+  if (trackMeshAllocations && pointer)
+    liveMeshAllocations++;
+  return pointer;
+}
+
+void __wrap_free(void* pointer) {
+  if (trackMeshAllocations && pointer)
+    liveMeshAllocations--;
+  __real_free(pointer);
+}
+
 #define CHECK(condition)                                                                                                                                                           \
   do {                                                                                                                                                                             \
     if (!(condition)) {                                                                                                                                                            \
@@ -401,6 +421,56 @@ static void test_detached_mesh(void) {
   check_mesh_geometry(&mesh);
   freeChunkMesh(&mesh);
 }
+
+static void test_mesh_allocation_failures(void) {
+  cleanupChunks();
+  Chunk chunk = {0};
+  chunk.blocks[0][0][0].id = BLOCK_GRASS;
+  chunk.blocks[15][63][15].id = BLOCK_STONE_BRICKS;
+  ChunkMesh mesh;
+  trackMeshAllocations = true;
+  meshAllocationCalls = failMeshAllocation = liveMeshAllocations = 0;
+  CHECK(buildChunkMesh(&chunk, &mesh));
+  size_t calls = meshAllocationCalls;
+  freeChunkMesh(&mesh);
+  CHECK(liveMeshAllocations == 0);
+  for (size_t fail = 1; fail <= calls; fail++) {
+    meshAllocationCalls = 0;
+    failMeshAllocation = fail;
+    CHECK(!buildChunkMesh(&chunk, &mesh));
+    CHECK(!mesh.vertices && !mesh.indices && !mesh.vertexCount && !mesh.indexCount);
+    CHECK(liveMeshAllocations == 0);
+    freeChunkMesh(&mesh);
+    failMeshAllocation = 0;
+    CHECK(buildChunkMesh(&chunk, &mesh));
+    CHECK(mesh.indexCount == 72 && mesh.surfaceBlocks == 2);
+    CHECK(mesh.min.x == 0 && mesh.min.y == 0 && mesh.min.z == 0);
+    CHECK(mesh.max.x == 16 && mesh.max.y == 64 && mesh.max.z == 16);
+    freeChunkMesh(&mesh);
+    CHECK(liveMeshAllocations == 0);
+  }
+  trackMeshAllocations = false;
+}
+
+static void test_full_checkerboard_mesh(void) {
+  CHECK(initChunks());
+  clear_world();
+  Chunk* chunk = getChunk(&(Vec2i){0, 0});
+  for (int x = 0; x < CHUNK_SIZE; x++)
+    for (int y = 0; y < CHUNK_HEIGHT; y++)
+      for (int z = 0; z < CHUNK_SIZE; z++)
+        chunk->blocks[x][y][z].id = (x + y + z) % 2 ? BLOCK_STONE : BLOCK_AIR;
+  for (int iteration = 0; iteration < 3; iteration++) {
+    ChunkMesh mesh;
+    CHECK(buildChunkMesh(chunk, &mesh));
+    CHECK(mesh.surfaceBlocks == 8192 && mesh.vertexCount == 196608 && mesh.indexCount == 294912);
+    CHECK(mesh.min.x == -128 && mesh.min.y == 0 && mesh.min.z == -128);
+    CHECK(mesh.max.x == -112 && mesh.max.y == 64 && mesh.max.z == -112);
+    CHECK(check_mesh_coverage(chunk, &mesh) == 49152);
+    check_mesh_geometry(&mesh);
+    freeChunkMesh(&mesh);
+  }
+}
 #endif
 
 int main(void) {
@@ -419,6 +489,8 @@ int main(void) {
   test_mesh();
   test_greedy_shapes();
   test_detached_mesh();
+  test_mesh_allocation_failures();
+  test_full_checkerboard_mesh();
 #endif
   cleanupChunks();
   if (failures) {

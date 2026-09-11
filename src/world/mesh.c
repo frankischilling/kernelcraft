@@ -1,6 +1,5 @@
 #include "mesh.h"
 #include "world.h"
-#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,13 +23,16 @@ static enum Material faceMaterial(uint8_t block, int face) {
  * add a vertex-lighting constraint to the merge key. */
 enum { MESH_SLICES = CHUNK_HEIGHT > CHUNK_SIZE ? CHUNK_HEIGHT : CHUNK_SIZE };
 
-static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE], const bool slices[6][MESH_SLICES], size_t slots[MATERIAL_COUNT],
-                           ChunkMesh* output) {
-  const int corners[4] = {0, 1, 2, 4};
-  const uint32_t outward[6] = {0, 1, 2, 2, 3, 0};
-  const uint32_t reversed[6] = {0, 2, 1, 2, 0, 3};
+typedef struct {
+  uint8_t face, slice, col, row, width, height, material;
+} MeshRectangle;
+
+_Static_assert(CHUNK_SIZE <= UINT8_MAX && CHUNK_HEIGHT <= UINT8_MAX && MATERIAL_COUNT <= UINT8_MAX, "Rectangle fields must fit in a byte");
+
+static size_t meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE], const bool slices[6][MESH_SLICES], size_t counts[MATERIAL_COUNT],
+                             MeshRectangle* rectangles) {
+  size_t count = 0;
   const int dimensions[3] = {CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE};
-  const int origin[3] = {chunk->position.a * CHUNK_SIZE, 0, chunk->position.b * CHUNK_SIZE};
   for (int face = 0; face < 6; face++) {
     int axis = face == RIGHT || face == LEFT ? 0 : face == TOP || face == BOTTOM ? 1 : 2;
     int u = axis == 0 ? 2 : 0, v = axis == 1 ? 2 : 1;
@@ -69,35 +71,47 @@ static void meshRectangles(const Chunk* chunk, const uint8_t exposed[CHUNK_SIZE]
             height++;
           }
 
-          size_t slot = slots[key - 1]++;
-          if (output) {
-            int p[3], extent[3] = {1, 1, 1};
-            p[axis] = slice;
-            p[u] = col;
-            p[v] = row;
-            extent[u] = width;
-            extent[v] = height;
-            const float* source = getCubeFaceVertices(face);
-            for (int corner = 0; corner < 4; corner++) {
-              const float* vertex = source + corners[corner] * 8;
-              output->vertices[slot * 4 + corner] =
-                  (MeshVertex){{(origin[0] + p[0] + (vertex[0] + 0.5f) * extent[0]) * CUBE_SIZE, (p[1] + (vertex[1] + 0.5f) * extent[1]) * CUBE_SIZE,
-                                (origin[2] + p[2] + (vertex[2] + 0.5f) * extent[2]) * CUBE_SIZE},
-                               {vertex[3], vertex[4], vertex[5]},
-                               {vertex[6] * width, vertex[7] * height},
-                               (float)(key - 1)};
-            }
-
-            const uint32_t* winding = face == RIGHT || face == TOP || face == REAR ? reversed : outward;
-            for (int i = 0; i < 6; i++)
-              output->indices[slot * 6 + i] = (uint32_t)(slot * 4) + winding[i];
-          }
+          counts[key - 1]++;
+          rectangles[count++] = (MeshRectangle){(uint8_t)face, (uint8_t)slice, (uint8_t)col, (uint8_t)row, (uint8_t)width, (uint8_t)height, (uint8_t)(key - 1)};
 
           for (int dy = 0; dy < height; dy++)
             memset(mask + (row + dy) * columns + col, 0, (size_t)width);
           col += width;
         }
     }
+  }
+  return count;
+}
+
+static void emitRectangles(const Chunk* chunk, const MeshRectangle* rectangles, size_t count, size_t slots[MATERIAL_COUNT], ChunkMesh* output) {
+  const int corners[4] = {0, 1, 2, 4};
+  const uint32_t outward[6] = {0, 1, 2, 2, 3, 0};
+  const uint32_t reversed[6] = {0, 2, 1, 2, 0, 3};
+  const int origin[3] = {chunk->position.a * CHUNK_SIZE, 0, chunk->position.b * CHUNK_SIZE};
+  for (size_t rectangle = 0; rectangle < count; rectangle++) {
+    const MeshRectangle* rect = &rectangles[rectangle];
+    int face = rect->face;
+    int axis = face == RIGHT || face == LEFT ? 0 : face == TOP || face == BOTTOM ? 1 : 2;
+    int u = axis == 0 ? 2 : 0, v = axis == 1 ? 2 : 1;
+    size_t slot = slots[rect->material]++;
+    int p[3], extent[3] = {1, 1, 1};
+    p[axis] = rect->slice;
+    p[u] = rect->col;
+    p[v] = rect->row;
+    extent[u] = rect->width;
+    extent[v] = rect->height;
+    const float* source = getCubeFaceVertices(face);
+    for (int corner = 0; corner < 4; corner++) {
+      const float* vertex = source + corners[corner] * 8;
+      output->vertices[slot * 4 + corner] = (MeshVertex){{(origin[0] + p[0] + (vertex[0] + 0.5f) * extent[0]) * CUBE_SIZE, (p[1] + (vertex[1] + 0.5f) * extent[1]) * CUBE_SIZE,
+                                                          (origin[2] + p[2] + (vertex[2] + 0.5f) * extent[2]) * CUBE_SIZE},
+                                                         {vertex[3], vertex[4], vertex[5]},
+                                                         {vertex[6] * rect->width, vertex[7] * rect->height},
+                                                         (float)rect->material};
+    }
+    const uint32_t* winding = face == RIGHT || face == TOP || face == REAR ? reversed : outward;
+    for (int i = 0; i < 6; i++)
+      output->indices[slot * 6 + i] = (uint32_t)(slot * 4) + winding[i];
   }
 }
 
@@ -109,10 +123,10 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   // without repeating world coordinate lookup for every interior neighbor.
   bool solid[CHUNK_SIZE + 2][CHUNK_HEIGHT + 2][CHUNK_SIZE + 2] = {{{false}}};
   size_t faceCounts[MATERIAL_COUNT] = {0};
+  size_t exposedFaces = 0;
   int originX = chunk->position.a * CHUNK_SIZE;
   int originZ = chunk->position.b * CHUNK_SIZE;
-  mesh->min = (Vec3){FLT_MAX, FLT_MAX, FLT_MAX};
-  mesh->max = (Vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
+  Vec3i min = {CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE}, max = {0, 0, 0};
 
   bool anySolid = false;
   for (int x = 0; x < CHUNK_SIZE; x++)
@@ -145,6 +159,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
         for (int face = 0; face < 6; face++) {
           if (solid[x + 1 + vec3iFaceMap[face].x][y + 1 + vec3iFaceMap[face].y][z + 1 + vec3iFaceMap[face].z])
             continue;
+          exposedFaces++;
           exposed[x][y][z] |= (uint8_t)(1u << face);
           int slice = face == RIGHT || face == LEFT ? x : face == TOP || face == BOTTOM ? y : z;
           slices[face][slice] = true;
@@ -153,18 +168,43 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
         if (!exposed[x][y][z])
           continue;
         mesh->surfaceBlocks++;
-        mesh->min.x = fminf(mesh->min.x, (originX + x) * CUBE_SIZE);
-        mesh->min.y = fminf(mesh->min.y, y * CUBE_SIZE);
-        mesh->min.z = fminf(mesh->min.z, (originZ + z) * CUBE_SIZE);
-        mesh->max.x = fmaxf(mesh->max.x, (originX + x + 1) * CUBE_SIZE);
-        mesh->max.y = fmaxf(mesh->max.y, (y + 1) * CUBE_SIZE);
-        mesh->max.z = fmaxf(mesh->max.z, (originZ + z + 1) * CUBE_SIZE);
+        if (x < min.x)
+          min.x = x;
+        if (y < min.y)
+          min.y = y;
+        if (z < min.z)
+          min.z = z;
+        if (x + 1 > max.x)
+          max.x = x + 1;
+        if (y + 1 > max.y)
+          max.y = y + 1;
+        if (z + 1 > max.z)
+          max.z = z + 1;
       }
     }
   }
 
-  // Count first, then allocate exact buffers and repeat the deterministic sweep.
-  meshRectangles(chunk, exposed, slices, faceCounts, NULL);
+  if (!exposedFaces) {
+    mesh->min = mesh->max = (Vec3)VEC3_ZERO;
+    return true;
+  }
+
+  // Surface bounds are integral block coordinates; scale only the final box.
+  mesh->min = (Vec3){(originX + min.x) * CUBE_SIZE, min.y * CUBE_SIZE, (originZ + min.z) * CUBE_SIZE};
+  mesh->max = (Vec3){(originX + max.x) * CUBE_SIZE, max.y * CUBE_SIZE, (originZ + max.z) * CUBE_SIZE};
+
+  // Each rectangle covers at least one exposed unit face. Bound temporary
+  // storage by that count, then retain the sweep order within each material.
+  if (exposedFaces > SIZE_MAX / sizeof(MeshRectangle)) {
+    freeChunkMesh(mesh);
+    return false;
+  }
+  MeshRectangle* rectangles = malloc(exposedFaces * sizeof(*rectangles));
+  if (!rectangles) {
+    freeChunkMesh(mesh);
+    return false;
+  }
+  size_t rectangleCount = meshRectangles(chunk, exposed, slices, faceCounts, rectangles);
   size_t nextFace[MATERIAL_COUNT];
   size_t totalFaces = 0;
   for (int material = 0; material < MATERIAL_COUNT; material++) {
@@ -173,9 +213,10 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
     totalFaces += faceCounts[material];
   }
 
-  if (!totalFaces) {
-    mesh->min = mesh->max = (Vec3)VEC3_ZERO;
-    return true;
+  if (totalFaces > UINT32_MAX / 4 || totalFaces > SIZE_MAX / (4 * sizeof(MeshVertex)) || totalFaces > SIZE_MAX / (6 * sizeof(uint32_t))) {
+    free(rectangles);
+    freeChunkMesh(mesh);
+    return false;
   }
 
   mesh->vertexCount = totalFaces * 4;
@@ -183,11 +224,13 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   mesh->vertices = malloc(mesh->vertexCount * sizeof(*mesh->vertices));
   mesh->indices = malloc(mesh->indexCount * sizeof(*mesh->indices));
   if (!mesh->vertices || !mesh->indices) {
+    free(rectangles);
     freeChunkMesh(mesh);
     return false;
   }
 
-  meshRectangles(chunk, exposed, slices, nextFace, mesh);
+  emitRectangles(chunk, rectangles, rectangleCount, nextFace, mesh);
+  free(rectangles);
   return true;
 }
 

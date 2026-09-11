@@ -115,7 +115,7 @@ clean:
 	rm -rf -- $(OBJ_DIR) $(BIN_DIR)
 
 $(BIN_DIR)/test-world: $(OBJ_DIR)/tests/test_world.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
-	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
+	$(CC) $(filter %.o,$^) -Wl,--wrap=malloc -Wl,--wrap=free -o $@ $(LDFLAGS) -lm $(LDLIBS)
 
 $(BIN_DIR)/test-edits: $(OBJ_DIR)/tests/test_edits.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)

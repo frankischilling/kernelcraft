@@ -229,7 +229,7 @@ try {
             ForEach-Object { Join-Path $projectDirectory $_ }
         $worldSources += Join-Path $projectDirectory 'src/world/day_night.c'
         $worldSources += Join-Path $projectDirectory 'src/world/chat.c'
-        Build-Executable $worldSources $worldTest @('-lm')
+        Build-Executable $worldSources $worldTest @('-Wl,--wrap=malloc', '-Wl,--wrap=free', '-lm')
 
         $editTest = Join-Path $outputDirectory 'test-edits.exe'
         $editSources = @((Join-Path $projectDirectory 'tests/test_edits.c')) + @($worldSources | Select-Object -Skip 1)

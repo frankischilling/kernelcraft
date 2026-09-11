@@ -37,6 +37,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **chunk.c**: Converts between world, block, and chunk coordinates.
     - **cube.c**: Defines cube face positions, normals, and texture coordinates.
     - **mesh.c**: Builds indexed greedy rectangles from compatible exposed block faces.
+      [Measured rebuild improvements](docs/mesh-rebuild-performance.md) retain rectangle records to avoid a second greedy sweep.
     - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
     - **save.c**: Validated, versioned chunk and player snapshots with safe file replacement.
   - **utils/**: Contains utility functions and input handling.
