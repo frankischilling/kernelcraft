@@ -391,6 +391,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [x] Add a sun and full moon that follow the day/night cycle
     - [x] Add a deterministic nighttime star field that fades through twilight
     - [x] Add all eight supplied moon phases on an eight-day cycle, with phase-dependent moonlight and `/moon set` previews
+    - [ ] Render lunar phase orientation and appearance from the player's hemisphere, with a defined transition for players near the equator
     - [ ] Add advanced, realistic star placement with astronomical positions, constellations, and apparent motion
     - [ ] Add an Earth-like astronomical calendar and seasonal cycle
       - [ ] Model Earth’s approximately 23.44° axial tilt and orbital year to drive spring, summer, autumn, and winter with latitude-dependent solar declination
