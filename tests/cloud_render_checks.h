@@ -146,9 +146,68 @@ static bool captureCloudViews(const CloudRenderer* clouds, GLuint shader) {
   return ok;
 }
 
+// A one-pixel viewport puts the ray exactly on the camera axis. Controlled
+// occupancy isolates optical thickness without depending on the noise pattern.
+static void cloudSample(const CloudRenderer* clouds, Camera camera, float blue, unsigned char pixel[3]) {
+  Mat4 projection;
+  mat4_perspective(projection, camera.fov, 1, 0.1f, 1000);
+  DayNightState day = sampleDayNight(0.25);
+  glViewport(0, 0, 1, 1);
+  glClearColor(0, 0, blue, 1);
+  glClearDepth(1);
+  glDepthMask(GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  renderClouds(clouds, &camera, 1, projection, &day);
+  glReadPixels(0, 0, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+}
+
+static bool testCloudTransparency(void) {
+  CloudRenderer clouds = {0};
+  CLOUD_CHECK(initClouds(&clouds));
+  GLuint rows[64][2] = {{0}};
+  rows[0][0] = 1;
+  GLint program;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+  glUseProgram(clouds.program);
+  GLint location = glGetUniformLocation(clouds.program, "cloudRows[0]");
+  glUniform2uiv(location, 64, &rows[0][0]);
+  glUseProgram(program);
+  Camera camera = {.position = {6, 120.5f, 6}, .front = {0, -1, 0}, .up = {0, 0, 1}, .fov = 1};
+  unsigned char thin[3], middle[3], thick[3], background[3], separated[3];
+  cloudSample(&clouds, camera, 0, thin);
+  cloudSample(&clouds, camera, 1, background);
+  camera.position.y = 122;
+  cloudSample(&clouds, camera, 0, middle);
+  camera.position.y = 130;
+  cloudSample(&clouds, camera, 0, thick);
+  printf("Cloud optical thickness: thin %u, middle %u, full %u, background transmission %d\n", thin[0], middle[0], thick[0], background[2] - thin[2]);
+  CLOUD_CHECK(thin[0] > 0 && middle[0] > thin[0] + 40 && thick[0] > middle[0] + 20);
+  CLOUD_CHECK(thick[0] > 220 && thick[0] < 250);
+  CLOUD_CHECK(background[2] > thin[2] + 100 && abs((int)background[0] - thin[0]) <= 1);
+  // The first cell contributes only 0.399 blocks after near-plane clipping.
+  // A second occupied cell beyond an empty cell must also attenuate the ray.
+  // A slight upward slope leaves the layer before the 768-block pattern repeats.
+  camera = (Camera){.position = {11.5f, 122, 6}, .front = {1, 0.01f, 0}, .up = {0, 1, 0}, .fov = 1};
+  vec3_normalize(&camera.front, &camera.front);
+  cloudSample(&clouds, camera, 0, thin);
+  rows[0][0] |= 1u << 2;
+  glUseProgram(clouds.program);
+  glUniform2uiv(location, 64, &rows[0][0]);
+  glUseProgram(program);
+  cloudSample(&clouds, camera, 0, separated);
+  printf("Cloud separated segments: first %u, accumulated %u\n", thin[0], separated[0]);
+  CLOUD_CHECK(separated[0] > thin[0] + 80);
+  glViewport(0, 0, 960, 540);
+  glClearColor(0, 0, 0, 1);
+  cleanupClouds(&clouds);
+  puts("Cloud thickness, background transmission, and separated-segment accumulation passed");
+  return true;
+}
+
 static bool testCloudRendering(GLuint shader) {
   CloudRenderer clouds = {0};
   CLOUD_CHECK(initClouds(&clouds));
+  CLOUD_CHECK(testCloudTransparency());
   // View every cell in one period straight down. This fingerprint was recorded
   // from the original GPU noise implementation before caching its occupancy.
   Camera maskCamera = {.position = {384, 508, 384}, .front = {0, -1, 0}, .up = {0, 0, 1}, .fov = 90};
@@ -279,6 +338,7 @@ static bool testCloudRendering(GLuint shader) {
   CLOUD_CHECK(testCloudBounds(&clouds, shader));
 
   // Restore all state even when called from a nonstandard rendering pass.
+  camera.position.y = 122; // Exercise the draw path, not an invisible-layer return.
   glUseProgram(shader);
   glDisable(GL_DEPTH_TEST);
   glDepthFunc(GL_GREATER);

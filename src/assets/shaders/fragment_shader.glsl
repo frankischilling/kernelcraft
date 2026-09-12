@@ -22,6 +22,31 @@ uniform sampler2DArray texture1; // One independent repeating tile per layer
 uniform bool drawGrid;
 uniform uint worldSeed;
 uniform float blockSize;
+uniform sampler2DShadow terrainShadow;
+uniform mat4 shadowTransform;
+uniform vec2 shadowScale; // Texel width and reciprocal world-space depth span.
+
+float sunlightVisibility(vec3 normal) {
+    // Offset the receiver slightly, then compare each filter tap against its
+    // own point on the receiver plane. This avoids dark stripes on sloped
+    // light projections without a large bias that detaches cast shadows.
+    vec3 position = (shadowTransform * vec4(FragPos + normal * 0.025 * blockSize, 1.0)).xyz * 0.5 + 0.5;
+    if (any(lessThan(position, vec3(0.0))) || any(greaterThan(position, vec3(1.0))))
+        return 1.0;
+    vec3 lightNormal = mat3(shadowTransform) * normal;
+    vec2 gradient = -lightNormal.xy / min(lightNormal.z, -0.000001);
+    position.z -= 0.01 * blockSize * shadowScale.y
+                + 0.5 * shadowScale.x * (abs(gradient.x) + abs(gradient.y));
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; y++)
+        for (int x = -1; x <= 1; x++) {
+            vec2 offset = vec2(x,y) * (0.5 * shadowScale.x);
+            visibility += texture(terrainShadow, vec3(position.xy + offset, position.z + dot(gradient, offset)));
+        }
+    // Linear comparison filtering softens each tap before averaging; never
+    // interpolate raw depths across the edge of an occluder.
+    return visibility / 9.0;
+}
 
 float terrainLayer(vec3 normal) {
     if (Material == 0.0 || Material >= 7.0)
@@ -60,7 +85,10 @@ void main() {
     }
     vec3 norm = normalize(Normal);
     vec3 ambient = mix(groundColor, skyColor, norm.y * 0.5 + 0.5);
-    vec3 diffuse = max(dot(norm, normalize(lightDirection)), 0.0) * lightColor;
+    float cosine = max(dot(norm, normalize(lightDirection)), 0.0);
+    vec3 diffuse = cosine * lightColor;
+    if (cosine > 0.0)
+        diffuse *= sunlightVisibility(norm);
     // RGBA8 tiles contain sRGB colors. Shade in linear light, then encode for
     // the existing display framebuffer. HUD and selection keep their own path;
     // GL_FRAMEBUFFER_SRGB stays disabled so output is encoded exactly once.

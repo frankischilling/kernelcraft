@@ -330,7 +330,7 @@ static int profileRendering(GLuint shader) {
       }
 
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
-                cloudDraws <= 1 && skyDraws <= 1 && draws == (unsigned long)result.terrainDrawCalls + 1 + skyDraws + cloudDraws;
+                cloudDraws <= 1 && skyDraws <= 1 && draws == (unsigned long)(result.terrainDrawCalls + result.shadowDrawCalls) + 1 + skyDraws + cloudDraws;
       if (scenario != 6)
         success = success && result.chunksRebuilt == 0 && uploads == 0 && lookups == 0;
       else

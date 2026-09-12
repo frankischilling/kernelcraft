@@ -31,10 +31,10 @@ shader reverses night's sampling order to keep blue and purple overhead.
 Dawn/dusk retains night's heights with orange just below the horizon.
 Every swatch color is retained unchanged.
 Sky colors are display colors and bypass terrain lighting. Terrain diffuse light follows
-the sun or moon, with warm twilight fill and dim purple-blue night fill.
+the sun or moon, with warm twilight fill and readable cool-blue night fill.
 The directional intensity fades to zero at the horizon before changing
-bodies. Night retains enough ambient light to navigate. This remains
-unshadowed lighting: enclosed rooms receive the same fill as exposed faces.
+bodies. [Terrain shadows](terrain-shadows.md) block direct light while retaining
+ambient fill. Enclosed rooms receive the same fill as exposed faces.
 
 Stars form a deterministic decorative field fixed to world directions.
 They fade in after sunset, fade out before sunrise, and soften near the
@@ -85,10 +85,12 @@ first resumed frame, and limits stalls to 0.1 seconds. `/time set` changes
 their lighting without jumping their position. Drift resets on launch.
 
 `src/graphics/clouds.c` draws after terrain and selection, before the HUD.
-Its shader traces the first occupied cell in the horizontal layer, including
+Its shader integrates occupied segments in the horizontal layer, including
 views from above and inside clouds. Projected hit depth lets nearby terrain
 hide clouds; the pass blends over the sky without writing terrain depth.
-Clouds are 92% opaque nearby and fade between 480 and 768 blocks from the eye.
+A four-block path is about 92% opaque; thin paths are more transparent and
+long paths denser. Clouds fade between 480 and 768 blocks from the eye. See
+[cloud transparency](cloud-transparency.md) for blending rules and checks.
 This is a decorative cloud layer with no collision, weather, or cloud shadows.
 The bounded shader traversal uses one full-screen triangle and creates no
 terrain meshes. Supplied sky colors and celestial artwork are unchanged.

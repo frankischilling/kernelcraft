@@ -27,10 +27,11 @@ lighting input. The grid, selection overlay, hotbar, and F4 wireframe controls
 retain their existing rendering paths. World generation and save formats are
 unchanged.
 
-This is unshadowed lighting. Enclosed rooms receive the same fill as exposed
-faces with matching normals. Cast shadows, ambient occlusion, local light
-sources remain future work. Day/night simulation and sun/full-moon rendering
-are implemented in the cycle module.
+The current renderer applies [cast shadows](terrain-shadows.md) to direct sun
+and moon light. Enclosed rooms still receive the same hemispheric fill as
+exposed faces with matching normals; ambient occlusion and local light sources
+remain future work. Nighttime fill now keeps sides and undersides readable.
+The validation record below describes the earlier fixed-lighting checkpoint.
 
 ## Regression checks
 

@@ -51,6 +51,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Basic rendering of cubes with lighting effects using shaders.
   - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun and full moon, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
   - Drifting blocky clouds with shaded sides, world parallax, and day/night lighting.
+  - Filtered sun/moon terrain shadows and readable nighttime fill. See [shadow behavior](docs/terrain-shadows.md).
+  - [Thickness-aware cloud transparency](docs/cloud-transparency.md), including overlapping cloud segments and translucent edges.
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
   - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics. [Cached text rendering](docs/hud-performance.md) reduces the overlay's frame-time cost.
@@ -296,7 +298,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Implement conservative chunk occlusion culling during camera movement ([behavior and measurements](docs/occlusion-culling.md))
   - [x] Implement chunk-based rendering system
   - [x] Add basic shaders for lighting
-  - [ ] Implement shadows
+  - [x] Implement filtered sun/moon shadows for terrain
   - [ ] Implement basic post-processing effects
   - [x] Toggle terrain wireframe with F4 while keeping the HUD filled
   - [x] Toggle F3 diagnostics for FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
@@ -370,10 +372,12 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [x] Keep stone, dirt, grass top, and grass side in separate repeating layers
     - [x] Submit one terrain draw per visible chunk; verify materials against separate-texture reference renders
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
-  - [ ] Add support for transparency and alpha blending
+  - [x] Add cloud transparency and alpha blending with path-length opacity
+  - [ ] Add transparent voxel materials with matching face visibility and render ordering
   - [x] Add sky colors and drifting blocky clouds (implemented on this branch; PR #60)
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
-  - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
+  - [x] Add dynamic directional terrain shadows
+  - [ ] Add ambient occlusion and local light sources
   - [x] Add day/night cycle
     - [x] Within the system implement tick based time (20 ticks/second, 24,000 ticks/day)
     - [x] Add a sun and full moon that follow the day/night cycle
