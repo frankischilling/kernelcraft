@@ -49,7 +49,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
 
 - **Rendering**:
   - Basic rendering of cubes with lighting effects using shaders.
-  - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun and full moon, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
+  - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun, all eight lunar phases, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
   - Drifting blocky clouds with shaded sides, world parallax, and day/night lighting.
   - Filtered sun/moon terrain shadows and readable nighttime fill. See [shadow behavior](docs/terrain-shadows.md).
   - [Thickness-aware cloud transparency](docs/cloud-transparency.md), including overlapping cloud segments and translucent edges.
@@ -66,7 +66,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Walking with gravity, grounded jumps, solid-block collision, and safe spawning.
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
-  - Enter opens local chat with `/time set day`, `/time set night`, and numeric time commands.
+  - Enter opens local chat with `/time set day`, `/time set night`, numeric time commands, and `/moon set` phase previews.
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
   - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected hotbar slot.
 
@@ -179,8 +179,11 @@ appears above the hotbar when space allows.
 Use `/time set day` for noon (tick 6000), `/time set night` for midnight
 (tick 18000), or `/time set 1200` to choose a specific tick. Numeric values
 must be decimal integers from 0 through 23999. Invalid commands report usage
-without changing time. Commands affect the current session; the cycle still
-starts in the morning after a restart. Chat is local, with multiplayer
+without changing time. Use `/moon set new`, `/moon set waxing-crescent`, or
+`/moon set 0` through `/moon set 7` to preview the [eight lunar phases](docs/day-night-cycle.md#lunar-phases).
+Time commands preserve the lunar phase; moon commands preserve the time of day.
+Commands affect the current session; the cycle starts in the morning with a
+full moon after a restart. Chat is local, with multiplayer
 delivery planned. See [chat controls and checks](docs/local-chat.md).
 
 The HUD fits its text and material slots to the framebuffer. Small windows use
@@ -387,7 +390,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [x] Within the system implement tick based time (20 ticks/second, 24,000 ticks/day)
     - [x] Add a sun and full moon that follow the day/night cycle
     - [x] Add a deterministic nighttime star field that fades through twilight
-    - [ ] Add all remaining moon phases once their artwork is ready
+    - [x] Add all eight supplied moon phases on an eight-day cycle, with phase-dependent moonlight and `/moon set` previews
     - [ ] Add advanced, realistic star placement with astronomical positions, constellations, and apparent motion
     - [ ] Add an Earth-like astronomical calendar and seasonal cycle
       - [ ] Model Earth’s approximately 23.44° axial tilt and orbital year to drive spring, summer, autumn, and winter with latitude-dependent solar declination

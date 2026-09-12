@@ -992,7 +992,28 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     updateCameraVectors(input->camera);
     input->clock.tick = 6000;
   }
-  return frame >= 85;
+  if (frame >= 85 && frame < 93) {
+    InputState* input = glfwGetWindowUserPointer(window);
+    GLFWkeyfun key = glfwSetKeyCallback(window, NULL);
+    GLFWcharfun character = glfwSetCharCallback(window, NULL);
+    glfwSetKeyCallback(window, key);
+    glfwSetCharCallback(window, character);
+    char moon[32];
+    snprintf(moon, sizeof(moon), "/moon set %d", frame - 85);
+    const char* commands[] = {moon, "/time set 15000"};
+    for (int i = 0; i < 2; i++) {
+      key(window, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
+      for (const char* p = commands[i]; *p; p++)
+        character(window, (unsigned char)*p);
+      key(window, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
+    }
+    // View above the clouds so phase captures show the actual body unobscured.
+    input->camera->position = (Vec3){0, 140, 0};
+    input->camera->pitch = 45;
+    updateCameraVectors(input->camera);
+    CHECK(!input->chat.open && input->clock.tick == 15000);
+  }
+  return frame >= 93;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1104,6 +1125,16 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
   if (frame == 84)
     glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, cloudSky);
+  if (frame >= 85) {
+    CHECK((int)state->moonPhase == frame - 85 && state->night == 1);
+    unsigned char center[3];
+    glReadPixels(640, 360, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, center);
+    // New moon's supplied dark surface must reach the actual game sky pass.
+    if (frame == 89)
+      CHECK(center[0] < 80 && center[1] < 80 && center[2] < 80 && state->lightColor.x == 0);
+    if (frame == 85)
+      CHECK(center[0] > 180 && center[1] > 180);
+  }
   if (probe) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
@@ -1182,8 +1213,15 @@ static void captureFrame(int width, int height, const unsigned char* pixels) {
 void __real_glfwSwapBuffers(GLFWwindow* window);
 
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
-  if (frame == 84) {
+  if (frame >= 84) {
     CHECK(glGetError() == GL_NO_ERROR);
+    if (frame >= 85 && getenv("KERNELCRAFT_TEST_CAPTURE")) {
+      unsigned char* pixels = malloc(1280 * 720 * 3);
+      CHECK(pixels);
+      glReadPixels(0, 0, 1280, 720, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      captureFrame(1280, 720, pixels);
+      free(pixels);
+    }
     swaps++;
     __real_glfwSwapBuffers(window);
     return;
@@ -1327,7 +1365,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 83 && waits == 2);
+    CHECK(swaps == 91 && waits == 2);
+    puts("Application lunar commands and all eight live sky phases checked");
     puts("Application cloud layer pixels checked through the live game loop");
     puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");
     CHECK(sawCompactHUD && sawDebugHUD);

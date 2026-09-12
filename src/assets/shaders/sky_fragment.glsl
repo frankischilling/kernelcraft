@@ -4,7 +4,7 @@ out vec4 FragColor;
 uniform vec3 cameraFront, cameraRight, cameraUp;
 uniform vec2 viewScale;
 uniform vec3 weights, sunDirection, moonDirection;
-uniform float starBrightness;
+uniform float starBrightness, moonIllumination;
 uniform sampler2D dayPalette, twilightPalette, nightPalette, sunImage, moonImage;
 
 uint hashCell(uvec2 cell) {
@@ -96,6 +96,6 @@ void main() {
         color = mix(color, vec3(1.0, 0.97, 0.91), star * starBrightness * smoothstep(0.0, 0.15, ray.y));
     }
     color = body(color, ray, sunDirection, sunImage, vec3(1.0, 0.84, 0.42), 0.85, 0.18);
-    color = body(color, ray, moonDirection, moonImage, vec3(1.0), 0.45, 0.10);
+    color = body(color, ray, moonDirection, moonImage, vec3(1.0), 0.45 * moonIllumination, 0.10 * moonIllumination);
     FragColor = vec4(color, 1.0);
 }

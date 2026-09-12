@@ -4,19 +4,51 @@ The cycle lasts 20 minutes of active gameplay. It starts at tick 3,000
 (morning), advances at 20 ticks per second, and wraps after 24,000 ticks.
 Tick 0 is sunrise, 6,000 is noon, 12,000 is sunset, and 18,000 is midnight.
 Rendering interpolates the fractional tick so celestial movement is smooth.
-The sun rises in +X and sets in -X; the full moon follows the opposite half
+The sun rises in +X and sets in -X; the moon follows the opposite half
 of the same orbit. Both appear behind terrain.
 
 Chat entry, Escape/cursor release, focus loss, minimization, and a zero-sized framebuffer
 pause the clock. The first resumed frame ignores elapsed pause time. Active
 frame stalls advance at most 0.1 seconds, matching the existing bounded
 simulation behavior. There is no wall-clock catch-up while the game is closed.
-Every launch starts in the morning, including when loading a saved world.
+Every launch starts in the morning with a full moon, including when loading a saved world.
 The save format and existing worlds are unchanged; saving cycle time is a
 separate TODO.
 
 The [local chat](local-chat.md) supports `/time set day`, `/time set night`,
 and `/time set 0` through `/time set 23999` to change the live cycle.
+These commands preserve the current lunar day. `/moon set` changes the lunar
+phase while preserving the time of day; it accepts the names or numbers below.
+
+## Lunar phases
+
+Each phase lasts one game day, changing at sunrise when tick 23,999 wraps
+to 0. The cycle lasts eight days (160 minutes of active play). It starts
+with full moon, proceeds through waning to new moon, then waxes back to full.
+Pausing also pauses this cycle; there is no separate lunar timer.
+
+| Number | `/moon set` name | Moonlight and glow strength |
+| --- | --- | --- |
+| 0 | `full` | 100% |
+| 1 | `waning-gibbous` | 85% |
+| 2 | `last-quarter` | 50% |
+| 3 | `waning-crescent` | 15% |
+| 4 | `new` | 0% |
+| 5 | `waxing-crescent` | 15% |
+| 6 | `first-quarter` | 50% |
+| 7 | `waxing-gibbous` | 85% |
+
+For example, enter `/time set night`, then `/moon set waxing-crescent`.
+All eight supplied 64-by-64 PNGs keep their original colors and dark surface
+pixels. Phase strength scales the direct terrain light and the moon's halo,
+bloom, and scattering. The new moon remains a dark visible body with no emitted
+light. Ambient night fill stays readable at every phase, and sunlight is unchanged.
+
+This is a decorative daily sprite cycle with the existing opposite-sun orbit.
+The Earth-like calendar, geometry-driven phases and lunar orbit, and persisted
+time remain separate roadmap items. World saves need no migration.
+
+## Sky and lighting
 
 The three supplied palettes blend smoothly with solar elevation. Day and
 night are fully established when their respective body is about 20 degrees
@@ -40,8 +72,7 @@ Stars form a deterministic decorative field fixed to world directions.
 They fade in after sunset, fade out before sunrise, and soften near the
 horizon. Camera translation does not move the field. This is not an
 astronomical simulation. Advanced realistic star positions, constellations,
-and apparent motion are in the TODO list, along with the remaining moon
-phases once their artwork is ready. The current moon is always full.
+and apparent motion are in the TODO list.
 
 The full moon has a white pixel-stepped halo; the sun has a yellow-orange
 halo using the same square profile. A coarse mask in body coordinates gives
@@ -66,12 +97,17 @@ the orbit or the physical horizon: stars, bodies, and glows still fade at
 zero elevation, and terrain covers the sky and halos.
 
 `src/world/day_night.c` owns timing and phase/light sampling without graphics
-dependencies. `src/graphics/sky.c` draws one full-screen triangle before
+dependencies. `dayNightPhase` returns days within the eight-day cycle; its
+fractional part is solar time. `sampleDayNight` wraps finite inputs within
+that cycle and defaults non-finite inputs to the starting morning/full moon.
+`src/graphics/sky.c` draws one full-screen triangle after opaque
 terrain, without writing depth. `setWorldDayNight` updates cached terrain
 uniforms; changing time never rebuilds chunk meshes or changes culling.
-The sky owns its shader, vertex array, and five images and releases them
+The sky owns its shader, vertex array, and twelve images and releases them
 while the GL context is current. The HUD and selection retain their own
-rendering paths.
+rendering paths. All phases load once during initialization; rendering still
+uses five texture units and selects the current moon on the fifth. Missing
+phase images fail startup with a filename diagnostic and release partial resources.
 
 ## Clouds
 
@@ -104,7 +140,8 @@ samples and celestial glow calculations outside their visible extent. See the
 
 The CPU world suite includes timing at 20/60 frames per second, full-cycle
 wraparound, pause/resume, invalid elapsed values, bounded stalls, phase
-weights, orbit directions, and continuity. The graphical benchmark checks
+weights, orbit directions, continuity, eight-day progression, lunar light weights,
+finite/negative sampling, and lunar command validation. The graphical benchmark checks
 all five bands of all three palettes against independently recorded RGB
 values, day/night midpoint blends, the cyan daytime horizon, nighttime star pixels, repeatability after camera translation,
 sun/full-moon visibility, halo colors and falloff, square halo shape and pixel steps,
@@ -113,7 +150,11 @@ perspective alignment in landscape and portrait views, horizon clipping,
 halo occlusion, untouched depth, GL state restoration, and dimmer terrain
 without mesh uploads. The application harness checks the live sky
 pass and pause/resume alongside movement, editing, wireframe, HUD, and
-normal shutdown. Its wireframe and selection checks compare against the
+normal shutdown. It submits all eight lunar commands through real GLFW callbacks
+and checks the resulting live sky states and full/new moon pixels. The graphical
+suite compares 512 phase sprite pixels against the supplied images, verifies
+phase-dependent halo and terrain light, and checks release of all twelve textures.
+Startup fixtures reject each missing lunar image in turn. The application's wireframe and selection checks compare against the
 actual sky background.
 
 Cloud framebuffer checks cover patches and gaps, darker night lighting, visible

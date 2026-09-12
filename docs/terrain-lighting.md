@@ -9,7 +9,8 @@ Terrain uses a world-space light direction with matte diffuse shading.
 Soft hemispheric fill keeps side faces and undersides readable, with a slightly
 cooler fill above and warmer fill below. Moving through the map or turning the
 camera no longer moves a glossy highlight or changes an identical face's light.
-The live game follows the visible sun or full moon as its clock advances.
+The live game follows the sun or moon as its clock advances. Direct moonlight
+varies with the lunar phase; the new moon retains ambient night fill only.
 
 The fragment shader decodes the existing RGBA8 texture samples from sRGB,
 multiplies the linear color by the lighting, and encodes the result for the

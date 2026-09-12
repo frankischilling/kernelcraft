@@ -1,5 +1,6 @@
 #include "graphics/sky.h"
 #include "graphics/clouds.h"
+#include "../libs/stb_image.h"
 
 // Original sky-first submission, independent of renderSky's depth handling.
 // Keep the same shader: this comparison isolates ordering and state changes.
@@ -12,7 +13,7 @@ static void referenceSkyDraw(const SkyRenderer* sky, const Camera* camera, float
   glUseProgram(sky->program);
   for (int i = 0; i < 5; i++) {
     glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, sky->textures[i]);
+    glBindTexture(GL_TEXTURE_2D, sky->textures[i == 4 ? 4 + state->moonPhase : i]);
   }
   Vec3 right, up;
   vec3_cross(&right, &camera->front, &camera->up);
@@ -27,6 +28,7 @@ static void referenceSkyDraw(const SkyRenderer* sky, const Camera* camera, float
   glUniform3f(sky->sun, state->sunDirection.x, state->sunDirection.y, state->sunDirection.z);
   glUniform3f(sky->moon, state->moonDirection.x, state->moonDirection.y, state->moonDirection.z);
   glUniform1f(sky->stars, state->stars);
+  glUniform1f(sky->moonIllumination, state->moonIllumination);
   glBindVertexArray(sky->vao);
   __real_glDrawArrays(GL_TRIANGLES, 0, 3);
   glDepthMask(GL_TRUE);
@@ -170,6 +172,42 @@ static bool testSkyRendering(GLuint shader) {
   glUseProgram(shader);
   glActiveTexture(GL_TEXTURE3);
   SKY_CHECK(initSky(&sky));
+  // Match each phase against independently named source pixels. This catches
+  // a fixed full-moon binding, reversed phase order, tinting, and UV mirroring.
+  const char* moonFiles[] = {"full-moon", "waning-gibbous", "last-quarter", "waning-crescent", "new-moon", "waxing-crescent", "first-quarter", "waxing-gibbous"};
+  GLint savedViewport[4];
+  glGetIntegerv(GL_VIEWPORT, savedViewport);
+  glViewport(0, 0, 1, 1);
+  for (int phase = 0; phase < 8; phase++) {
+    char path[128];
+    snprintf(path, sizeof(path), "assets/sky/%s.png", moonFiles[phase]);
+    int width, height, channels;
+    unsigned char* original = stbi_load(path, &width, &height, &channels, 4);
+    SKY_CHECK(original && width == 64 && height == 64);
+    DayNightState state = sampleDayNight(phase + 0.625);
+    Vec3 up;
+    vec3_cross(&up, &state.moonDirection, &(Vec3){0, 0, 1});
+    bool match = true;
+    for (int y = 4; y < 64; y += 8)
+      for (int x = 4; x < 64; x += 8) {
+        float u = ((x + 0.5f) / 64 - 0.5f) * 0.16f;
+        float v = ((y + 0.5f) / 64 - 0.5f) * 0.16f;
+        Camera probe = {.front = {state.moonDirection.x - up.x * v, state.moonDirection.y - up.y * v, u}, .up = {0, 1, 0}, .fov = 1};
+        vec3_normalize(&probe.front, &probe.front);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        renderSky(&sky, &probe, 1, &state);
+        unsigned char pixel[3];
+        glReadPixels(0, 0, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+        const unsigned char* expected = original + (y * 64 + x) * 4;
+        match &= expected[3] == 255 && memcmp(pixel, expected, 3) == 0;
+      }
+    stbi_image_free(original);
+    if (!match)
+      fprintf(stderr, "Moon image mismatch: %s\n", moonFiles[phase]);
+    SKY_CHECK(match);
+  }
+  glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+  puts("All eight lunar images match 512 original artwork pixel samples");
   GLint initialProgram, initialActive;
   glGetIntegerv(GL_CURRENT_PROGRAM, &initialProgram);
   glGetIntegerv(GL_ACTIVE_TEXTURE, &initialActive);
@@ -177,6 +215,22 @@ static bool testSkyRendering(GLuint shader) {
   glActiveTexture(GL_TEXTURE0);
   glViewport(0, 0, 960, 540);
   Camera camera = {.position = {0, 40, 0}, .up = {0, 1, 0}, .fov = 70};
+  // Halo strength follows illumination, and new moon leaves no halo at all.
+  unsigned char moonHalo[8][3], noHalo[3];
+  for (int phase = 0; phase < 8; phase++) {
+    DayNightState state = sampleDayNight(phase + 0.625);
+    state.stars = 0;
+    Vec3 ray = {state.moonDirection.x, state.moonDirection.y, tanf(toRadians(6))};
+    glClear(GL_DEPTH_BUFFER_BIT);
+    skyDirectionPixel(&sky, &state, ray, moonHalo[phase]);
+    state.moonDirection = (Vec3){0, -1, 0};
+    skyDirectionPixel(&sky, &state, ray, noHalo);
+  }
+  SKY_CHECK(memcmp(moonHalo[4], noHalo, 3) == 0);
+  for (int phase = 0; phase < 4; phase++)
+    SKY_CHECK(moonHalo[phase][0] > moonHalo[phase + 1][0]);
+  for (int phase = 1; phase < 4; phase++)
+    SKY_CHECK(memcmp(moonHalo[phase], moonHalo[8 - phase], 3) == 0);
   // Independent values read from the five solid bands in each supplied PNG.
   const unsigned char colors[3][5][3] = {{{235, 253, 255}, {214, 251, 255}, {175, 246, 255}, {129, 238, 252}, {59, 145, 231}},
                                          {{255, 97, 44}, {255, 137, 153}, {255, 188, 197}, {255, 228, 232}, {255, 250, 250}},
@@ -451,6 +505,12 @@ static bool testSkyRendering(GLuint shader) {
   setWorldDayNight(&night);
   SKY_CHECK(lightingProbe(block, TOP, 0, 180, nightPixel));
   SKY_CHECK(uploads == 0 && nightPixel[0] > 20 && noonPixel[0] > nightPixel[0] * 2);
+  DayNightState newMoon = sampleDayNight(4.75);
+  unsigned char newMoonPixel[3];
+  setWorldDayNight(&newMoon);
+  SKY_CHECK(lightingProbe(block, TOP, 0, 180, newMoonPixel));
+  SKY_CHECK(uploads == 0 && newMoonPixel[0] > 20 && newMoonPixel[0] < nightPixel[0]);
+  setWorldDayNight(&night);
   camera = (Camera){.position = {0.5f, 24, 0.5f}, .front = {0, -1, 0}, .up = {0, 0, 1}, .fov = 70};
   Mat4 view, projection;
   Vec3 target = {0.5f, 20.5f, 0.5f};
@@ -492,7 +552,11 @@ static bool testSkyRendering(GLuint shader) {
   }
   SKY_CHECK(captureSkyViews(&sky, shader));
   SKY_CHECK(testSkyOrder(&sky, shader));
+  GLuint released[4 + MOON_PHASE_COUNT];
+  memcpy(released, sky.textures, sizeof(released));
   cleanupSky(&sky);
+  for (int i = 0; i < 4 + MOON_PHASE_COUNT; i++)
+    SKY_CHECK(released[i] && !glIsTexture(released[i]));
   cleanupSky(&sky);
   SKY_CHECK(glGetError() == GL_NO_ERROR);
   puts("Sky palette, stars, bodies, halos, projection, horizon, occlusion, lighting, and state checks passed");

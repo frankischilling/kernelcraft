@@ -20,7 +20,10 @@ layers. Updating the sheet does not change layer ordering or UV coordinates.
 
 `celestial.aseprite` is the editable celestial artwork. The 64-by-64 exports
 `day.png`, `dawn-dusk.png`, and `night.png` supply the sky palettes; `sun.png`
-and `full-moon.png` supply the visible bodies. Their runtime copies live in
+and the eight moon exports supply the visible bodies. The moon images are
+`full-moon.png`, `waning-gibbous.png`, `last-quarter.png`, `waning-crescent.png`,
+`new-moon.png`, `waxing-crescent.png`, `first-quarter.png`, and `waxing-gibbous.png`.
+Their runtime copies live in
 `src/assets/sky/`. Keep each export and its runtime copy identical.
 
 The sky samples the five palette colors and smoothly interpolates between
@@ -32,8 +35,10 @@ dark purple overhead. Dawn/dusk uses top-to-bottom rows at night's heights,
 placing orange just below the horizon. The supplied colors and PNGs remain
 unchanged.
 The three palettes blend as time advances.
-The sun and full moon retain their square outlines and nearest sampling.
+The sun and all moon phases retain their square outlines and nearest sampling.
 The sky shader draws pixel-stepped square halos behind both bodies, tinted
 yellow-orange for the sun and white for the moon, with softer scattering and
 bloom around them. The supplied images do not need glow painted into them.
-Other moon phases are pending; see the README TODO list.
+Moon glow and direct moonlight scale with the phase. The new moon keeps its
+supplied dark surface and emits no glow or direct light. These are discrete
+daily sprites; astronomical lunar geometry remains in the README TODO list.
