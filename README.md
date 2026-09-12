@@ -348,7 +348,10 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [ ] Add weather fronts, rainfall and snowfall accumulation, droughts, and regional climate variation.
   - [ ] Add realism-focused exploration and world feedback
     - [ ] Create biome-specific landmarks and structures that follow local materials, climate, geography, and settlement logic.
-    - [ ] Provide a world map or seed preview, a latitude/biome locator, and debug overlays for climate, hydrology, and seasonal state.
+    - [ ] Provide a zoomable world map that shows nearby terrain in isometric detail and transitions into a 3D globe at planetary zoom.
+      - [ ] Keep the player position, discovered regions, markers, biomes, climate, and hydrology consistent between the isometric and globe views.
+      - [ ] Stream map detail and use planet-scale LOD so zoom transitions remain responsive across the whole planet.
+      - [ ] Include a seed preview, latitude/biome locator, and debug overlays for climate, hydrology, and seasonal state.
     - [ ] Add biome-specific ambient sounds and music, and persist climate/calendar settings safely through world-save versions.
 
 - **User Interaction**:
