@@ -46,6 +46,8 @@ typedef struct {
   int draws, surfaceBlocks, rebuilt;
   unsigned queries;
   unsigned long uploadCalls;
+  int chatOpen, shadowDraws;
+  unsigned long hudDraws, hudUploads;
 } ProfileFrame;
 
 static void GLAPIENTRY profileBufferData(GLenum target, GLsizeiptr size, const void* data, GLenum usage) {
@@ -97,7 +99,7 @@ static int profileRendering(GLuint shader) {
   bool pipelined = getenv("KERNELCRAFT_PROFILE_PIPELINED") != NULL;
   bool debug = getenv("KERNELCRAFT_PROFILE_DEBUG") != NULL;
   const char* chatMode = getenv("KERNELCRAFT_PROFILE_CHAT");
-  if (chatMode && strcmp(chatMode, "empty") && strcmp(chatMode, "history") && strcmp(chatMode, "open"))
+  if (chatMode && strcmp(chatMode, "empty") && strcmp(chatMode, "history") && strcmp(chatMode, "open") && strcmp(chatMode, "command") && strcmp(chatMode, "toggle"))
     return 35;
   Chat chat = {0};
   if (chatMode && strcmp(chatMode, "empty")) {
@@ -110,6 +112,21 @@ static int profileRendering(GLuint shader) {
     memset(chat.input, 'W', CHAT_INPUT_CAPACITY - 1);
     chat.input[CHAT_INPUT_CAPACITY - 1] = '\0';
     chat.length = CHAT_INPUT_CAPACITY - 1;
+    if (!strcmp(chatMode, "command")) {
+      DayNightClock clock;
+      initDayNight(&clock);
+      chat = (Chat){0};
+      openChat(&chat);
+      char command[40];
+      snprintf(command, sizeof(command), "/time set %u", (unsigned)(phase * DAY_NIGHT_TICKS_PER_DAY));
+      for (const char* p = command; *p; p++)
+        appendChatCharacter(&chat, (unsigned char)*p);
+      submitChat(&chat, &clock);
+    }
+    if (!strcmp(chatMode, "toggle")) {
+      chat.input[0] = '\0';
+      chat.length = 0;
+    }
   }
   const char* onlyScene = getenv("KERNELCRAFT_PROFILE_SCENE");
   profileSkipText = getenv("KERNELCRAFT_PROFILE_SKIP_TEXT") != NULL;
@@ -141,7 +158,7 @@ static int profileRendering(GLuint shader) {
     return 31;
   if (raw)
     fputs("scenario,frame,frame_ms,cpu_submit_ms,gpu_ms,terrain_draws,triangles,surface_blocks,queries,rebuild_ms,chunks_rebuilt,upload_calls,upload_bytes,cloud_gpu_ms,cloud_cpu_"
-          "ms,sky_gpu_ms,sky_cpu_ms,terrain_gpu_ms,terrain_cpu_ms,hud_gpu_ms,hud_cpu_ms\n",
+          "ms,sky_gpu_ms,sky_cpu_ms,terrain_gpu_ms,terrain_cpu_ms,hud_gpu_ms,hud_cpu_ms,chat_open,shadow_draws,hud_draws,hud_upload_calls\n",
           raw);
   profilePreviousBufferData = __glewBufferData;
   profilePreviousBeginQuery = __glewBeginQuery;
@@ -187,6 +204,7 @@ static int profileRendering(GLuint shader) {
     double cloudGPU[PROFILE_FRAMES] = {0}, cloudCPU[PROFILE_FRAMES] = {0};
     double totalCloudGPU = 0, totalCloudCPU = 0;
     unsigned long totalCloudDraws = 0;
+    unsigned long totalShadowDraws = 0, shadowFrames = 0, totalHUDDraws = 0, totalHUDUploads = 0;
     ProfileFrame samples[PROFILE_FRAMES];
     double drainMs = 0, batchStart = 0, frameBoundary = 0;
     double totalFrame = 0, totalCPU = 0, totalGPU = 0, rebuildMs = 0;
@@ -201,6 +219,7 @@ static int profileRendering(GLuint shader) {
     // Reset visibility identically on both revisions outside the timed frames.
     success = initWorld(shader);
     glFinish();
+    int activeSteps = -1;
     for (int frame = -PROFILE_WARMUP; success && frame < PROFILE_FRAMES; frame++) {
       if (pipelined && frame == 0) {
         glFinish();
@@ -225,6 +244,16 @@ static int profileRendering(GLuint shader) {
 
       // Repeat exactly the same path during warm-up and each measured trial.
       int step = frame < 0 ? frame + PROFILE_WARMUP : frame;
+      if (chatMode && !strcmp(chatMode, "toggle"))
+        chat.open = frame >= 0 && step % 60 >= 30;
+      int atmosphereStep = chat.open ? 0 : step;
+      if (chatMode && !strcmp(chatMode, "toggle")) {
+        if (frame == 0)
+          activeSteps = -1;
+        if (!chat.open)
+          activeSteps++;
+        atmosphereStep = activeSteps;
+      }
       if (scenario == 4)
         camera.position.x += step * 0.015f;
       if (scenario == 5)
@@ -264,7 +293,7 @@ static int profileRendering(GLuint shader) {
       DayNightState daylight = {0};
       unsigned long skyDraws = 0;
       if (atmosphere) {
-        daylight = sampleDayNight(phase + step / 72000.0);
+        daylight = sampleDayNight(phase + atmosphereStep / 72000.0);
         if (skyFirst) {
           unsigned long beforeSky = draws;
           profilePassBegin(&passes[0], frame);
@@ -291,7 +320,7 @@ static int profileRendering(GLuint shader) {
       drawSelection(&data.selection, view, projection);
       unsigned long cloudDraws = 0;
       if (atmosphere) {
-        clouds.offset = step * 0.01;
+        clouds.offset = atmosphereStep * 0.01;
         double cloudStart = glfwGetTime();
         unsigned long beforeClouds = draws;
         if (frame >= 0)
@@ -304,7 +333,11 @@ static int profileRendering(GLuint shader) {
         cloudDraws = draws - beforeClouds;
       }
       profilePassBegin(&passes[2], frame);
+      unsigned long beforeHUD = draws;
+      unsigned long beforeHUDUploads = uploads;
       HUDDraw(shader, &data);
+      unsigned long hudDraws = draws - beforeHUD;
+      unsigned long hudUploads = uploads - beforeHUDUploads;
       profilePassEnd(&passes[2], frame);
       glEndQuery(GL_TIME_ELAPSED);
       double cpuMs = (glfwGetTime() - start) * 1000;
@@ -330,9 +363,9 @@ static int profileRendering(GLuint shader) {
       }
 
       success = success && result.success && glGetError() == GL_NO_ERROR && isfinite(frameMs) && frameMs > 0 && result.terrainDrawCalls == result.chunksRendered &&
-                cloudDraws <= 1 && skyDraws <= 1 && draws == (unsigned long)result.terrainDrawCalls + 1 + skyDraws + cloudDraws;
+                cloudDraws <= 1 && skyDraws <= 1 && draws == (unsigned long)(result.terrainDrawCalls + result.shadowDrawCalls) + 1 + skyDraws + cloudDraws + hudDraws;
       if (scenario != 6)
-        success = success && result.chunksRebuilt == 0 && uploads == 0 && lookups == 0;
+        success = success && result.chunksRebuilt == 0 && uploads == hudUploads && lookups == 0;
       else
         success = success && result.chunksRebuilt == 2;
       if (!success)
@@ -340,6 +373,10 @@ static int profileRendering(GLuint shader) {
                 result.chunksRebuilt, uploads);
       if (frame < 0)
         continue;
+      totalShadowDraws += result.shadowDrawCalls;
+      totalHUDDraws += hudDraws;
+      totalHUDUploads += hudUploads;
+      shadowFrames += result.shadowDrawCalls != 0;
       if (pipelined) {
         // Contiguous intervals include setup and inter-frame bookkeeping.
         // Their sum is the wall time for the completed measured batch.
@@ -359,12 +396,23 @@ static int profileRendering(GLuint shader) {
       totalBlocks += result.surfaceBlocks;
       totalQueries += profileQueries;
       totalRebuilt += result.chunksRebuilt;
-      totalUploads += uploads;
+      totalUploads += uploads - hudUploads;
       totalBytes += profileUploadBytes;
       totalCloudDraws += cloudDraws;
-      samples[frame] = (ProfileFrame){
-          frameMs,        cpuMs,  result.meshUpdateMilliseconds, result.submittedTriangles, profileUploadBytes, result.terrainDrawCalls, result.surfaceBlocks, result.chunksRebuilt,
-          profileQueries, uploads};
+      samples[frame] = (ProfileFrame){frameMs,
+                                      cpuMs,
+                                      result.meshUpdateMilliseconds,
+                                      result.submittedTriangles,
+                                      profileUploadBytes,
+                                      result.terrainDrawCalls,
+                                      result.surfaceBlocks,
+                                      result.chunksRebuilt,
+                                      profileQueries,
+                                      uploads - hudUploads,
+                                      chat.open,
+                                      result.shadowDrawCalls,
+                                      hudDraws,
+                                      hudUploads};
     }
 
     if (!success)
@@ -397,10 +445,10 @@ static int profileRendering(GLuint shader) {
       }
       const ProfileFrame* sample = &samples[frame];
       if (raw)
-        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], frame, sample->frameMs, sample->cpuMs,
-                gpuTimes[frame], sample->draws, sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls,
+        fprintf(raw, "%s,%d,%.6f,%.6f,%.6f,%d,%zu,%d,%u,%.6f,%d,%lu,%zu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%lu,%lu\n", scenarios[scenario], frame, sample->frameMs,
+                sample->cpuMs, gpuTimes[frame], sample->draws, sample->triangles, sample->surfaceBlocks, sample->queries, sample->rebuildMs, sample->rebuilt, sample->uploadCalls,
                 sample->uploadBytes, cloudGPU[frame], cloudCPU[frame], passes[0].gpu[frame], passes[0].cpu[frame], passes[1].gpu[frame], passes[1].cpu[frame], passes[2].gpu[frame],
-                passes[2].cpu[frame]);
+                passes[2].cpu[frame], sample->chatOpen, sample->shadowDraws, sample->hudDraws, sample->hudUploads);
     }
 
     success = glGetError() == GL_NO_ERROR;
@@ -422,6 +470,9 @@ static int profileRendering(GLuint shader) {
     qsort(cpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(gpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(cloudGPU, PROFILE_FRAMES, sizeof(double), profileCompare);
+    printf("PROFILE_SHADOW %s,draws_per_frame=%.3f,refresh_frames=%lu/%d\n", scenarios[scenario], (double)totalShadowDraws / PROFILE_FRAMES, shadowFrames, PROFILE_FRAMES);
+    printf("PROFILE_HUD_WORK %s,draws_per_frame=%.3f,uploads_per_frame=%.3f\n", scenarios[scenario], (double)totalHUDDraws / PROFILE_FRAMES,
+           (double)totalHUDUploads / PROFILE_FRAMES);
     printf("PROFILE_CLOUD %s,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], totalCloudGPU / PROFILE_FRAMES, cloudGPU[(PROFILE_FRAMES * 95 + 99) / 100 - 1],
            cloudGPU[(PROFILE_FRAMES * 99 + 99) / 100 - 1], totalCloudCPU / PROFILE_FRAMES, (double)totalCloudDraws / PROFILE_FRAMES);
     double slowest = 0;

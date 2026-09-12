@@ -39,22 +39,31 @@ void main() {
     if (abs(ray.x) > 0.000001) next.x = (boundary.x - cloudOrigin.x) / ray.x;
     if (abs(ray.z) > 0.000001) next.y = (boundary.y - cloudOrigin.z) / ray.z;
 
+    vec3 tint = vec3(1.0) * weights.x + vec3(0.95, 0.69, 0.60) * weights.y
+               + vec3(0.22, 0.25, 0.36) * weights.z;
+    vec3 radiance = vec3(0);
+    float transmission = 1.0, firstHit = -1.0, shade = 1.0;
+    bool inside = false;
+    // Beer-Lambert extinction per block: a four-block path is 92% opaque.
+    const float extinction = 0.631432;
     // At most 92 cell crossings within the distance limit, including diagonal rays.
     for (int i = 0; i < 96; ++i) {
-        if (occupied(cell)) {
-            float viewDepth = start * dot(ray, cameraFront);
-            if (viewDepth <= 0.1) discard;
-            gl_FragDepth = 0.5 * (-depthProjection.x + depthProjection.y / viewDepth) + 0.5;
-            float shade = normal.y > 0.5 ? 1.0 : normal.y < -0.5 ? 0.82 : abs(normal.x) > 0.5 ? 0.72 : 0.77;
-            vec3 tint = vec3(1.0) * weights.x + vec3(0.95, 0.69, 0.60) * weights.y
-                       + vec3(0.22, 0.25, 0.36) * weights.z;
-            float alpha = 0.92 * (1.0 - smoothstep(480.0, 768.0, start));
-            fragmentColor = vec4(tint * shade, alpha);
-            return;
-        }
-        // Advance both axes on exact corners, avoiding a zero-width side hit.
         float crossing = min(next.x, next.y);
-        if (crossing >= finish) discard;
+        float length = max(0.0, min(crossing, finish) - start);
+        bool filled = occupied(cell);
+        if (filled && length > 0.0) {
+            if (firstHit < 0.0) firstHit = start;
+            // Adjacent occupied cells belong to one volume; internal cell faces
+            // must not introduce darker bands. Air gaps expose a new entry face.
+            if (!inside)
+                shade = normal.y > 0.5 ? 1.0 : normal.y < -0.5 ? 0.82 : abs(normal.x) > 0.5 ? 0.72 : 0.77;
+            float alpha = 1.0 - exp(-extinction * length);
+            radiance += transmission * alpha * tint * shade;
+            transmission *= 1.0 - alpha;
+        }
+        inside = filled;
+        if (crossing >= finish || transmission < 0.001) break;
+        // Advance both axes on exact corners, avoiding a zero-width side hit.
         bool crossX = next.x <= next.y;
         bool crossZ = next.y <= next.x;
         if (crossX) { cell.x += stepCell.x; next.x += delta.x; }
@@ -62,5 +71,12 @@ void main() {
         normal = crossX ? vec3(-stepCell.x, 0, 0) : vec3(0, 0, -stepCell.y);
         start = crossing;
     }
-    discard;
+    if (firstHit < 0.0 || transmission >= 1.0) discard;
+    float viewDepth = firstHit * dot(ray, cameraFront);
+    if (viewDepth <= 0.1) discard;
+    gl_FragDepth = 0.5 * (-depthProjection.x + depthProjection.y / viewDepth) + 0.5;
+    float alpha = 1.0 - transmission;
+    // The renderer uses straight-alpha blending. Convert the accumulated color
+    // once, then retain the layer's distance fade without tinting the background.
+    fragmentColor = vec4(radiance / alpha, alpha * (1.0 - smoothstep(480.0, 768.0, firstHit)));
 }

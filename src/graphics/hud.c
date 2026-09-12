@@ -40,19 +40,32 @@ static bool fitLabel(const TextState* state, const char* text, int availableWidt
     return false;
   size_t length = strlen(text);
   snprintf(fitted, CHAT_MESSAGE_CAPACITY, "%s", text);
-  bool shortened = length >= CHAT_MESSAGE_CAPACITY;
+  bool shortened = length >= CHAT_MESSAGE_CAPACITY || textWidth(state, fitted) > availableWidth;
   length = strlen(fitted);
-  while (length && textWidth(state, fitted) > availableWidth) {
-    fitted[--length] = '\0';
-    shortened = true;
-  }
-
   if (shortened) {
     int dots = textWidth(state, "...");
-    while (length && (length + 3 >= CHAT_MESSAGE_CAPACITY || textWidth(state, fitted) + dots > availableWidth))
-      fitted[--length] = '\0';
-    if (dots <= availableWidth)
-      memcpy(fitted + length, "...", 4);
+    if (dots > availableWidth)
+      return false;
+    int limit = availableWidth - dots;
+    size_t low = 0, high = length;
+    if (high > CHAT_MESSAGE_CAPACITY - 4)
+      high = CHAT_MESSAGE_CAPACITY - 4;
+    // Prefix widths never shrink. Find the fitting prefix without repeatedly
+    // scanning and removing one character from a long history row.
+    while (low < high) {
+      size_t middle = low + (high - low + 1) / 2;
+      char saved = fitted[middle];
+      fitted[middle] = '\0';
+      bool fits = textWidth(state, fitted) <= limit;
+      fitted[middle] = saved;
+      if (fits)
+        low = middle;
+      else
+        high = middle - 1;
+    }
+    length = low;
+    fitted[length] = '\0';
+    memcpy(fitted + length, "...", 4);
   }
 
   return fitted[0] != '\0';
@@ -266,12 +279,13 @@ static void drawChat(const TextState* state, const Chat* chat) {
   float baseline = height - 6;
   char line[CHAT_INPUT_CAPACITY + 4];
   const char* tail = chat->input;
-  do {
-    snprintf(line, sizeof(line), "> %s_", tail);
-    if (textWidth(state, line) <= width - 14 || !*tail)
-      break;
+  int inputWidth = textWidth(state, "> _") + textWidth(state, tail);
+  while (*tail && inputWidth > width - 14) {
+    char character[] = {*tail, '\0'};
+    inputWidth -= textWidth(state, character);
     tail++;
-  } while (true);
+  }
+  snprintf(line, sizeof(line), "> %s_", tail);
   drawChatPanel(2, (float)(width - 4), (float)(state->fontHeight + 8), 0.55f);
   drawChatInput(state, line, baseline, width - 14);
   drawChatHistory(state, chat, state->fontHeight + 14);

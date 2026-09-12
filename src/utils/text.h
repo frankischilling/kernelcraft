@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 typedef struct {
-  GLint program, matrixMode;
+  GLint program, matrixMode, vao, arrayBuffer;
   GLint viewport[4];
   GLboolean depthTest;
   void* font;

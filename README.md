@@ -51,6 +51,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Basic rendering of cubes with lighting effects using shaders.
   - A 20-minute day/night cycle with dawn/dusk colors, an orbiting sun and full moon, nighttime stars, and changing terrain light. See [cycle behavior and checks](docs/day-night-cycle.md).
   - Drifting blocky clouds with shaded sides, world parallax, and day/night lighting.
+  - Filtered sun/moon terrain shadows and readable nighttime fill. See [shadow behavior](docs/terrain-shadows.md).
+  - [Thickness-aware cloud transparency](docs/cloud-transparency.md), including overlapping cloud segments and translucent edges.
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
   - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics. [Cached text rendering](docs/hud-performance.md) reduces the overlay's frame-time cost.
@@ -296,7 +298,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Implement conservative chunk occlusion culling during camera movement ([behavior and measurements](docs/occlusion-culling.md))
   - [x] Implement chunk-based rendering system
   - [x] Add basic shaders for lighting
-  - [ ] Implement shadows
+  - [x] Implement filtered sun/moon shadows for terrain
   - [ ] Implement basic post-processing effects
   - [x] Toggle terrain wireframe with F4 while keeping the HUD filled
   - [x] Toggle F3 diagnostics for FPS, submitted surface blocks, chunks, terrain draws, quads/triangles, and mesh update time
@@ -321,7 +323,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add more block types and textures, including wood, leaves, coal ore, and iron ore
   - [ ] Add more terrain features and biome types
   - [ ] Add a latitude- and longitude-aware climate and biome system
-    - [ ] Define the world map's equator, poles, hemispheres, and longitude bands, with clear behavior at finite-world edges and any future world wrapping.
+    - [ ] Define the planet's equator, poles, hemispheres, and longitude bands, with seamless behavior across the poles and wrapped longitude.
     - [ ] Model axial tilt and a seasonal calendar so northern and southern hemispheres experience opposite seasons while equatorial regions use appropriate wet/dry cycles; share the Phase 2 astronomical calendar's solar and seasonal state.
     - [ ] Generate equatorial, temperate, arid, subarctic, and polar biome regions.
     - [ ] Layer elevation, coastlines, prevailing winds, rainfall, and rain-shadow effects over the latitude-driven climate bands.
@@ -329,14 +331,15 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [ ] Connect biome results to terrain height, surface blocks, vegetation, snow/ice, weather, and seasonal daylight behavior.
     - [ ] Expose latitude, hemisphere, season, climate, and resolved biome in debug output, with deterministic generation tests covering climate outputs and boundaries.
   - [ ] Create water system with basic fluid physics
-  - [ ] Replace the finite 256x256 map with effectively infinite, seed-deterministic world generation
-    - [ ] Define signed 64-bit world and chunk coordinates so negative positions, distant travel, and future world wrapping remain unambiguous.
+  - [ ] Replace the finite 256x256 map with a large, seed-deterministic spherical planet that can be traveled around
+    - [ ] Define the planet radius, surface coordinate system, equator, poles, hemispheres, and longitude wrapping so circumnavigation crosses the antimeridian without a seam.
+    - [ ] Use stable signed coordinates for chunk identifiers and a surface coordinate system that remains unambiguous at the poles and antimeridian.
     - [ ] Stream chunks around the player with asynchronous generation, loading, unloading, bounded memory use, and graceful recovery from generation failures.
     - [ ] Preserve edited chunks and generated landmarks across streaming, saving only the necessary world data while retaining seamless procedural terrain elsewhere.
-    - [ ] Add origin rebasing or another precision strategy so rendering and physics remain stable at very large distances from the starting area.
-    - [ ] Add distant-chunk LOD or proxy representations so exploration scale does not make rendering and generation costs grow without bound.
-    - [ ] Migrate finite movement bounds and finite-world persistence to large-coordinate chunk storage while preserving compatibility with existing saves.
-    - [ ] Test deterministic regeneration, chunk seams, negative coordinates, long-distance travel, streaming order, edits, save/reload, and memory limits.
+    - [ ] Use local tangent frames, origin rebasing, or another precision strategy so rendering and physics remain stable across the planet's surface.
+    - [ ] Add planet-scale LOD or proxy representations so circumnavigation does not make rendering and generation costs grow without bound.
+    - [ ] Migrate finite movement bounds and finite-world persistence to planet-surface chunk storage while preserving compatibility with existing saves.
+    - [ ] Test deterministic regeneration, chunk and pole seams, continuous circumnavigation, streaming order, edits, save/reload, and memory limits.
   - [ ] Add realism-oriented hydrology and landform generation
     - [ ] Generate rivers, lakes, waterfalls, coastlines, and erosion from elevation and drainage instead of isolated decorative features.
     - [ ] Add caves, aquifers, geological strata, ore distributions, canyons, volcanoes, and glaciers that fit local geology and climate.
@@ -370,10 +373,13 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [x] Keep stone, dirt, grass top, and grass side in separate repeating layers
     - [x] Submit one terrain draw per visible chunk; verify materials against separate-texture reference renders
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
-  - [ ] Add support for transparency and alpha blending
+  - [x] Add cloud transparency and alpha blending with path-length opacity
+  - [ ] Add transparent voxel materials with matching face visibility and render ordering
   - [x] Add sky colors and drifting blocky clouds (implemented on this branch; PR #60)
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
-  - [ ] Add advanced lighting systems (ambient occlusion, dynamic shadows)
+  - [x] Add dynamic directional terrain shadows
+  - [ ] Implement more realistic shadows with distance-dependent soft edges and cloud-cast shadows
+  - [ ] Add ambient occlusion and local light sources
   - [x] Add day/night cycle
     - [x] Within the system implement tick based time (20 ticks/second, 24,000 ticks/day)
     - [x] Add a sun and full moon that follow the day/night cycle
@@ -394,6 +400,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add support for different camera modes (first person, third person)
   - [ ] Add a textured first-person hand with movement and action animations
   - [ ] Add a textured third-person player model and skin textures, with hand and body animations
+  - [ ] Add environmental player skin effects: wet skin after swimming, sweat in heat, mud from dirt, and sore or bruised hands after punching blocks for materials
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 
 - **Optimization**:
@@ -471,12 +478,20 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add item management: move, split, and merge stacks between inventory and hotbar slots
   - [ ] Implement crafting system
   - [ ] Create a basic UI system for inventory and crafting
-  - [ ] Add health and hunger mechanics
+  - [ ] Add health mechanics
+  - [ ] Add hunger mechanics with food depletion and recovery
+  - [ ] Add thirst mechanics with water depletion and recovery
+  - [ ] Add body heat and cold mechanics driven by the surrounding climate and weather
+  - [ ] Add food sources, farming, and cooking progression to support hunger
+  - [ ] Add swimming, oxygen depletion, and drowning recovery rules for water exposure
+  - [ ] Add stamina for running and strenuous actions with recovery rules
   - [ ] Show a health bar
   - [ ] Add damage from mobs, falls, and other environmental hazards
+  - [ ] Add player death, respawn, and bed or checkpoint spawn rules
   - [ ] Let the player drop items from the inventory and hotbar
   - [ ] Render dropped items as spinning textured sprites, similar to Minecraft
   - [ ] Implement tool durability
+  - [ ] Add tool repair costs and durability UI
   - [ ] Add pickaxes, axes, shovels, hoes, shears, and fishing rods
   - [ ] Add swords, spears, bows, crossbows, shields, and armor sets
   - [ ] Design material tiers, recipes, loot, icons, and held models using the [content backlog](docs/content-roadmap.md)
@@ -503,6 +518,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
 - **World Management**:
   - [x] Add world saving and loading functionality
   - [x] Implement seed-based world generation for reproducible worlds
+  - [ ] Persist versioned player survival state, including health, hunger, thirst, body temperature, stamina, and injuries
   - [ ] Add a world menu with saving, loading, deleting, renaming, and seed selection
   - [ ] Use the dirt texture as the world menu background
   - [ ] Create a world backup and recovery system

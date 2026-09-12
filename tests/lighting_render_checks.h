@@ -42,8 +42,12 @@ static bool testTerrainLighting(GLuint shader) {
           return false;
         if (position == 0 && orbit == 0)
           memcpy(reference[face], rgb, sizeof(rgb));
-        for (int channel = 0; channel < 3; channel++)
+        for (int channel = 0; channel < 3; channel++) {
           unstable += abs(rgb[channel] - reference[face][channel]) > 1;
+          if (abs(rgb[channel] - reference[face][channel]) > 1)
+            fprintf(stderr, "Unstable lighting position=%zu face=%d orbit=%zu channel=%d actual=%u expected=%u\n", position, face, orbit, channel, rgb[channel],
+                    reference[face][channel]);
+        }
       }
   }
 

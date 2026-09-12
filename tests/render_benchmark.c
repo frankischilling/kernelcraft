@@ -66,6 +66,8 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #ifndef KERNELCRAFT_BASELINE
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
+#include "atmosphere_render_checks.h"
+#include "shadow_motion_checks.h"
 #include "sky_render_checks.h"
 #include "cloud_render_checks.h"
 #include "occlusion_render_checks.h"
@@ -97,7 +99,7 @@ static bool testWireframe(GLuint shader) {
     glGetIntegerv(GL_POLYGON_MODE, modes);
     success &= modes[0] == GL_POINT && modes[1] == GL_LINE;
     success &= result.success && result.submittedQuads == 6 && result.submittedTriangles == 12 && result.terrainDrawCalls == 1;
-    success &= result.chunksRebuilt == 0 && draws == 2 && uploads == 0 && lookups == 0;
+    success &= result.chunksRebuilt == 0 && draws == 2 + (unsigned long)result.shadowDrawCalls && uploads == 0 && lookups == 0;
     glReadPixels(432, 222, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, pixels[pass]);
     int lit = 0;
     for (size_t i = 0; i < sizeof(pixels[pass]); i += 3)
@@ -684,6 +686,14 @@ int main(int argc, char** argv) {
 
   if (getenv("KERNELCRAFT_OCCLUSION_CHECK"))
     return testMovingOcclusion(shader) ? 0 : 24;
+  if (getenv("KERNELCRAFT_ATMOSPHERE_CHECK"))
+    return testAtmosphereLighting(shader) ? 0 : 25;
+  if (getenv("KERNELCRAFT_SHADOW_MOTION_CHECK"))
+    return testShadowMotion(shader) ? 0 : 27;
+  if (getenv("KERNELCRAFT_LIGHTING_CHECK"))
+    return testTerrainLighting(shader) ? 0 : 23;
+  if (getenv("KERNELCRAFT_CLOUD_CHECK"))
+    return testCloudRendering(shader) ? 0 : 26;
 #endif
   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
   for (int scenario = 0; scenario < 4; scenario++) {
@@ -726,7 +736,12 @@ int main(int argc, char** argv) {
       data.showDebug = true;
       drawSelection(&data.selection, view, projection);
 #endif
+      unsigned long beforeHUDDraws = draws, beforeHUDUploads = uploads;
       HUDDraw(shader, &data);
+      // This workload reports terrain and selection submissions separately
+      // from the HUD's cached label draws and occasional label updates.
+      draws = beforeHUDDraws;
+      uploads = beforeHUDUploads;
       glFinish();
     }
 
@@ -872,6 +887,10 @@ int main(int argc, char** argv) {
     return 20;
   if (!testTerrainLighting(shader))
     return 23;
+  if (!testAtmosphereLighting(shader))
+    return 25;
+  if (!testShadowMotion(shader))
+    return 27;
   if (!testTerrainVariants(shader))
     return 21;
   for (int pattern = 0; pattern < 9; pattern++)
