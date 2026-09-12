@@ -319,8 +319,32 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
     - [ ] leaves, more leave grass blocks under trees then normal   
   - [ ] Add more block types and textures, including wood, leaves, coal ore, and iron ore
   - [ ] Add more terrain features and biome types
+  - [ ] Add a latitude- and longitude-aware climate and biome system
+    - [ ] Define the world map's equator, poles, hemispheres, and longitude bands, with clear behavior at finite-world edges and any future world wrapping.
+    - [ ] Model axial tilt and a seasonal calendar so northern and southern hemispheres experience opposite seasons while equatorial regions use appropriate wet/dry cycles.
+    - [ ] Create location-driven biome families such as equatorial jungle and savanna, temperate forest and plains, arid desert and steppe, subarctic taiga and tundra, and polar ice.
+    - [ ] Layer elevation, coastlines, prevailing winds, rainfall, and rain-shadow effects over the latitude-driven climate bands.
+    - [ ] Keep biome boundaries smooth, seed-deterministic, and stable at the equator, poles, and transitions between climate regions.
+    - [ ] Connect biome results to terrain height, surface blocks, vegetation, snow/ice, weather, and seasonal daylight behavior.
+    - [ ] Expose latitude, hemisphere, season, climate, and resolved biome in debug output, with deterministic generation and boundary-transition checks.
   - [ ] Create water system with basic fluid physics
-  - [ ] Expand world size **(Planned for later phases)**
+  - [ ] Replace the finite 256x256 map with effectively infinite, seed-deterministic world generation
+    - [ ] Define signed 64-bit world and chunk coordinates so negative positions, distant travel, and future world wrapping remain unambiguous.
+    - [ ] Stream chunks around the player with asynchronous generation, loading, unloading, bounded memory use, and graceful recovery from generation failures.
+    - [ ] Preserve edited chunks and generated landmarks across streaming, saving only the necessary world data while retaining seamless procedural terrain elsewhere.
+    - [ ] Add origin rebasing or another precision strategy so rendering and physics remain stable at very large distances from the starting area.
+    - [ ] Add distant-chunk LOD or proxy representations so exploration scale does not make rendering and generation costs grow without bound.
+    - [ ] Test deterministic regeneration, chunk seams, negative coordinates, long-distance travel, streaming order, edits, save/reload, and memory limits.
+  - [ ] Add realism-oriented hydrology and landform generation
+    - [ ] Generate rivers, lakes, waterfalls, coastlines, and erosion from elevation and drainage instead of isolated decorative features.
+    - [ ] Add caves, aquifers, geological strata, ore distributions, canyons, volcanoes, and glaciers that fit local geology and climate.
+  - [ ] Add seasonal ecology and climate simulation
+    - [ ] Make vegetation, crops, snow/ice, animal migration, and mob spawning respond to seasons, latitude, altitude, and biome.
+    - [ ] Add weather fronts, rainfall and snowfall accumulation, droughts, and regional climate variation.
+  - [ ] Add realism-focused exploration and world feedback
+    - [ ] Create biome-specific landmarks and structures that follow local materials, climate, geography, and settlement logic.
+    - [ ] Provide a world map or seed preview, a latitude/biome locator, and debug overlays for climate, hydrology, and seasonal state.
+    - [ ] Add biome-specific ambient sounds and music, and persist climate/calendar settings safely through world-save versions.
 
 - **User Interaction**:
   - [x] Implement free-flight camera controls
