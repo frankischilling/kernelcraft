@@ -27,7 +27,7 @@ static void test_day_night(void) {
   a.tick = DAY_NIGHT_TICKS_PER_DAY - 1;
   a.remainder = 0;
   advanceDayNight(&a, 0.1, true);
-  CHECK(a.tick == 1 && dayNightPhase(&a) < 0.001);
+  CHECK(a.tick == 1 && fabs(dayNightPhase(&a) - 1) < 0.001);
   // A full cycle wraps without drift at either frame rate.
   initDayNight(&a);
   advanceDayNight(&a, 0, true);
@@ -53,5 +53,37 @@ static void test_day_night(void) {
     CHECK(state.stars == 0 || state.sunDirection.y < 0);
   }
   CHECK(isfinite(sampleDayNight(NAN).sunDirection.y));
+  // A new moon must stop emitting direct light, while ambient fill stays readable.
+  DayNightState newMoon = sampleDayNight(4.75);
+  CHECK(newMoon.lightColor.x == 0 && newMoon.lightColor.y == 0 && newMoon.lightColor.z == 0);
+  CHECK(newMoon.skyFill.x == midnight.skyFill.x && newMoon.groundFill.x == midnight.groundFill.x);
+  // Completing four days reaches new moon; another four returns to full.
+  initDayNight(&a);
+  advanceDayNight(&a, 0, true);
+  for (int day = 1; day <= 8; day++) {
+    a.tick = 23999;
+    a.remainder = 0;
+    advanceDayNight(&a, 0.05, true);
+    CHECK(a.tick == 0 && dayNightPhase(&a) == day % 8);
+  }
+  const float light[] = {1, 0.85f, 0.5f, 0.15f, 0, 0.15f, 0.5f, 0.85f};
+  for (int day = 0; day < 8; day++) {
+    DayNightState state = sampleDayNight(day + 0.75);
+    CHECK((int)state.moonPhase == day && state.moonIllumination == light[day]);
+    CHECK(fabsf(state.lightColor.z - 0.16f * light[day]) < 0.00001f);
+    CHECK(sampleDayNight(day + 0.25).lightColor.x == noon.lightColor.x);
+    CHECK(sampleDayNight(day + 8.75).moonPhase == state.moonPhase);
+    CHECK(sampleDayNight(day - 7.25).moonPhase == state.moonPhase);
+    for (int tick = 0; tick < 12000; tick++)
+      advanceDayNight(&a, 0.1, true);
+    CHECK(a.tick == 0 && a.moonPhase == (day + 1) % 8);
+    double before = dayNightPhase(&a);
+    advanceDayNight(&a, 3600, false);
+    advanceDayNight(&a, 3600, true);
+    CHECK(dayNightPhase(&a) == before);
+  }
+  CHECK(sampleDayNight(-1e-20).moonPhase == MOON_FULL);
+  CHECK(sampleDayNight(INFINITY).moonPhase == MOON_FULL);
+  CHECK(isfinite(sampleDayNight(1e300).moonIllumination));
   puts("Day/night timing, wraparound, pauses, palettes, and orbit checks finished");
 }

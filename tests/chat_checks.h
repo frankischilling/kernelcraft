@@ -73,5 +73,39 @@ static void test_chat(void) {
   }
   CHECK(chat.count == CHAT_HISTORY_CAPACITY);
   CHECK(!strcmp(chat.messages[0], "[Local] message 2") && !strcmp(chat.messages[7], "[Local] message 9"));
+  const char* moons[] = {"full", "waning-gibbous", "last-quarter", "waning-crescent", "new", "waxing-crescent", "first-quarter", "waxing-gibbous"};
+  for (int i = 0; i < 8; i++) {
+    char command[64];
+    snprintf(command, sizeof(command), "/moon set %s", moons[i]);
+    typeChat(&chat, command);
+    submitChat(&chat, &clock);
+    CHECK(floor(dayNightPhase(&clock)) == i && clock.tick == 23999);
+    CHECK(strstr(chat.messages[chat.count - 1], moons[i]));
+    snprintf(command, sizeof(command), "/moon set %d", i);
+    typeChat(&chat, command);
+    submitChat(&chat, &clock);
+    CHECK(floor(dayNightPhase(&clock)) == i);
+  }
+  typeChat(&chat, "/time set night");
+  submitChat(&chat, &clock);
+  CHECK(dayNightPhase(&clock) == 7.75); // Time commands preserve the lunar day.
+  const char* invalidMoons[] = {"/moon",
+                                "/moon set",
+                                "/moon set 8",
+                                "/moon set -1",
+                                "/moon set +1",
+                                "/moon set 1.5",
+                                "/moon set Full",
+                                "/moon set full extra",
+                                "/moon set 9999999999999999999999",
+                                "/moon set nonexistent"};
+  for (size_t i = 0; i < sizeof(invalidMoons) / sizeof(invalidMoons[0]); i++) {
+    clock.remainder = 0.25;
+    clock.active = true;
+    double before = dayNightPhase(&clock);
+    typeChat(&chat, invalidMoons[i]);
+    submitChat(&chat, &clock);
+    CHECK(dayNightPhase(&clock) == before && clock.active);
+  }
   puts("Local chat text, history, command validation, and clock checks finished");
 }

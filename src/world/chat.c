@@ -55,6 +55,19 @@ static bool timeCommand(const char* text, unsigned* tick) {
   return true;
 }
 
+static bool moonCommand(const char* text, MoonPhase* phase) {
+  char command[16], action[16], argument[CHAT_INPUT_CAPACITY], extra[2];
+  if (sscanf(text, "%15s %15s %127s %1s", command, action, argument, extra) != 3 || strcmp(command, "/moon") || strcmp(action, "set"))
+    return false;
+  for (int i = 0; i < MOON_PHASE_COUNT; i++) {
+    if (!strcmp(argument, moonPhaseName((MoonPhase)i)) || (argument[0] == '0' + i && argument[1] == '\0')) {
+      *phase = (MoonPhase)i;
+      return true;
+    }
+  }
+  return false;
+}
+
 void submitChat(Chat* chat, DayNightClock* clock) {
   if (!chat->open)
     return;
@@ -63,13 +76,19 @@ void submitChat(Chat* chat, DayNightClock* clock) {
     text++;
   if (*text == '/') {
     unsigned tick;
+    MoonPhase phase;
     if (timeCommand(text, &tick)) {
       clock->tick = tick;
       clock->remainder = 0;
       clock->active = false;
       snprintf(nextMessage(chat), CHAT_MESSAGE_CAPACITY, "[System] Time set to %u.", tick);
+    } else if (moonCommand(text, &phase)) {
+      clock->moonPhase = phase;
+      clock->remainder = 0;
+      clock->active = false;
+      snprintf(nextMessage(chat), CHAT_MESSAGE_CAPACITY, "[System] Moon set to %s.", moonPhaseName(phase));
     } else {
-      snprintf(nextMessage(chat), CHAT_MESSAGE_CAPACITY, "[System] Use /time set day|night|0..23999");
+      snprintf(nextMessage(chat), CHAT_MESSAGE_CAPACITY, "[System] Use /time set day|night|0..23999 or /moon set 0..7 (0=full, 4=new)");
     }
   } else if (*text) {
     snprintf(nextMessage(chat), CHAT_MESSAGE_CAPACITY, "[Local] %s", text);

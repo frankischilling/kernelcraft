@@ -37,8 +37,12 @@ try {
     Copy-Item -LiteralPath $SmokeBinary -Destination $missingGame
     Get-ChildItem -LiteralPath $runtime -Filter '*.dll' | Copy-Item -Destination $missingGame
     Copy-Item -LiteralPath (Join-Path $runtime 'assets') -Destination $missingGame -Recurse
-    Remove-Item -LiteralPath (Join-Path $missingGame 'assets/sky/full-moon.png')
-    Invoke-Expected 1 @('--no-save') 'Failed to initialize sky rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+    foreach ($moon in @('full-moon', 'waning-gibbous', 'last-quarter', 'waning-crescent', 'new-moon', 'waxing-crescent', 'first-quarter', 'waxing-gibbous')) {
+        $missingMoon = Join-Path $missingGame "assets/sky/$moon.png"
+        Remove-Item -LiteralPath $missingMoon
+        Invoke-Expected 1 @('--no-save') 'Failed to initialize sky rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+        Copy-Item -LiteralPath (Join-Path $runtime "assets/sky/$moon.png") -Destination $missingMoon
+    }
     $env:KERNELCRAFT_TEST_WORLD = Join-Path $fixture 'world with spaces.kcw'
     $env:KERNELCRAFT_TEST_RESTART = 'save'
     Invoke-Expected 0 @('--world', 'world with spaces.kcw', '--seed', '42')

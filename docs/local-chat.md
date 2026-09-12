@@ -26,14 +26,19 @@ Commands are case-sensitive:
 | `/time set day` | Noon, tick 6000 |
 | `/time set night` | Midnight, tick 18000 |
 | `/time set 1200` | Tick 1200 within the current 24,000-tick cycle |
+| `/moon set new` | New moon, preserving time of day |
+| `/moon set 5` | Waxing crescent, preserving time of day |
 
 Any decimal integer from 0 through 23999 is accepted. Signs, fractional
 numbers, out-of-range values, trailing tokens, and unknown commands display
 usage without changing the clock. Leading/trailing spaces and extra spaces
 between command tokens are accepted. Successful commands clear fractional
-time and take effect in the next rendered frame. The sun, moon, stars, sky
+time and take effect in the next rendered frame. Time commands preserve the
+lunar phase. Moon commands accept a single digit 0 through 7 or one of the
+[eight phase names](day-night-cycle.md#lunar-phases), and preserve the time of day.
+The sun, moon, stars, sky
 colors, and terrain light all use the changed clock. Existing world saves
-remain unchanged; a new launch still starts the cycle in the morning.
+remain unchanged; a new launch starts in the morning with a full moon.
 
 Chat entry blocks movement, mouse-look, block placement/breaking, jumping,
 flight toggling, hotbar changes, F3/F4, and F5. Opening and closing discard

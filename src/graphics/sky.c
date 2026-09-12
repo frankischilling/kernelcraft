@@ -11,12 +11,14 @@ bool initSky(SkyRenderer* sky) {
   glActiveTexture(GL_TEXTURE0);
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
   bool success = false;
-  const char* paths[] = {"assets/sky/day.png", "assets/sky/dawn-dusk.png", "assets/sky/night.png", "assets/sky/sun.png", "assets/sky/full-moon.png"};
+  const char* paths[4 + MOON_PHASE_COUNT] = {"assets/sky/day.png",       "assets/sky/dawn-dusk.png",       "assets/sky/night.png",         "assets/sky/sun.png",
+                                             "assets/sky/full-moon.png", "assets/sky/waning-gibbous.png",  "assets/sky/last-quarter.png",  "assets/sky/waning-crescent.png",
+                                             "assets/sky/new-moon.png",  "assets/sky/waxing-crescent.png", "assets/sky/first-quarter.png", "assets/sky/waxing-gibbous.png"};
   sky->program = loadShaders("assets/shaders/sky_vertex.glsl", "assets/shaders/sky_fragment.glsl");
   if (!sky->program)
     goto failure;
   glActiveTexture(GL_TEXTURE0);
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4 + MOON_PHASE_COUNT; i++) {
     sky->textures[i] = loadTexture(paths[i]);
     if (!sky->textures[i])
       goto failure;
@@ -37,6 +39,7 @@ bool initSky(SkyRenderer* sky) {
   sky->sun = glGetUniformLocation(sky->program, "sunDirection");
   sky->moon = glGetUniformLocation(sky->program, "moonDirection");
   sky->stars = glGetUniformLocation(sky->program, "starBrightness");
+  sky->moonIllumination = glGetUniformLocation(sky->program, "moonIllumination");
   if (!sky->vao || glGetError() != GL_NO_ERROR)
     goto failure;
   success = true;
@@ -53,7 +56,7 @@ restore:
 }
 
 void cleanupSky(SkyRenderer* sky) {
-  glDeleteTextures(5, sky->textures);
+  glDeleteTextures(4 + MOON_PHASE_COUNT, sky->textures);
   glDeleteVertexArrays(1, &sky->vao);
   if (sky->program)
     glDeleteProgram(sky->program);
@@ -75,10 +78,11 @@ void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const
   glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
   glGetIntegerv(GL_POLYGON_MODE, polygon);
+  unsigned moonPhase = (unsigned)state->moonPhase < MOON_PHASE_COUNT ? (unsigned)state->moonPhase : MOON_FULL;
   for (int i = 0; i < 5; i++) {
     glActiveTexture(GL_TEXTURE0 + i);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &bindings[i]);
-    glBindTexture(GL_TEXTURE_2D, sky->textures[i]);
+    glBindTexture(GL_TEXTURE_2D, sky->textures[i == 4 ? 4 + moonPhase : (unsigned)i]);
   }
   // Only shade background pixels left by opaque terrain. Map the shared
   // fullscreen triangle to the far depth without changing cloud projection.
@@ -103,6 +107,7 @@ void renderSky(const SkyRenderer* sky, const Camera* camera, float aspect, const
   uniformVec(sky->sun, state->sunDirection);
   uniformVec(sky->moon, state->moonDirection);
   glUniform1f(sky->stars, state->stars);
+  glUniform1f(sky->moonIllumination, state->moonIllumination);
   glBindVertexArray(sky->vao);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   glBindVertexArray(vao);
