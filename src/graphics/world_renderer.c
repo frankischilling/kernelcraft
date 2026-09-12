@@ -25,9 +25,9 @@ static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
-static ShadowMap shadows;
+static ShadowCache shadows;
 static Vec3 shadowLight = {0.45f, 0.8f, 0.35f};
-static GLint shadowTransformLocation, shadowScaleLocation;
+static GLint shadowTransformLocation[2], shadowScaleLocation, shadowBlendLocation;
 
 enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
 
@@ -175,12 +175,15 @@ bool initWorld(GLuint shaderProgram) {
   glUniform1ui(glGetUniformLocation(program, "worldSeed"), worldSeed());
   glUniform1f(glGetUniformLocation(program, "blockSize"), CUBE_SIZE);
   shadowLight = (Vec3){0.45f, 0.8f, 0.35f};
-  shadowTransformLocation = glGetUniformLocation(program, "shadowTransform");
+  shadowTransformLocation[0] = glGetUniformLocation(program, "shadowTransform");
+  shadowTransformLocation[1] = glGetUniformLocation(program, "nextShadowTransform");
   shadowScaleLocation = glGetUniformLocation(program, "shadowScale");
+  shadowBlendLocation = glGetUniformLocation(program, "shadowBlend");
   glUniform1i(glGetUniformLocation(program, "terrainShadow"), 1);
+  glUniform1i(glGetUniformLocation(program, "nextTerrainShadow"), 2);
   float halfWidth = WORLD_SIZE * CUBE_SIZE * 0.5f;
   float halfHeight = CHUNK_HEIGHT * CUBE_SIZE * 0.5f;
-  if (!initShadowMap(&shadows, (Vec3){0, halfHeight, 0}, sqrtf(2 * halfWidth * halfWidth + halfHeight * halfHeight) + CUBE_SIZE))
+  if (!initShadowCache(&shadows, (Vec3){0, halfHeight, 0}, sqrtf(2 * halfWidth * halfWidth + halfHeight * halfHeight) + CUBE_SIZE))
     goto failure;
   // Fixed lighting keeps the same face readable throughout the finite world.
   // The fill and diffuse intensities leave headroom for bright texture detail.
@@ -296,7 +299,7 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
       if (chunk->indexCount)
         geometry[count++] = (ShadowGeometry){chunk->vao, (GLsizei)chunk->indexCount};
     }
-  if (!updateShadowMap(&shadows, shadowLight, result.chunksRebuilt != 0, geometry, count, &result.shadowDrawCalls))
+  if (!updateShadowCache(&shadows, shadowLight, result.chunksRebuilt != 0, geometry, count, &result.shadowDrawCalls))
     return result;
   result.success = true;
   Mat4 viewProjection;
@@ -307,12 +310,16 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
-  glUniformMatrix4fv(shadowTransformLocation, 1, GL_FALSE, shadows.transform);
-  glUniform2f(shadowScaleLocation, 1.0f / shadows.size, 1.0f / (2 * shadows.radius));
-  glActiveTexture(GL_TEXTURE1);
-  GLint previousShadowTexture;
-  glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousShadowTexture);
-  glBindTexture(GL_TEXTURE_2D, shadows.depth);
+  GLint previousShadowTexture[2];
+  for (int endpoint = 0; endpoint < 2; endpoint++) {
+    ShadowMap* map = &shadows.maps[endpoint ? 1 - shadows.first : shadows.first];
+    glUniformMatrix4fv(shadowTransformLocation[endpoint], 1, GL_FALSE, map->transform);
+    glActiveTexture(GL_TEXTURE1 + endpoint);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousShadowTexture[endpoint]);
+    glBindTexture(GL_TEXTURE_2D, map->depth);
+  }
+  glUniform2f(shadowScaleLocation, 1.0f / shadows.maps[0].size, 1.0f / (2 * shadows.maps[0].radius));
+  glUniform1f(shadowBlendLocation, shadows.blend);
   glActiveTexture(GL_TEXTURE0);
   glUniform1i(gridLocation, 1);
   glBindVertexArray(gridVAO);
@@ -342,14 +349,16 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   glBindVertexArray(0);
   glPolygonMode(GL_FRONT, (GLenum)polygonMode[0]);
   glPolygonMode(GL_BACK, (GLenum)polygonMode[1]);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, previousShadowTexture);
+  for (int endpoint = 0; endpoint < 2; endpoint++) {
+    glActiveTexture(GL_TEXTURE1 + endpoint);
+    glBindTexture(GL_TEXTURE_2D, previousShadowTexture[endpoint]);
+  }
   glActiveTexture(GL_TEXTURE0);
   return result;
 }
 
 void cleanupWorld(void) {
-  cleanupShadowMap(&shadows);
+  cleanupShadowCache(&shadows);
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       RenderChunk* chunk = &renderChunks[x][z];

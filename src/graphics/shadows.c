@@ -11,7 +11,9 @@ bool initShadowMap(ShadowMap* map, Vec3 center, float radius) {
   glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &limit);
-  map->size = limit < 4096 ? limit : 4096;
+  // Two cached maps at 3072 use about 72 MiB with four-byte depth storage,
+  // close to the former single 4096 map rather than doubling that budget.
+  map->size = limit < 3072 ? limit : 3072;
   if (map->size < 1024)
     return false;
   map->program = loadShaders("assets/shaders/shadow_depth.vert", "assets/shaders/shadow_depth.frag");
@@ -21,8 +23,8 @@ bool initShadowMap(ShadowMap* map, Vec3 center, float radius) {
   glGenTextures(1, &map->depth);
   glBindTexture(GL_TEXTURE_2D, map->depth);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, map->size, map->size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -133,4 +135,71 @@ bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGe
   map->direction = direction;
   map->valid = glGetError() == GL_NO_ERROR;
   return map->valid;
+}
+
+bool initShadowCache(ShadowCache* cache, Vec3 center, float radius) {
+  *cache = (ShadowCache){0};
+  if (!initShadowMap(&cache->maps[0], center, radius) || !initShadowMap(&cache->maps[1], center, radius)) {
+    cleanupShadowCache(cache);
+    return false;
+  }
+  return true;
+}
+
+void cleanupShadowCache(ShadowCache* cache) {
+  cleanupShadowMap(&cache->maps[0]);
+  cleanupShadowMap(&cache->maps[1]);
+  memset(cache, 0, sizeof(*cache));
+}
+
+static bool cachedAngle(const ShadowCache* cache, int slot, int angle, float planeZ) {
+  return cache->maps[slot].valid && cache->angle[slot] == angle && cache->planeZ[slot] == planeZ;
+}
+
+bool updateShadowCache(ShadowCache* cache, Vec3 direction, bool edited, const ShadowGeometry* geometry, size_t count, int* drawCalls) {
+  const double turn = 6.283185307179586;
+
+  enum { ANGLES = 1024 };
+
+  *drawCalls = 0;
+  float length = vec3_dot(&direction, &direction);
+  if (!isfinite(length) || length < 1e-12f)
+    return false;
+  vec3_normalize(&direction, &direction);
+  double angle = atan2(direction.y, direction.x);
+  if (angle < 0)
+    angle += turn;
+  double position = angle * ANGLES / turn;
+  int lower = (int)floor(position) % ANGLES, upper = (lower + 1) % ANGLES;
+  cache->blend = (float)(position - floor(position));
+  // The day's orbit is in XY. Retain Z for other fixed light directions used
+  // by renderer clients; changing the orbit plane invalidates both endpoints.
+  float planeZ = direction.z;
+  int first = 0;
+  if (cachedAngle(cache, 1, lower, planeZ))
+    first = 1;
+  else if (!cachedAngle(cache, 0, lower, planeZ) && cachedAngle(cache, 0, upper, planeZ))
+    first = 1;
+  cache->first = first;
+  // Invalidate both before any rendering so a failed edit refresh cannot
+  // leave the other endpoint eligible for reuse with stale geometry.
+  if (edited)
+    cache->maps[0].valid = cache->maps[1].valid = false;
+  for (int endpoint = 0; endpoint < 2; endpoint++) {
+    int slot = endpoint ? 1 - first : first;
+    int key = endpoint ? upper : lower;
+    if (cachedAngle(cache, slot, key, planeZ))
+      continue;
+    double radians = turn * key / ANGLES;
+    float xy = sqrtf(fmaxf(0, 1 - planeZ * planeZ));
+    Vec3 sample = {(float)cos(radians) * xy, (float)sin(radians) * xy, planeZ};
+    int calls;
+    bool updated = updateShadowMap(&cache->maps[slot], sample, true, geometry, count, &calls);
+    *drawCalls += calls;
+    if (!updated)
+      return false;
+    cache->angle[slot] = key;
+    cache->planeZ[slot] = planeZ;
+  }
+  return true;
 }

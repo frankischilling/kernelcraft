@@ -23,29 +23,41 @@ uniform bool drawGrid;
 uniform uint worldSeed;
 uniform float blockSize;
 uniform sampler2DShadow terrainShadow;
+uniform sampler2DShadow nextTerrainShadow;
 uniform mat4 shadowTransform;
+uniform mat4 nextShadowTransform;
+uniform float shadowBlend;
 uniform vec2 shadowScale; // Texel width and reciprocal world-space depth span.
 
-float sunlightVisibility(vec3 normal) {
+float filteredVisibility(sampler2DShadow depths, mat4 transform, vec3 normal) {
     // Offset the receiver slightly, then compare each filter tap against its
     // own point on the receiver plane. This avoids dark stripes on sloped
     // light projections without a large bias that detaches cast shadows.
-    vec3 position = (shadowTransform * vec4(FragPos + normal * 0.025 * blockSize, 1.0)).xyz * 0.5 + 0.5;
+    vec3 position = (transform * vec4(FragPos + normal * 0.025 * blockSize, 1.0)).xyz * 0.5 + 0.5;
     if (any(lessThan(position, vec3(0.0))) || any(greaterThan(position, vec3(1.0))))
         return 1.0;
-    vec3 lightNormal = mat3(shadowTransform) * normal;
+    vec3 lightNormal = mat3(transform) * normal;
     vec2 gradient = -lightNormal.xy / min(lightNormal.z, -0.000001);
-    position.z -= 0.01 * blockSize * shadowScale.y
-                + 0.5 * shadowScale.x * (abs(gradient.x) + abs(gradient.y));
+    position.z -= 0.01 * blockSize * shadowScale.y;
+    vec2 texel = position.xy / shadowScale.x - 0.5;
+    vec2 base = floor(texel), fraction = fract(texel);
     float visibility = 0.0;
-    for (int y = -1; y <= 1; y++)
-        for (int x = -1; x <= 1; x++) {
-            vec2 offset = vec2(x,y) * (0.5 * shadowScale.x);
-            visibility += texture(terrainShadow, vec3(position.xy + offset, position.z + dot(gradient, offset)));
+    for (int y = 0; y < 2; y++)
+        for (int x = 0; x < 2; x++) {
+            vec2 uv = (base + vec2(x,y) + 0.5) * shadowScale.x;
+            vec2 weight = mix(1.0 - fraction, fraction, vec2(x,y));
+            visibility += weight.x * weight.y * texture(depths, vec3(uv, position.z + dot(gradient, uv - position.xy)));
         }
-    // Linear comparison filtering softens each tap before averaging; never
-    // interpolate raw depths across the edge of an occluder.
-    return visibility / 9.0;
+    // Compare at each actual depth texel's receiver-plane position, then
+    // interpolate visibility. Hardware bilinear comparison uses one reference
+    // for all four texels, which made sloped receivers shadow themselves.
+    return visibility;
+}
+
+float sunlightVisibility(vec3 normal) {
+    float previous = filteredVisibility(terrainShadow, shadowTransform, normal);
+    float next = filteredVisibility(nextTerrainShadow, nextShadowTransform, normal);
+    return mix(previous, next, shadowBlend);
 }
 
 float terrainLayer(vec3 normal) {

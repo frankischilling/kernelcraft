@@ -67,6 +67,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #include "terrain_render_checks.h"
 #include "lighting_render_checks.h"
 #include "atmosphere_render_checks.h"
+#include "shadow_motion_checks.h"
 #include "sky_render_checks.h"
 #include "cloud_render_checks.h"
 #include "occlusion_render_checks.h"
@@ -687,6 +688,8 @@ int main(int argc, char** argv) {
     return testMovingOcclusion(shader) ? 0 : 24;
   if (getenv("KERNELCRAFT_ATMOSPHERE_CHECK"))
     return testAtmosphereLighting(shader) ? 0 : 25;
+  if (getenv("KERNELCRAFT_SHADOW_MOTION_CHECK"))
+    return testShadowMotion(shader) ? 0 : 27;
   if (getenv("KERNELCRAFT_LIGHTING_CHECK"))
     return testTerrainLighting(shader) ? 0 : 23;
   if (getenv("KERNELCRAFT_CLOUD_CHECK"))
@@ -881,6 +884,8 @@ int main(int argc, char** argv) {
     return 23;
   if (!testAtmosphereLighting(shader))
     return 25;
+  if (!testShadowMotion(shader))
+    return 27;
   if (!testTerrainVariants(shader))
     return 21;
   for (int pattern = 0; pattern < 9; pattern++)

@@ -28,4 +28,16 @@ void cleanupShadowMap(ShadowMap* map);
 // Reuses an unchanged map. Restores the framebuffer and raster state it uses.
 bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGeometry* geometry, size_t count, int* drawCalls);
 
+typedef struct {
+  ShadowMap maps[2];
+  int angle[2], first;
+  float planeZ[2], blend;
+} ShadowCache;
+
+// Cache the neighboring light directions and interpolate their visibility.
+// One interval is about 0.35 degrees (1.17 seconds of the normal day cycle).
+bool initShadowCache(ShadowCache* cache, Vec3 center, float radius);
+void cleanupShadowCache(ShadowCache* cache);
+bool updateShadowCache(ShadowCache* cache, Vec3 direction, bool edited, const ShadowGeometry* geometry, size_t count, int* drawCalls);
+
 #endif

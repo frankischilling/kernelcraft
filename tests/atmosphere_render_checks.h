@@ -112,16 +112,18 @@ static bool testAtmosphereLighting(GLuint shader) {
   glActiveTexture(GL_TEXTURE0);
   glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 1, 1, 10, 0, GL_RGBA, GL_UNSIGNED_BYTE, tile);
   unsigned char clear[3], covered[3], reversed[3], removed[3];
-  RenderResult first = atmosphereProbe(0.125, clear);
-  RenderResult cached = atmosphereProbe(0.125, clear);
-  if (!first.success || !cached.success || first.shadowDrawCalls != 1 || cached.shadowDrawCalls != 0 || cached.chunksRebuilt != 0)
+  // An intermediate direction exercises both cached endpoints during edits.
+  const double phase = 0.1253;
+  RenderResult first = atmosphereProbe(phase, clear);
+  RenderResult cached = atmosphereProbe(phase, clear);
+  if (!first.success || !cached.success || first.shadowDrawCalls != 2 || cached.shadowDrawCalls != 0 || cached.chunksRebuilt != 0)
     return false;
   for (int x = 3; x <= 5; x++)
     for (int z = -1; z <= 1; z++)
       if (!setBlock(&(Vec3i){x, 14, z}, BLOCK_STONE))
         return false;
-  RenderResult edited = atmosphereProbe(0.125, covered);
-  RenderResult turned = atmosphereProbe(0.375, reversed);
+  RenderResult edited = atmosphereProbe(phase, covered);
+  RenderResult turned = atmosphereProbe(0.5 - phase, reversed);
   if (!edited.success || !turned.success || edited.chunksRebuilt == 0 || edited.shadowDrawCalls == 0 || turned.shadowDrawCalls == 0 || turned.chunksRebuilt != 0)
     return false;
   unsigned char moonCovered[3], moonClear[3];
@@ -130,7 +132,11 @@ static bool testAtmosphereLighting(GLuint shader) {
   for (int x = 3; x <= 5; x++)
     for (int z = -1; z <= 1; z++)
       setBlock(&(Vec3i){x, 14, z}, BLOCK_AIR);
-  if (!atmosphereProbe(0.125, removed).success)
+  if (!atmosphereProbe(phase, removed).success)
+    return false;
+  unsigned char interpolated[3];
+  RenderResult later = atmosphereProbe(0.1257, interpolated);
+  if (!later.success || later.shadowDrawCalls != 0 || abs(interpolated[0] - removed[0]) > 1)
     return false;
   printf("Off-camera roof: clear=%u shadow=%u reversed=%u removed=%u\n", clear[0], covered[0], reversed[0], removed[0]);
   bool ok = covered[0] > 60 && clear[0] > covered[0] + 25 && abs(clear[0] - reversed[0]) <= 2 && abs(clear[0] - removed[0]) <= 2;

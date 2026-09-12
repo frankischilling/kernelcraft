@@ -187,6 +187,7 @@ static int profileRendering(GLuint shader) {
     double cloudGPU[PROFILE_FRAMES] = {0}, cloudCPU[PROFILE_FRAMES] = {0};
     double totalCloudGPU = 0, totalCloudCPU = 0;
     unsigned long totalCloudDraws = 0;
+    unsigned long totalShadowDraws = 0, shadowFrames = 0;
     ProfileFrame samples[PROFILE_FRAMES];
     double drainMs = 0, batchStart = 0, frameBoundary = 0;
     double totalFrame = 0, totalCPU = 0, totalGPU = 0, rebuildMs = 0;
@@ -264,7 +265,7 @@ static int profileRendering(GLuint shader) {
       DayNightState daylight = {0};
       unsigned long skyDraws = 0;
       if (atmosphere) {
-        daylight = sampleDayNight(phase + step / 72000.0);
+        daylight = sampleDayNight(phase + (chat.open ? 0 : step / 72000.0));
         if (skyFirst) {
           unsigned long beforeSky = draws;
           profilePassBegin(&passes[0], frame);
@@ -291,7 +292,7 @@ static int profileRendering(GLuint shader) {
       drawSelection(&data.selection, view, projection);
       unsigned long cloudDraws = 0;
       if (atmosphere) {
-        clouds.offset = step * 0.01;
+        clouds.offset = chat.open ? 0 : step * 0.01;
         double cloudStart = glfwGetTime();
         unsigned long beforeClouds = draws;
         if (frame >= 0)
@@ -340,6 +341,8 @@ static int profileRendering(GLuint shader) {
                 result.chunksRebuilt, uploads);
       if (frame < 0)
         continue;
+      totalShadowDraws += result.shadowDrawCalls;
+      shadowFrames += result.shadowDrawCalls != 0;
       if (pipelined) {
         // Contiguous intervals include setup and inter-frame bookkeeping.
         // Their sum is the wall time for the completed measured batch.
@@ -422,6 +425,7 @@ static int profileRendering(GLuint shader) {
     qsort(cpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(gpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(cloudGPU, PROFILE_FRAMES, sizeof(double), profileCompare);
+    printf("PROFILE_SHADOW %s,draws_per_frame=%.3f,refresh_frames=%lu/%d\n", scenarios[scenario], (double)totalShadowDraws / PROFILE_FRAMES, shadowFrames, PROFILE_FRAMES);
     printf("PROFILE_CLOUD %s,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], totalCloudGPU / PROFILE_FRAMES, cloudGPU[(PROFILE_FRAMES * 95 + 99) / 100 - 1],
            cloudGPU[(PROFILE_FRAMES * 99 + 99) / 100 - 1], totalCloudCPU / PROFILE_FRAMES, (double)totalCloudDraws / PROFILE_FRAMES);
     double slowest = 0;
