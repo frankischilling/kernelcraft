@@ -399,6 +399,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Add support for different camera modes (first person, third person)
   - [ ] Add a textured first-person hand with movement and action animations
   - [ ] Add a textured third-person player model and skin textures, with hand and body animations
+  - [ ] Add environmental player skin effects: wet skin after swimming, sweat in heat, mud from dirt, and sore or bruised hands after punching blocks for materials
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 
 - **Optimization**:
