@@ -377,6 +377,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Add sky colors and drifting blocky clouds (implemented on this branch; PR #60)
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
   - [x] Add dynamic directional terrain shadows
+  - [ ] Implement more realistic shadows with distance-dependent soft edges and cloud-cast shadows
   - [ ] Add ambient occlusion and local light sources
   - [x] Add day/night cycle
     - [x] Within the system implement tick based time (20 ticks/second, 24,000 ticks/day)

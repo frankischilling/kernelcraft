@@ -170,6 +170,10 @@ bool updateShadowCache(ShadowCache* cache, Vec3 direction, bool edited, const Sh
   if (angle < 0)
     angle += turn;
   double position = angle * ANGLES / turn;
+  // Equivalent sun/moon cardinal directions can straddle an integer by a
+  // double rounding error. Keep them in the same interval after time commands.
+  if (fabs(position - round(position)) < 1e-10)
+    position = round(position);
   int lower = (int)floor(position) % ANGLES, upper = (lower + 1) % ANGLES;
   cache->blend = (float)(position - floor(position));
   // The day's orbit is in XY. Retain Z for other fixed light directions used

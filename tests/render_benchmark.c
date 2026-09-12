@@ -736,7 +736,12 @@ int main(int argc, char** argv) {
       data.showDebug = true;
       drawSelection(&data.selection, view, projection);
 #endif
+      unsigned long beforeHUDDraws = draws, beforeHUDUploads = uploads;
       HUDDraw(shader, &data);
+      // This workload reports terrain and selection submissions separately
+      // from the HUD's cached label draws and occasional label updates.
+      draws = beforeHUDDraws;
+      uploads = beforeHUDUploads;
       glFinish();
     }
 

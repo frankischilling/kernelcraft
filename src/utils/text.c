@@ -23,6 +23,23 @@ static void* const fonts[FONT_COUNT] = {GLUT_BITMAP_HELVETICA_10, GLUT_BITMAP_HE
 static GLuint fontTexture;
 static int advances[FONT_COUNT][GLYPHS];
 
+enum { LABEL_SLOTS = 64, LABEL_GLYPHS = 256 };
+
+typedef struct {
+  float u, v, x, y;
+} TextVertex;
+
+typedef struct {
+  char text[LABEL_GLYPHS];
+  int viewport[4], font, height, count;
+  float x, y;
+  unsigned long long used;
+} TextLabel;
+
+static TextLabel labels[LABEL_SLOTS];
+static unsigned long long labelClock;
+static GLuint textVAO, textBuffer;
+
 static int fontIndex(void* font) {
   for (int i = 0; i < FONT_COUNT; i++)
     if (font == fonts[i])
@@ -33,12 +50,20 @@ static int fontIndex(void* font) {
 void cleanupText(void) {
   glDeleteTextures(1, &fontTexture);
   fontTexture = 0;
+  glDeleteVertexArrays(1, &textVAO);
+  glDeleteBuffers(1, &textBuffer);
+  textVAO = textBuffer = 0;
+  memset(labels, 0, sizeof(labels));
+  labelClock = 0;
   memset(advances, 0, sizeof(advances));
 }
 
 bool initText(void) {
   cleanupText();
-  GLint program, matrixMode, drawFramebuffer, readFramebuffer, unpackBuffer;
+  GLint program, matrixMode, drawFramebuffer, readFramebuffer, unpackBuffer, vao, arrayBuffer, clientTexture;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arrayBuffer);
+  glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE, &clientTexture);
   glGetIntegerv(GL_CURRENT_PROGRAM, &program);
   glGetIntegerv(GL_MATRIX_MODE, &matrixMode);
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFramebuffer);
@@ -96,6 +121,20 @@ bool initText(void) {
         glutBitmapString(fonts[font], string);
       }
     }
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textBuffer);
+    ready = textVAO && textBuffer;
+  }
+  if (ready) {
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textBuffer);
+    // One bounded slot per cached label plus a streaming slot for long text.
+    glBufferData(GL_ARRAY_BUFFER, (LABEL_SLOTS + 1) * LABEL_GLYPHS * 4 * sizeof(TextVertex), NULL, GL_DYNAMIC_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, sizeof(TextVertex), (void*)(2 * sizeof(float)));
+    glClientActiveTexture(GL_TEXTURE0);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(TextVertex), NULL);
   }
 
   ready = glGetError() == GL_NO_ERROR && ready;
@@ -108,6 +147,9 @@ bool initText(void) {
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)readFramebuffer);
   glDeleteFramebuffers(1, &framebuffer);
   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, (GLuint)unpackBuffer);
+  glBindVertexArray((GLuint)vao);
+  glBindBuffer(GL_ARRAY_BUFFER, (GLuint)arrayBuffer);
+  glClientActiveTexture((GLenum)clientTexture);
   glPopAttrib();
   if (!ready) {
     fprintf(stderr, "Cannot create HUD font cache\n");
@@ -118,6 +160,9 @@ bool initText(void) {
 }
 
 void beginText(TextState* state) {
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &state->vao);
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &state->arrayBuffer);
+  glBindVertexArray(textVAO);
   glGetIntegerv(GL_CURRENT_PROGRAM, &state->program);
   glGetIntegerv(GL_MATRIX_MODE, &state->matrixMode);
   glGetIntegerv(GL_VIEWPORT, state->viewport);
@@ -147,17 +192,36 @@ void renderText(const TextState* state, const char* text, float x, float y) {
   // Match the initial raster-position clipping of the bitmap path.
   if (x < 0 || x > state->viewport[2] || baseline < 0 || baseline > state->viewport[3])
     return;
-  // Bitmap raster positions retain the driver's float transform rounding.
-  // Read it once per label, then reproduce each glyph's raster advance.
-  glRasterPos2f(x, baseline);
-  GLfloat raster[4];
-  glGetFloatv(GL_CURRENT_RASTER_POSITION, raster);
-  float penX = raster[0], penY = raster[1], lineAdvance = 0;
   glPushAttrib(GL_TEXTURE_BIT | GL_ENABLE_BIT | GL_CURRENT_BIT);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, fontTexture);
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-  glBegin(GL_QUADS);
+  ++labelClock;
+  int slot = 0;
+  for (int i = 0; i < LABEL_SLOTS; i++) {
+    TextLabel* label = &labels[i];
+    if (label->used && label->font == font && label->height == state->fontHeight && label->x == x && label->y == y &&
+        !memcmp(label->viewport, state->viewport, sizeof(label->viewport)) && !strcmp(label->text, text)) {
+      label->used = labelClock;
+      glDrawArrays(GL_QUADS, i * LABEL_GLYPHS * 4, label->count);
+      glPopAttrib();
+      return;
+    }
+    if (label->used < labels[slot].used)
+      slot = i;
+  }
+  bool cacheable = strlen(text) < LABEL_GLYPHS;
+  if (!cacheable)
+    slot = LABEL_SLOTS;
+  // Preserve the bitmap path's driver rounding, but query and build only when
+  // a label, its font, or its viewport position changes. Tint stays dynamic.
+  glRasterPos2f(x, baseline);
+  GLfloat raster[4];
+  glGetFloatv(GL_CURRENT_RASTER_POSITION, raster);
+  float penX = raster[0], penY = raster[1], lineAdvance = 0;
+  TextVertex vertices[LABEL_GLYPHS * 4];
+  int count = 0;
+  glBindBuffer(GL_ARRAY_BUFFER, textBuffer);
   for (const unsigned char* character = (const unsigned char*)text; *character; character++) {
     if (*character == '\n') {
       penX -= lineAdvance;
@@ -172,19 +236,29 @@ void renderText(const TextState* state, const char* text, float x, float y) {
     float u = (float)(cell % COLUMNS * CELL_SIZE) / ATLAS_WIDTH;
     float v = (float)(cell / COLUMNS * CELL_SIZE) / ATLAS_HEIGHT;
     float du = (float)CELL_SIZE / ATLAS_WIDTH, dv = (float)CELL_SIZE / ATLAS_HEIGHT;
-    glTexCoord2f(u, v);
-    glVertex2f(left, bottom);
-    glTexCoord2f(u + du, v);
-    glVertex2f(left + CELL_SIZE, bottom);
-    glTexCoord2f(u + du, v + dv);
-    glVertex2f(left + CELL_SIZE, bottom + CELL_SIZE);
-    glTexCoord2f(u, v + dv);
-    glVertex2f(left, bottom + CELL_SIZE);
+    vertices[count++] = (TextVertex){u, v, left, bottom};
+    vertices[count++] = (TextVertex){u + du, v, left + CELL_SIZE, bottom};
+    vertices[count++] = (TextVertex){u + du, v + dv, left + CELL_SIZE, bottom + CELL_SIZE};
+    vertices[count++] = (TextVertex){u, v + dv, left, bottom + CELL_SIZE};
+    if (count == LABEL_GLYPHS * 4) {
+      glBufferSubData(GL_ARRAY_BUFFER, slot * sizeof(vertices), sizeof(vertices), vertices);
+      glDrawArrays(GL_QUADS, slot * LABEL_GLYPHS * 4, count);
+      count = 0;
+    }
     penX += advances[font][*character];
     lineAdvance += advances[font][*character];
   }
 
-  glEnd();
+  if (count) {
+    glBufferSubData(GL_ARRAY_BUFFER, slot * sizeof(vertices), count * sizeof(TextVertex), vertices);
+    glDrawArrays(GL_QUADS, slot * LABEL_GLYPHS * 4, count);
+  }
+  if (cacheable) {
+    TextLabel* label = &labels[slot];
+    *label = (TextLabel){.font = font, .height = state->fontHeight, .x = x, .y = y, .count = count, .used = labelClock};
+    memcpy(label->viewport, state->viewport, sizeof(label->viewport));
+    strcpy(label->text, text);
+  }
   glPopAttrib();
 }
 
@@ -207,6 +281,8 @@ int textWidth(const TextState* state, const char* text) {
 }
 
 void endText(const TextState* state) {
+  glBindVertexArray((GLuint)state->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, (GLuint)state->arrayBuffer);
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();

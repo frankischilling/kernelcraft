@@ -46,6 +46,18 @@ static bool testShadowCacheTransitions(void) {
   }
   ok &= updateShadowCache(&cache, light, false, &geometry, 1, &calls) && calls == 2;
   ok &= updateShadowCache(&cache, light, false, &geometry, 1, &calls) && calls == 0;
+  // /time set day and /time set night put their active light at the same
+  // zenith. Roundoff must not select a different neighboring cache interval.
+  DayNightState noon = sampleDayNight(0.25), midnight = sampleDayNight(0.75);
+  ok &= updateShadowCache(&cache, noon.lightDirection, false, &geometry, 1, &calls);
+  for (int toggle = 0; toggle < 4; toggle++) {
+    Vec3 direction = toggle % 2 ? noon.lightDirection : midnight.lightDirection;
+    bool updated = updateShadowCache(&cache, direction, false, &geometry, 1, &calls);
+    if (!updated || calls) {
+      fprintf(stderr, "Equivalent day/night shadow direction rebuilt %d casters\n", calls);
+      ok = false;
+    }
+  }
   glBindVertexArray(previousVAO);
   glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
   glDeleteVertexArrays(1, &vao);

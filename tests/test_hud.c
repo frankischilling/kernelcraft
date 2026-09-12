@@ -27,6 +27,27 @@ static float materialX[9];
 static GLuint iconTextures[6];
 static GLuint failedFontTexture, failedFontFramebuffer;
 static PFNGLCHECKFRAMEBUFFERSTATUSPROC realCheckFramebufferStatus;
+static PFNGLBUFFERDATAPROC realTextBufferData;
+static GLuint failedTextBuffer, failedTextVAO, failedTextTexture;
+static unsigned textUploads;
+static PFNGLBUFFERSUBDATAPROC realTextSubData;
+
+static void GLAPIENTRY countTextUpload(GLenum target, GLintptr offset, GLsizeiptr size, const void* data) {
+  textUploads++;
+  realTextSubData(target, offset, size, data);
+}
+
+static void GLAPIENTRY failTextStorage(GLenum target, GLsizeiptr size, const void* data, GLenum usage) {
+  (void)usage;
+  GLint buffer, vao, texture;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buffer);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+  failedTextBuffer = (GLuint)buffer;
+  failedTextVAO = (GLuint)vao;
+  failedTextTexture = (GLuint)texture;
+  realTextBufferData(target, size, data, GL_NONE);
+}
 
 static GLenum GLAPIENTRY failFontFramebuffer(GLenum target) {
   (void)target;
@@ -212,7 +233,11 @@ static void testTextPixels(void) {
   }
 
   glyphs[length] = '\0';
-  const char* strings[] = {"F3: FPS 123.4 | Chunks: 42/256 | Hidden: 0", "gjpqy _.,:;![]() ...", "First line\nSecond line", "", glyphs};
+  char longText[2048];
+  for (size_t i = 0; i < sizeof(longText) - 1; i++)
+    longText[i] = i % 48 == 47 ? '\n' : (char)('!' + i % 90);
+  longText[sizeof(longText) - 1] = '\0';
+  const char* strings[] = {"F3: FPS 123.4 | Chunks: 42/256 | Hidden: 0", "gjpqy _.,:;![]() ...", "First line\nSecond line", "", glyphs, longText};
   const float positions[][2] = {{8, 40}, {8.5f, 40.5f}, {-8, 80}, {630, 100}, {-800, 20}, {12, 478}, {12, -1}};
   for (size_t font = 0; font < sizeof(fonts) / sizeof(fonts[0]); font++) {
     state.font = fonts[font];
@@ -221,21 +246,24 @@ static void testTextPixels(void) {
       for (size_t position = 0; position < sizeof(positions) / sizeof(positions[0]); position++) {
         float x = positions[position][0], y = positions[position][1];
         CHECK(textWidth(&state, strings[string]) == glutBitmapLength(state.font, (const unsigned char*)strings[string]));
-        glClear(GL_COLOR_BUFFER_BIT);
-        float referenceX = x < 0 ? x + WIDTH - glutBitmapLength(state.font, (const unsigned char*)strings[string]) : x;
-        glRasterPos2f(referenceX, HEIGHT - y);
-        __real_glutBitmapString(state.font, (const unsigned char*)strings[string]);
-        glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, reference);
-        glClear(GL_COLOR_BUFFER_BIT);
-        __real_renderText(&state, strings[string], x, y);
-        glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, actual);
-        if (memcmp(reference, actual, BYTES)) {
-          if (position == 0) {
-            capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 0, reference);
-            capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 1, actual);
+        for (int repeat = 0; repeat < 2; repeat++) {
+          glColor4f(repeat ? 0.4f : 0.7f, 0.8f, 0.9f, repeat ? 0.6f : 1.0f);
+          glClear(GL_COLOR_BUFFER_BIT);
+          float referenceX = x < 0 ? x + WIDTH - glutBitmapLength(state.font, (const unsigned char*)strings[string]) : x;
+          glRasterPos2f(referenceX, HEIGHT - y);
+          __real_glutBitmapString(state.font, (const unsigned char*)strings[string]);
+          glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, reference);
+          glClear(GL_COLOR_BUFFER_BIT);
+          __real_renderText(&state, strings[string], x, y);
+          glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, actual);
+          if (memcmp(reference, actual, BYTES)) {
+            if (position == 0) {
+              capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 0, reference);
+              capture(WIDTH, HEIGHT, 100 + (int)font * 10 + (int)string, 1, actual);
+            }
+            fprintf(stderr, "Text pixels differ: font=%zu string=%zu position=%zu\n", font, string, position);
+            failures++;
           }
-          fprintf(stderr, "Text pixels differ: font=%zu string=%zu position=%zu\n", font, string, position);
-          failures++;
         }
       }
     }
@@ -245,6 +273,81 @@ static void testTextPixels(void) {
   glPopAttrib();
   free(reference);
   free(actual);
+}
+
+static void testTextReuse(void) {
+  static unsigned char before[640 * 480 * 3], after[sizeof(before)];
+  realTextSubData = __glewBufferSubData;
+  __glewBufferSubData = countTextUpload;
+  glPushAttrib(GL_ALL_ATTRIB_BITS);
+  glViewport(0, 0, 640, 480);
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glColor4f(1, 1, 1, 1);
+  glClearColor(0.1f, 0.2f, 0.3f, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+  TextState state;
+  beginText(&state);
+  __real_renderText(&state, "Repeated chat history", 8, 40);
+  glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, before);
+  textUploads = 0;
+  for (int frame = 0; frame < 20; frame++)
+    __real_renderText(&state, "Repeated chat history", 8, 40);
+  CHECK(textUploads == 0);
+  for (int label = 0; label < 100; label++) {
+    char text[40];
+    snprintf(text, sizeof(text), "Changed input %d", label);
+    __real_renderText(&state, text, 8, 40);
+  }
+  glClear(GL_COLOR_BUFFER_BIT);
+  __real_renderText(&state, "Repeated chat history", 8, 40);
+  glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, after);
+  CHECK(!memcmp(before, after, sizeof(before)));
+  endText(&state);
+  glPopAttrib();
+  __glewBufferSubData = realTextSubData;
+}
+
+static void testTextClientState(void) {
+  GLuint vao, buffer;
+  glGenVertexArrays(1, &vao);
+  glGenBuffers(1, &buffer);
+  glBindBuffer(GL_ARRAY_BUFFER, buffer);
+  float sentinel[32] = {0};
+  glBufferData(GL_ARRAY_BUFFER, sizeof(sentinel), sentinel, GL_STATIC_DRAW);
+  // Exercise both the default array state and a caller-owned VAO. Text must
+  // neither consume unrelated arrays nor leave pointers into its stack behind.
+  for (int nonDefault = 0; nonDefault < 2; nonDefault++) {
+    glBindVertexArray(nonDefault ? vao : 0);
+    glVertexPointer(3, GL_FLOAT, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glClientActiveTexture(GL_TEXTURE1);
+    glTexCoordPointer(2, GL_FLOAT, 5 * sizeof(float), NULL);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    TextState state;
+    beginText(&state);
+    __real_renderText(&state, "Chat", 8, 40);
+    endText(&state);
+    GLint actualVAO, actualBuffer, client, stride;
+    void* pointer;
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &actualVAO);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &actualBuffer);
+    glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE, &client);
+    glGetIntegerv(GL_VERTEX_ARRAY_STRIDE, &stride);
+    glGetPointerv(GL_VERTEX_ARRAY_POINTER, &pointer);
+    CHECK(actualVAO == (GLint)(nonDefault ? vao : 0) && actualBuffer == (GLint)buffer);
+    CHECK(client == GL_TEXTURE1 && glIsEnabled(GL_TEXTURE_COORD_ARRAY) && glIsEnabled(GL_VERTEX_ARRAY));
+    CHECK(stride == 5 * sizeof(float) && pointer == (void*)(2 * sizeof(float)));
+    CHECK(glGetError() == GL_NO_ERROR);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  }
+  glClientActiveTexture(GL_TEXTURE0);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glDeleteBuffers(1, &buffer);
+  glDeleteVertexArrays(1, &vao);
 }
 
 int main(int argc, char** argv) {
@@ -280,6 +383,8 @@ int main(int argc, char** argv) {
   glActiveTexture(GL_TEXTURE1);
   CHECK(HUDInit("kernelcraft", "HUD test"));
   testTextPixels();
+  testTextReuse();
+  testTextClientState();
   GLint activeBeforeDraw, textureBeforeDraw;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeBeforeDraw);
   CHECK(activeBeforeDraw == GL_TEXTURE1);
@@ -488,6 +593,10 @@ int main(int argc, char** argv) {
   appendChatCharacter(&chat, 'z');
   data.chat = &chat;
   chatLayout = true;
+  glViewport(0, 0, 24, 180);
+  labels = 0;
+  HUDDraw(0, &data);
+  CHECK(labels == 0); // No room even for an ellipsis in a top label.
   const int chatSizes[][2] = {{1920, 1080}, {640, 480}, {240, 320}, {192, 120}, {64, 64}, {1, 1}};
   for (size_t i = 0; i < sizeof(chatSizes) / sizeof(chatSizes[0]); i++) {
     glfwSetWindowSize(window, chatSizes[i][0], chatSizes[i][1]);
@@ -599,6 +708,13 @@ int main(int argc, char** argv) {
   CHECK(failedFontTexture && !glIsTexture(failedFontTexture));
   CHECK(failedFontFramebuffer && !glIsFramebuffer(failedFontFramebuffer));
   failTexture = NULL;
+  realTextBufferData = __glewBufferData;
+  __glewBufferData = failTextStorage;
+  CHECK(!HUDInit("kernelcraft", "failed text storage"));
+  __glewBufferData = realTextBufferData;
+  CHECK(failedTextBuffer && !glIsBuffer(failedTextBuffer));
+  CHECK(failedTextVAO && !glIsVertexArray(failedTextVAO));
+  CHECK(failedTextTexture && !glIsTexture(failedTextTexture));
   memset(iconTextures, 0, sizeof(iconTextures));
   CHECK(HUDInit("kernelcraft", "recovered material icons"));
   labels = 0;
