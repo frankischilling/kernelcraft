@@ -4,7 +4,7 @@
 
 Screenshot of currentish build 
 
-Textures by @redwynn
+Textures & Art direction by @redwynn
 
 ## Project Philosophy
 
