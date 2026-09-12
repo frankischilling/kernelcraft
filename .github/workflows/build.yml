@@ -2,7 +2,25 @@ name: Build and test
 
 on:
   push:
+    paths-ignore:
+      - 'README*'
+      - '*.md'
+      - '*.mdx'
+      - '*.markdown'
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.markdown'
+      - 'docs/**'
   pull_request:
+    paths-ignore:
+      - 'README*'
+      - '*.md'
+      - '*.mdx'
+      - '*.markdown'
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.markdown'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
