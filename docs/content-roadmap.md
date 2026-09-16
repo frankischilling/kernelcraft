@@ -37,7 +37,8 @@ explorable Cube World-inspired direction through coherent content sets.
 - [x] Oak planks: solid building block, initially in hotbar slot 5.
 - [ ] Stripped logs, bark blocks, and planks for the remaining wood families.
 - [ ] Leaves with defined cutout rendering, transparency sorting needs, and decay rules.
-  - [x] Opaque oak leaf cubes using the supplied artwork; cutout rendering and decay remain planned.
+  - [x] Cutout oak leaves using the supplied artwork, matching shadow gaps, and no item drop when broken.
+  - [ ] Leaf decay and translucent foliage with appropriate render ordering.
 - [ ] Saplings, roots, branches, and stumps, including growth and harvest behavior.
 - [ ] Tall grass, ferns, reeds, cattails, and dry shrubs.
 - [ ] Flowers in several shapes and colors; include garden planting and dye uses.

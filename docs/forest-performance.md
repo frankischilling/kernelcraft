@@ -1,5 +1,10 @@
 # Oak forests and chunk rendering
 
+The measurements below record the initial opaque-leaf implementation at
+`0cd9384`, with documentation at `94c8285`. The later cutout-leaf artwork exposes
+additional neighboring faces and adds alpha tests, and held items now include
+arms. Those changes are not part of these archived timing comparisons.
+
 The default horizontal chunk-center radius is now 12 chunks (192 blocks), up
 from 6 (96 blocks). `--render-distance N` accepts 1–16 chunks. The finite world
 still contains 256 resident chunks; this change does not add streaming or LOD.

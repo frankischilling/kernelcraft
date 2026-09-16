@@ -6,7 +6,8 @@ This folder also contains a PNG copy of every current texture for easy viewing.
 The PNGs have the same filenames and contents as `src/assets/textures/`.
 
 The game loads thirteen individual PNGs in `src/assets/textures/`. Keep these
-exports at 16 by 16 pixels, fully opaque RGBA, with their existing filenames.
+exports at 16 by 16 pixels in RGBA, with their existing filenames. Ordinary
+terrain tiles are opaque; `oak-leaves.png` uses binary alpha for cutout gaps.
 The renderer repeats them with nearest sampling; the hotbar uses the same
 material images. Keep the grass top, side, and terrain variants separate.
 After exporting a texture, update both its runtime PNG and the matching PNG
@@ -14,7 +15,10 @@ here so the viewable artwork stays current.
 
 The supplied oak exports are `oak-log-side.png`, `oak-log-top.png`, and
 `oak-leaves.png`. Logs use bark on four sides and end grain on both ends;
-leaves use their opaque tile on every face. Leafy ground uses the existing
+leaves use their cutout tile on every face. The current leaf export has 42
+transparent and 214 opaque pixels; terrain, items, shadows, and breaking cracks
+respect those gaps. Fractional-alpha foliage is not implemented.
+Leafy ground uses the existing
 `grass-top-leaves.png`. These exports do not require changes to the atlas or
 editable source files to load in game.
 

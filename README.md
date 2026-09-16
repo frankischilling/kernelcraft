@@ -76,7 +76,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with shaded 3D item icons.
   - E opens a 36-slot inventory with 2×2 crafting, armor/offhand slots, stack management, and an equipped-player preview. See [inventory controls and limits](docs/inventory.md).
   - Finite block stacks, collectible mined items, and Q/Ctrl-Q item drops.
-  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands. The empty main hand uses the supplied player skin.
+  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands, with visible skinned arms and sleeves while holding items.
   - F5 and clean-exit saves restore blocks, position, view, selected slot, inventory, equipment, crafting inputs, cursor items, and world drops.
 
 ## Getting Started
@@ -233,7 +233,8 @@ border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
 Breaking by hand takes 0.2 seconds for oak leaves, 0.5 for dirt, 0.75 for grass
 or leafy grass, 1 for oak planks, 1.5 for stone or oak logs, and 2 for
 cobblestone or stone bricks. A gold bar above the
-crosshair shows progress. Keep
+crosshair shows progress. Branching cracks spread and thicken across the target
+as breaking advances, then disappear on removal or cancellation. Keep
 aiming at the same block; releasing left mouse, losing or changing the target,
 or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
@@ -263,7 +264,9 @@ limit. See the movement checkpoint for collision boundaries and test coverage.
 New worlds include oak forests over the existing plains and hills heightmap.
 Trees have upright bark-covered logs, end grain, and layered leaf canopies.
 Leafy grass is much more common near trunks; harvesting it gives ordinary
-grass. Logs and leaves can be collected, held, placed, and saved. One log in
+grass. Logs can be collected, held, placed, and saved. Leaves use the updated
+cutout artwork and drop nothing when broken. Existing leaf items remain usable.
+One log in
 any otherwise empty 2×2 crafting square makes four oak planks. See
 [oak forests](docs/oak-forests.md) for generation and material behavior.
 
@@ -427,6 +430,7 @@ remaining progression are not implemented.
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
   - [x] Add cloud transparency and alpha blending with path-length opacity
   - [ ] Add transparent voxel materials with matching face visibility and render ordering
+    - [x] Render cutout oak leaves and matching shadows, preserving opaque neighbors behind gaps
   - [x] Add sky colors and drifting blocky clouds (implemented on this branch; PR #60)
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
   - [x] Add dynamic directional terrain shadows
@@ -603,7 +607,8 @@ remaining progression are not implemented.
   - [ ] Add screen effects such as damage flashes and underwater visuals
   - [ ] Implement block breaking and placement animations
     - [x] Animate held blocks through distinct breaking strike/recovery poses and successful main/offhand placement swings
-    - [ ] Add block-surface crack/break effects and placement impact effects
+    - [x] Add progressive block-surface cracks with cancellation and removal cleanup
+    - [ ] Add block-break particles and placement impact effects
   - [ ] Create item pickup and drop animations
   - [ ] Add status effect visuals for player buffs and debuffs
   - [ ] Implement environmental effects like fog and dynamic lighting

@@ -24,9 +24,9 @@ E opens the [inventory](inventory.md), which renders the same skin into a privat
 preview framebuffer. The preview follows the pointer without turning the world
 camera. Equipped leather pieces follow the same body joints in that preview
 and in third person. They use code-colored geometry while dedicated artwork is
-pending; the cap leaves the face visible. Equipment is stored in v5 saves and
-does not change collision dimensions. First-person held-item and armor sleeve
-models remain future work.
+pending; the cap leaves the face visible. Equipment is stored in supported
+inventory saves and does not change collision dimensions. First-person held
+items include the skin's arm and sleeve. Dedicated armor sleeves remain planned.
 
 ## Model and animation
 
@@ -51,12 +51,13 @@ aligned to the feet so rotated legs do not sink into the floor. Physics retains
 its existing one-block crouch collision and immediate posture changes; in a
 one-block passage the full-size visual model can intersect the surrounding blocks.
 
-Punches use a repeating 0.3-second visual cycle sampled from the existing
-`BlockBreaking.elapsed` value. They do not accumulate another gameplay timer.
+Punches use a repeating 0.3-second visual cycle sampled from
+`InputState.breakVisualElapsed`, separately from gameplay breaking progress.
 Progress travels from zero to one, with a forward strike and a lowered recovery
 that returns to rest. The third-person strike also turns the torso and shoulders.
-Resetting/cancelling the break returns the hand to rest, including release,
-changed slots, right-click, flight transitions, pause, and target/reach changes.
+Release, changed slots, right-click, flight transitions, and pauses return the
+hand to rest. While left mouse remains held, the visual cycle continues through
+target changes and block removal; surface cracks still follow gameplay progress.
 Held breaking still removes a block only when the original material duration
 has elapsed. Pauses clear gait and punch state without a resumed-frame jump.
 
@@ -99,9 +100,20 @@ The resting arm leaves aim clear. The strike sweeps inward toward the target,
 with the crosshair and breaking bar drawn over it by the HUD.
 
 Nonempty hands use the shared [3D item models](inventory.md#rendering-and-saves).
-First-person items have an independent depth attachment and are composited over
-the world. World and inventory-preview items follow the corresponding arm's
-joint transforms, including the root pose. The inventory portrait uses neutral
+First-person items and their right/left skinned arms share a private depth
+attachment before compositing over the world. One grip transform drives both
+the arm and item through walking, breaking, and placement, keeping them attached.
+Their depth never changes the world buffer. World and inventory-preview items
+follow the corresponding arm's joint transforms, including the root pose.
+
+![Held stone with its skinned right arm](held-block-arm.png)
+
+This native application fixture shows the current right-arm grip. The matching
+offhand uses the left-arm skin, while an empty main hand retains its separate
+bare-arm pose. Regression captures also cover intermediate breaking and
+placement poses, including the last consumed block in a stack.
+
+The inventory portrait uses neutral
 standing proportions, bounded mouse look, and studio lighting so its head and
 feet remain framed beside the armor slots while world simulation continues.
 Held blocks share the bare hand's asymmetric strike/recovery curve during
@@ -112,7 +124,7 @@ visually until the swing returns to rest.
 Both player passes draw filled geometry even when F4 makes the terrain wireframe,
 then restore the OpenGL state they changed. The skin uses its own texture/shader
 path; it does not add layers or materials to the terrain array. Existing cached
-terrain shadow rendering is unchanged. The player receives day/night directional
+terrain shadows use a separate pass. The player receives day/night directional
 and ambient lighting; dynamic player-cast terrain shadows are not part of this
 renderer.
 

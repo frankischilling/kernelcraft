@@ -35,19 +35,25 @@ the ground does not change.
 | Oak leaves | 8 | 12 | Supplied leaf tile on all faces | 0.2 s |
 | Leafy grass | 9 | Drops grass item 1 | Leafy top, grass sides, dirt underside | 0.75 s |
 
-The three oak PNGs are unchanged supplied 16×16 opaque RGBA exports in both
+The three oak PNGs are supplied 16×16 RGBA exports, kept identical in both
 `art/` and `src/assets/textures/`. Texture layers 10, 11, and 12 hold bark,
 end grain, and leaves. Explicit leafy ground uses existing layer 5. Original
 block IDs 0–6, item IDs 0–10, and texture layers 0–9 keep their meaning.
 
-Logs and leaves use ordinary solid-block selection, collision, meshing,
-shadows, breaking, drops, 999-item stacking, held models, and placement.
+Logs and leaves use solid-block selection and collision. Leaf alpha below 0.5
+discards both color and depth in terrain, item, and shadow rendering. Opaque
+neighbors retain their faces behind leaf gaps; adjoining leaf cubes share an
+outer shell. Leaf rectangles never act as filled software occluders.
+Logs drop their own item when broken. Leaves drop nothing, including when
+dropped-item storage is full. Existing leaf items retain their ID, 999-item
+stacking, held model, placement, and save support.
 Placed logs remain upright. Put one log in any otherwise empty 2×2 crafting
 grid square to make four oak planks. Output capacity is checked before
 consuming the log; shift-click makes only complete recipes that fit.
 
 The initial six hotbar stacks and leather equipment remain unchanged. Collect
-logs and leaves from the forest. Leafy grass drops ordinary grass, so no extra
+logs from the forest. Breaking leaves does not provide a harvestable item.
+Leafy grass drops ordinary grass, so no extra
 leafy-ground inventory item is exposed.
 
 ## Saves and remaining work
@@ -57,7 +63,8 @@ version. Versions 1–5 still load with their original block/item meanings. A
 loaded generator-1 world can be saved as format 6 without adding trees or
 changing its generator. See [the save format](world-persistence.md).
 
-Leaves are opaque solid cubes. Cutout/translucent leaves, decay, saplings,
+Leaves retain solid-cube collision while their artwork has cutout gaps.
+Translucent leaves, decay, saplings,
 growth, additional tree families, log orientation, tools, and tool-specific
 harvest behavior remain on the content roadmap. Increasing render distance
 does not add streaming, larger world bounds, or distant LOD.
@@ -76,3 +83,21 @@ persistence harness places tree blocks through registered input callbacks and
 checks their terrain, items, and counts after F5, clean exit, and restart.
 These are scripted hidden-window checks; they do not establish physical-input
 feel or long play-session behavior.
+
+The cutout and interaction follow-up passes both native Windows Release and
+Debug suites with MinGW GCC 13.2.0 and Intel UHD Graphics. Source-image probes
+check all 42 transparent and 214 opaque leaf texels, background depth, bark behind
+leaf gaps, and alpha-tested shadow depth. Callback tests confirm leaf removal
+with empty/full drop storage and preserve ordinary log drops. Held-arm checks
+sample 21 phases for breaking and each hand's placement at three framebuffer
+sizes; fractional sleeves are compared against independent alpha composites.
+Crack checks cover six faces, growing coverage, cancellation, removal, foreground
+occlusion, leaf gaps, and preserved depth. The repository CI repeats the CPU,
+sanitizer, and graphical suites with GCC/Clang on Linux; current run results are
+linked from PR #89.
+
+The native build-cache regression also passes all 22 cases with
+`powershell -NoProfile -ExecutionPolicy Bypass -File tests/test_build.ps1`.
+Its header-isolation case uses `world.h`; `chunk.h` is a real dependency of
+command-line render-distance validation and cannot serve as an unrelated-header
+control for `options.o`.

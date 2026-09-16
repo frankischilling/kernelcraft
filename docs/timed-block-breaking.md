@@ -16,8 +16,20 @@ the crosshair fills until the block disappears. Right mouse places once per pres
 | Leafy grass | 0.75 seconds |
 
 Walking, crouching, running, and debug flight use these same rates. Every current
-hotbar slot uses the hand rate, including empty slots. Suitable tools and crack
-textures remain planned.
+hotbar slot uses the hand rate, including empty slots. Suitable tools remain
+planned. Leaves drop nothing when broken; other materials retain their item drops.
+
+Branching surface cracks grow in coverage, width, and darkness as progress
+advances. They use a fixed procedural pattern attached to the target's exposed
+faces, so changing the viewed face does not reset damage. The leaf image masks
+cracks over transparent leaf pixels. Cracks disappear on cancellation, changed
+target/material, loss of reach, or removal. The same effect remains visible in
+wireframe; it writes no world depth and creates no mesh rebuild or buffer upload.
+
+![Progressive cracks during a held break](breaking-cracks.png)
+
+This native application capture uses F4 wireframe to show the crack pattern on
+the targeted block and the skinned arm attached to the held item.
 
 Releasing left mouse discards progress. Losing reach, looking away, aiming at a
 different cell, or observing a different material in the cell also restarts from
@@ -70,6 +82,9 @@ versions. Use `--no-save` or an explicit temporary `--world` path for checks.
   cancellation, empty-slot breaking, held progress across the actual frame loop,
   HUD pixels, completed edits, a non-rest held-item pose on the removal frame,
   and clean neighbor meshes after rendering.
+- `tests/block_crack_checks.h` and `tests/block_crack_live_checks.h`: growth
+  across six faces and live breaking frames, cutout masking, foreground
+  occlusion, stale-target cleanup, and preserved depth and caller GL state.
 - `tests/test_hud.c`: partial bar pixels, visibility while captured, responsive
   landscape/portrait layouts, crosshair and hotbar preservation, and GL state.
 - `tests/app_persistence.c`: a timed callback edit followed by F5, normal-exit

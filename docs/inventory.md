@@ -51,7 +51,8 @@ after capture is discarded.
 New worlds, and migrations from saves without an inventory, start with 999 of
 each existing material in hotbar slots 1–6: grass, dirt, stone, cobblestone,
 oak planks, and stone bricks. The first four storage slots contain a leather
-cap, tunic, pants, and boots. Logs and leaves are obtained from oak trees.
+cap, tunic, pants, and boots. Logs are obtained from oak trees; leaves drop
+nothing when broken. Existing saved leaf items remain valid and placeable.
 Existing v5/v6 inventories are loaded exactly;
 their contents are never refilled on restart.
 
@@ -71,7 +72,8 @@ remains on the content backlog. It follows the existing body joints; the cap
 leaves the face visible. Armor does not alter collision size or movement.
 Damage reduction is inactive because health and damage mechanics are still
 unimplemented. Selecting a block or equipment item displays its 3D model in the
-right hand; the offhand item appears on the left. An empty main hand displays
+right hand with its skinned arm and sleeve; an occupied offhand draws the left
+arm with that hand's separate skin regions. An empty main hand displays
 the supplied skin's bare arm. Held items follow walking and the existing punch
 cycle without changing block-breaking times. Breaking uses distinct strike and
 recovery poses instead of replaying the same held-block path backward.
@@ -86,8 +88,9 @@ the hand that supplied the block. The renderer keeps the consumed item visible
 through the swing when placement used the last item in that stack. Rejected
 placements do not start the animation.
 
-Completed hand breaking creates one item of the removed material; leafy grass
-gives an ordinary grass block. Logs and leaves each drop their own item. Dropped
+Completed hand breaking creates one item of the removed material except leaves,
+which drop nothing. Leafy grass gives an ordinary grass block, and logs drop
+their own item. Leaf removal never requires free dropped-item storage. Dropped
 blocks use textured 3D cubes; equipment uses shaped colored models with visible
 thickness. Gravity and voxel contact run at 120 Hz, with at most eight steps per
 frame. Nearby items are collected after a short delay, merging into carried
