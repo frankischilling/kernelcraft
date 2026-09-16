@@ -38,6 +38,22 @@ static bool saving(void) {
   return !strcmp(phase, "save") || !strcmp(phase, "crouch-save") || failing();
 }
 
+static bool standardScenario(void) {
+  const char* phase = getenv("KERNELCRAFT_TEST_RESTART");
+  return phase && (!strcmp(phase, "save") || !strcmp(phase, "load"));
+}
+
+static uint32_t read32(const unsigned char bytes[4]) {
+  return (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 | (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
+}
+
+static size_t activeDropCount(const DroppedItems* drops) {
+  size_t count = 0;
+  for (size_t i = 0; i < DROPPED_ITEM_CAPACITY; i++)
+    count += drops->items[i].active ? 1u : 0u;
+  return count;
+}
+
 static int id(Vec3i cell) {
   const Block* block = getBlock(&cell);
   CHECK(block);
@@ -122,7 +138,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(setBlock(&(Vec3i){0, 41, 4}, BLOCK_GRASS));
     input->camera->position.x = 0.5f;
     key(window, GLFW_KEY_4, 0, GLFW_PRESS, 0);
-    CHECK(selectedHotbarSlot() == 3 && selectedBlock() == BLOCK_COBBLESTONE);
+    CHECK(selectedHotbarSlot(input) == 3 && selectedBlock(input) == BLOCK_COBBLESTONE);
     mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(id(cobblestone) == BLOCK_COBBLESTONE);
     for (int material = 5; material <= 6; material++) {
@@ -130,7 +146,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       CHECK(setBlock(&(Vec3i){cell.x, cell.y, cell.z + 1}, BLOCK_GRASS));
       input->camera->position.x = cell.x + 0.5f;
       key(window, GLFW_KEY_1 + material - 1, 0, GLFW_PRESS, 0);
-      CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+      CHECK(selectedHotbarSlot(input) == material - 1 && selectedBlock(input) == material);
       mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
       CHECK(id(cell) == material);
       mouse(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
@@ -170,8 +186,45 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     CHECK(!input->player.crouched && !input->player.running && !input->runInput.tapPending);
     CHECK(!input->breakHeld && !input->breaking.active);
     CHECK(input->player.velocity.x == 0 && input->player.velocity.y == 0 && input->player.velocity.z == 0);
-    CHECK(input->camera->yaw == 90 && input->camera->pitch == (crouchScenario() ? -35 : 0) && selectedBlock() == BLOCK_AIR);
-    CHECK(selectedHotbarSlot() == 8);
+    CHECK(input->camera->yaw == 90 && input->camera->pitch == (crouchScenario() ? -35 : 0) && selectedBlock(input) == BLOCK_AIR);
+    CHECK(selectedHotbarSlot(input) == 8);
+    if (standardScenario()) {
+      CHECK(input->inventoryOpen && cursorMode == GLFW_CURSOR_NORMAL);
+      CHECK(input->inventory.carried[2].item == ITEM_STONE && input->inventory.carried[2].count == 499);
+      CHECK(!input->inventory.carried[3].count && input->inventory.offhand.item == ITEM_COBBLESTONE && input->inventory.offhand.count == 998);
+      CHECK(input->inventory.armor[INVENTORY_ARMOR_HEAD].item == ITEM_LEATHER_HELMET && input->inventory.armor[INVENTORY_ARMOR_HEAD].count == 1);
+      CHECK(input->inventory.armor[INVENTORY_ARMOR_CHEST].item == ITEM_LEATHER_CHESTPLATE && input->inventory.armor[INVENTORY_ARMOR_CHEST].count == 1);
+      CHECK(input->inventory.armor[INVENTORY_ARMOR_LEGS].item == ITEM_LEATHER_LEGGINGS && input->inventory.armor[INVENTORY_ARMOR_LEGS].count == 1);
+      CHECK(input->inventory.armor[INVENTORY_ARMOR_FEET].item == ITEM_LEATHER_BOOTS && input->inventory.armor[INVENTORY_ARMOR_FEET].count == 1);
+      for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++)
+        CHECK(input->inventory.crafting[slot].item == ITEM_STONE && input->inventory.crafting[slot].count == 1);
+      CHECK(input->inventory.cursor.item == ITEM_STONE && input->inventory.cursor.count == 495);
+      ItemStack result = inventoryCraftResult(&input->inventory);
+      CHECK(result.item == ITEM_STONE_BRICKS && result.count == 4);
+      CHECK(activeDropCount(&input->drops) == 3);
+      CHECK(input->drops.items[0].stack.item == ITEM_DIRT && input->drops.items[0].stack.count == 1 && input->drops.items[0].position.x == -0.5f &&
+            input->drops.items[0].position.y == 41.5f && input->drops.items[0].position.z == 2.5f);
+      CHECK(input->drops.items[1].stack.item == ITEM_OAK_PLANKS && input->drops.items[1].stack.count == 1 && input->drops.items[1].position.x == -1.5f &&
+            input->drops.items[1].position.y == 41.5f && input->drops.items[1].position.z == 3.5f);
+      CHECK(input->drops.items[2].stack.item == ITEM_STONE_BRICKS && input->drops.items[2].stack.count == 1 && input->drops.items[2].position.x == 1.5f &&
+            input->drops.items[2].position.y == 41.5f && input->drops.items[2].position.z == 3.5f);
+      CHECK(input->drops.items[0].pickupDelay == 0.5f && input->drops.items[0].velocity.x == 0 && input->drops.items[0].velocity.y == 0 && input->drops.items[0].velocity.z == 0);
+
+      Inventory persisted = input->inventory;
+      key(window, GLFW_KEY_E, 0, GLFW_PRESS, 0);
+      CHECK(!input->inventoryOpen && cursorMode == GLFW_CURSOR_DISABLED);
+      CHECK(!input->inventory.cursor.count && !inventoryCraftResult(&input->inventory).count);
+      for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++)
+        CHECK(!input->inventory.crafting[slot].count);
+      CHECK(input->inventory.carried[2].item == ITEM_STONE && input->inventory.carried[2].count == 998 && inventoryCountItem(&input->inventory, ITEM_STONE) == 998);
+      CHECK(input->inventory.offhand.item == ITEM_COBBLESTONE && input->inventory.offhand.count == 998 && activeDropCount(&input->drops) == 3);
+
+      // Keep the process-restart fixture byte-stable while still exercising the
+      // close/reclaim path above; a reopened inventory is the state that exits.
+      input->inventory = persisted;
+      key(window, GLFW_KEY_E, 0, GLFW_PRESS, 0);
+      CHECK(input->inventoryOpen && cursorMode == GLFW_CURSOR_NORMAL && inventoryCraftResult(&input->inventory).count == 4);
+    }
   }
 
   if (frame == 1 && saving()) {
@@ -184,10 +237,18 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       CHECK(!file && failureShown);
     } else {
       CHECK(file);
-      CHECK(fseek(file, 0, SEEK_END) == 0 && ftell(file) == 72 + 4194304);
-      unsigned char selection[4];
+      CHECK(fseek(file, 0, SEEK_END) == 0);
+      long fileBytes = ftell(file);
+      CHECK(fileBytes > 0);
+      unsigned char version[4], selection[4], extension[4], dropCount[4];
+      CHECK(fseek(file, 8, SEEK_SET) == 0 && fread(version, 1, 4, file) == 4 && read32(version) == 5);
       CHECK(fseek(file, 60, SEEK_SET) == 0 && fread(selection, 1, 4, file) == 4);
       CHECK(selection[0] == 6 && !selection[1] && !selection[2] && !selection[3]);
+      CHECK(fseek(file, 64, SEEK_SET) == 0 && fread(extension, 1, 4, file) == 4);
+      uint32_t extensionBytes = read32(extension);
+      CHECK(extensionBytes == 16 + INVENTORY_SERIALIZED_STACK_COUNT * 8 + 3 * 20);
+      CHECK(fileBytes == (long)(72 + WORLD_BLOCK_COUNT + extensionBytes));
+      CHECK(fseek(file, (long)(72 + WORLD_BLOCK_COUNT + 12), SEEK_SET) == 0 && fread(dropCount, 1, 4, file) == 4 && read32(dropCount) == 3);
       if (crouchScenario()) {
         float savedY;
         CHECK(fseek(file, 44, SEEK_SET) == 0 && fread(&savedY, sizeof(savedY), 1, file) == 1);
@@ -200,7 +261,25 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     // A second edit after F5 must be included by the normal-exit save.
     CHECK(setBlock(&exitEdit, BLOCK_DIRT));
     key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
-    CHECK(selectedHotbarSlot() == 8 && selectedBlock() == BLOCK_AIR);
+    CHECK(selectedHotbarSlot(input) == 8 && selectedBlock(input) == BLOCK_AIR);
+    if (standardScenario()) {
+      CHECK(input->inventory.carried[2].item == ITEM_STONE && input->inventory.carried[2].count == 998);
+      CHECK(input->inventory.carried[3].item == ITEM_COBBLESTONE && input->inventory.carried[3].count == 998);
+      CHECK(input->inventory.carried[4].item == ITEM_OAK_PLANKS && input->inventory.carried[4].count == 997);
+      CHECK(input->inventory.carried[5].item == ITEM_STONE_BRICKS && input->inventory.carried[5].count == 997);
+      CHECK(activeDropCount(&input->drops) == 3);
+      key(window, GLFW_KEY_E, 0, GLFW_PRESS, 0);
+      CHECK(input->inventoryOpen && cursorMode == GLFW_CURSOR_NORMAL);
+      for (int slot = 9; slot <= 12; slot++)
+        CHECK(inventoryShiftTransfer(&input->inventory, (InventorySlotRef){INVENTORY_SLOT_CARRIED, (uint8_t)slot}));
+      CHECK(inventorySwapSlots(&input->inventory, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 3}, (InventorySlotRef){INVENTORY_SLOT_OFFHAND, 0}));
+      CHECK(inventoryClick(&input->inventory, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 2}, true));
+      for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++)
+        CHECK(inventoryClick(&input->inventory, (InventorySlotRef){INVENTORY_SLOT_CRAFTING, (uint8_t)slot}, true));
+      ItemStack result = inventoryCraftResult(&input->inventory);
+      CHECK(result.item == ITEM_STONE_BRICKS && result.count == 4 && input->inventory.cursor.item == ITEM_STONE && input->inventory.cursor.count == 495);
+      CHECK(inventoryValidate(&input->inventory) && droppedItemsValid(&input->drops));
+    }
   }
 
   return frame >= 2;

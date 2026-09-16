@@ -15,8 +15,17 @@
 #include "../world/edit.h"
 #include "../world/save.h"
 #include "../world/chat.h"
+#include "../world/inventory.h"
+#include "../world/dropped_items.h"
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
+
+typedef struct {
+  bool pending;
+  int button;
+  size_t count;
+  InventorySlotRef slots[INVENTORY_DRAG_SLOT_MAX];
+} InventoryGesture;
 
 typedef struct {
   Camera* camera;
@@ -27,6 +36,17 @@ typedef struct {
   BlockBreaking breaking;
   PlayerModelAnimation animation;
   CameraView view;
+  Inventory inventory;
+  DroppedItems drops;
+  int selectedSlot;
+  bool inventoryOpen, inventoryResumeCapture;
+  double inventoryMouseX, inventoryMouseY;
+  int inventoryWidth, inventoryHeight;
+  InventoryGesture inventoryGesture;
+  double inventoryClickTime;
+  InventorySlotRef inventoryClickSlot;
+  bool inventoryClickValid;
+  const char* inventoryNotice;
   bool breakHeld;
   bool flying;
   bool jumpRequested;
@@ -56,7 +76,10 @@ void windowFocusCallback(GLFWwindow* window, int focused);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void characterCallback(GLFWwindow* window, unsigned int codepoint);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-int selectedBlock(void);
-int selectedHotbarSlot(void);
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+// Converts logical window coordinates to top-origin framebuffer pixels.
+bool inventoryPointer(GLFWwindow* window, const InputState* input, int* x, int* y);
+int selectedBlock(const InputState* input);
+int selectedHotbarSlot(const InputState* input);
 
 #endif

@@ -12,6 +12,7 @@
 #include "world_renderer.h"
 #include "../utils/raycast.h"
 #include "../world/chat.h"
+#include "../world/inventory.h"
 
 typedef struct {
   char text[64];
@@ -33,11 +34,16 @@ typedef struct {
   bool showDebug;
   bool wireframe;
   const Chat* chat;
+  const Inventory* inventory;
+  bool inventoryOpen;
+  const char* inventoryNotice;
 } DebugData;
 
 void HUDDraw(GLuint shaderProgram, DebugData* data);
 // Initialization and cleanup require the current rendering context.
 bool HUDInit(const char* buildName, const char* buildVersion);
 void HUDCleanup(void);
+// Borrowed handles, indexed by placeable item ID minus one; HUD owns them.
+void HUDItemTextures(GLuint textures[6]);
 
 #endif // HUD_H

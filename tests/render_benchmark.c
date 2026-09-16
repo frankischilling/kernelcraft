@@ -72,6 +72,7 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #include "cloud_render_checks.h"
 #include "occlusion_render_checks.h"
 #include "player_render_checks.h"
+#include "inventory_render_checks.h"
 #include "render_profile.h"
 
 static bool testWireframe(GLuint shader) {
@@ -914,6 +915,8 @@ int main(int argc, char** argv) {
     return 26;
   if (!testPlayerRendering(shader))
     return 28;
+  if (!testInventoryRendering())
+    return 29;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

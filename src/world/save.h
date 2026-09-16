@@ -1,6 +1,7 @@
 #ifndef SAVE_H
 #define SAVE_H
 
+#include "dropped_items.h"
 #include "../math/math.h"
 #include <stddef.h>
 
@@ -8,6 +9,8 @@ typedef struct {
   Vec3 feet;
   float yaw, pitch;
   int selectedSlot; // Zero-based hotbar slot, including empty slots.
+  Inventory inventory;
+  DroppedItems drops;
 } SavedPlayer;
 
 typedef enum { SAVE_OK, SAVE_NOT_FOUND, SAVE_INVALID, SAVE_UNSUPPORTED, SAVE_IO_ERROR, SAVE_NO_MEMORY } SaveResult;

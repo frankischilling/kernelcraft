@@ -170,12 +170,19 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     glVertex2f(x + slotWidth, 8 + barHeight);
     glVertex2f(x, 8 + barHeight);
     glEnd();
-    if (hotbarBlock(i) != BLOCK_AIR) {
+    ItemStack stack = data->inventory ? data->inventory->carried[i] : (ItemStack){0};
+    if (stack.count) {
       float iconX = x + (slotWidth - iconSize) / 2;
       float iconY = 8 + numbers.fontHeight + 8;
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, itemTextures[i]);
-      glColor3f(1, 1, 1);
+      int block = inventoryItemBlock(stack.item);
+      if (block) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, itemTextures[block - 1]);
+        glColor3f(1, 1, 1);
+      } else {
+        uint32_t color = inventoryItemColor(stack.item);
+        glColor3ub((GLubyte)(color >> 16), (GLubyte)(color >> 8), (GLubyte)color);
+      }
       glBegin(GL_QUADS);
       // PNG row zero is the top of the icon; the HUD uses bottom-origin quads.
       glTexCoord2f(0, 1);
@@ -188,6 +195,19 @@ static void DrawControls(const TextState* state, const DebugData* data) {
       glVertex2f(iconX, iconY + iconSize);
       glEnd();
       glDisable(GL_TEXTURE_2D);
+      if (!block) {
+        const char* labels[] = {"H", "C", "L", "B"};
+        int armor = inventoryItemArmorSlot(stack.item);
+        if (armor >= 0) {
+          glColor3f(1, 1, 1);
+          renderText(&numbers, labels[armor], iconX + (iconSize - textWidth(&numbers, labels[armor])) / 2, height - iconY - iconSize / 2 + numbers.fontHeight / 2);
+        }
+      }
+      if (stack.count > 1) {
+        char count[8];
+        snprintf(count, sizeof(count), "%u", (unsigned)stack.count);
+        drawLabel(&numbers, count, x + slotWidth - textWidth(&numbers, count) - 3, height - iconY - 2, slotWidth - 6);
+      }
     }
 
     char number[] = {(char)('1' + i), '\0'};
@@ -195,15 +215,15 @@ static void DrawControls(const TextState* state, const DebugData* data) {
   }
 
   float baseline = height - barHeight - 22;
-  const char* names[] = {"Empty", "Grass", "Dirt", "Stone", "Cobblestone", "Oak planks", "Stone bricks"};
-  const char* selectedName = names[hotbarBlock(data->selectedSlot)];
+  ItemStack selected = data->inventory && data->selectedSlot >= 0 && data->selectedSlot < HOTBAR_SLOT_COUNT ? data->inventory->carried[data->selectedSlot] : (ItemStack){0};
+  const char* selectedName = selected.count ? inventoryItemName(selected.item) : "Empty";
   if (baseline - state->fontHeight >= height * 0.5f + 14)
     drawLabel(state, selectedName, (width - textWidth(state, selectedName)) / 2, baseline, width - 16);
   if (data->chat && data->chat->count)
     return; // Chat history occupies the hint area above the hotbar.
   baseline -= state->fontHeight + 6;
   if (baseline - state->fontHeight >= height * 0.5f + 14) {
-    const char* hint = data->captured ? "Hold left: break | Right: place | Enter: chat" : "Esc: capture mouse | Enter: chat";
+    const char* hint = data->captured ? "E: inventory | Hold left: break | Right: place | Enter: chat" : "E: inventory | Esc: capture mouse | Enter: chat";
     drawLabel(state, hint, 8, baseline, width - 16);
   }
   baseline -= state->fontHeight + 6;
@@ -329,6 +349,8 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
   float baseline = 8 + state.fontHeight;
   if (data->saveStatus)
     drawTopLabel(&state, entrySave.text, &baseline);
+  if (data->inventoryNotice)
+    drawTopLabel(&state, data->inventoryNotice, &baseline);
   char mode[112];
   const char* status = data->modeBlocked ? "No safe walk position" : movementStatus(data);
   snprintf(mode, sizeof(mode), "%s | F3: %s | F4: wireframe %s", status, data->showDebug ? "hide debug" : "debug", data->wireframe ? "on" : "off");
@@ -348,7 +370,9 @@ void HUDDraw(GLuint shaderProgram, DebugData* data) {
       drawTopLabel(&state, entryLookingAtBlockCoords.text, &baseline);
   }
 
-  if (data->chat && data->chat->open)
+  if (data->inventoryOpen) {
+    // The inventory renderer draws the modal panel after this pass.
+  } else if (data->chat && data->chat->open)
     drawChat(&state, data->chat);
   else {
     DrawControls(&state, data);
@@ -389,6 +413,11 @@ void HUDCleanup(void) {
   cleanupText();
   glDeleteTextures(HOTBAR_SLOT_COUNT, itemTextures);
   memset(itemTextures, 0, sizeof(itemTextures));
+}
+
+void HUDItemTextures(GLuint textures[6]) {
+  if (textures)
+    memcpy(textures, itemTextures, 6 * sizeof(*textures));
 }
 
 bool HUDInit(const char* buildName, const char* buildVersion) {

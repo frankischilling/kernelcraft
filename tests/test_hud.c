@@ -15,6 +15,8 @@ static bool sawSaveFailure, sawModeBlocked, sawFPS, sawDebugHint;
 static const char* expectedMovement;
 static bool sawMovement, sawMaterial;
 static const char* expectedMaterial;
+static const char* expectedCount;
+static bool sawCount;
 static const char* expectedWireframe;
 static bool sawWireframe;
 static bool chatLayout, sawChatPrompt, sawChatMessage, sawChatTail;
@@ -103,6 +105,7 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   sawFPS |= strstr(text, "FPS:") != NULL;
   sawDebugHint |= strstr(text, "F3:") != NULL;
   sawMaterial |= expectedMaterial && !strcmp(text, expectedMaterial);
+  sawCount |= expectedCount && !strcmp(text, expectedCount);
   sawMovement |= expectedMovement && strstr(text, expectedMovement) != NULL;
   sawWireframe |= expectedWireframe && strstr(text, expectedWireframe) != NULL;
   sawChatPrompt |= strncmp(text, "> ", 2) == 0;
@@ -127,14 +130,6 @@ void __wrap_renderText(const TextState* state, const char* text, float x, float 
   }
   if (text[0] >= '1' && text[0] <= '9' && (text[1] == ' ' || text[1] == '\0'))
     materialX[text[0] - '1'] = x + glutBitmapWidth(state->font, text[0]) * 0.5f;
-  if (text[0] >= '1' && text[0] <= '6' && text[1] == '\0') {
-    GLint texture;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
-    int slot = text[0] - '1';
-    CHECK(texture && glIsTexture((GLuint)texture));
-    CHECK(!iconTextures[slot] || iconTextures[slot] == (GLuint)texture);
-    iconTextures[slot] = (GLuint)texture;
-  }
 
   int width = glutBitmapLength(state->font, (const unsigned char*)text);
   float top = y - state->fontHeight, bottom = y + 4;
@@ -366,8 +361,14 @@ int main(int argc, char** argv) {
 
   Camera camera;
   initCamera(&camera);
+  Inventory inventory;
+  inventoryInit(&inventory);
+  // Single items leave the complete icon visible for the existing PNG goldens.
+  for (int slot = 0; slot < 6; slot++)
+    inventory.carried[slot].count = 1;
   RenderResult stats = {.submittedQuads = 100000, .submittedTriangles = 200000};
   DebugData data = {.camera = &camera,
+                    .inventory = &inventory,
                     .fps = 60,
                     .selectedSlot = 0,
                     .captured = true,
@@ -382,6 +383,7 @@ int main(int argc, char** argv) {
   glBindTexture(GL_TEXTURE_2D, sentinel);
   glActiveTexture(GL_TEXTURE1);
   CHECK(HUDInit("kernelcraft", "HUD test"));
+  HUDItemTextures(iconTextures);
   testTextPixels();
   testTextReuse();
   testTextClientState();
@@ -568,7 +570,37 @@ int main(int argc, char** argv) {
       CHECK(modeBaseline == 2 * glutBitmapHeight(GLUT_BITMAP_HELVETICA_18) + 12);
   }
 
-  const char* names[] = {"Cobblestone", "Oak planks", "Stone bricks"};
+  CHECK(inventorySwapSlots(&inventory, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 0}, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 5}));
+  labels = 0;
+  sawMaterial = false;
+  expectedMaterial = "Stone Bricks";
+  data.selectedSlot = 0;
+  glClear(GL_COLOR_BUFFER_BIT);
+  HUDDraw(0, &data);
+  CHECK(sawMaterial);
+  unsigned char movedIcons[640 * 480 * 3];
+  glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, movedIcons);
+  CHECK(hasIcon(movedIcons, 640, 480, 0, reference[5]));
+  CHECK(hasIcon(movedIcons, 640, 480, 5, reference[0]));
+  inventory.carried[0].count = 999;
+  expectedCount = "999";
+  sawCount = false;
+  labels = 0;
+  HUDDraw(0, &data);
+  CHECK(sawCount);
+  expectedCount = NULL;
+  inventory.carried[6] = (ItemStack){ITEM_LEATHER_HELMET, 1};
+  expectedMaterial = "Leather Cap";
+  sawMaterial = false;
+  data.selectedSlot = 6;
+  labels = 0;
+  HUDDraw(0, &data);
+  CHECK(sawMaterial);
+  inventoryInit(&inventory);
+  for (int slot = 0; slot < 6; slot++)
+    inventory.carried[slot].count = 1;
+
+  const char* names[] = {"Cobblestone", "Oak Planks", "Stone Bricks"};
   for (int material = 0; material < 3; material++) {
     labels = 0;
     sawMaterial = false;
@@ -717,6 +749,7 @@ int main(int argc, char** argv) {
   CHECK(failedTextTexture && !glIsTexture(failedTextTexture));
   memset(iconTextures, 0, sizeof(iconTextures));
   CHECK(HUDInit("kernelcraft", "recovered material icons"));
+  HUDItemTextures(iconTextures);
   labels = 0;
   HUDDraw(0, &data);
   HUDCleanup();

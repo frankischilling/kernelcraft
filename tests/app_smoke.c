@@ -145,8 +145,8 @@ static void testIconifiedInput(GLFWwindow* window) {
   camera->pitch = 0;
   updateCameraVectors(camera);
   Vec3 position = camera->position;
-  int material = selectedBlock();
-  int slot = selectedHotbarSlot();
+  int material = selectedBlock(input);
+  int slot = selectedHotbarSlot(input);
   bool debug = input->showDebug;
   // Retain focus and framebuffer dimensions to isolate iconification from
   // platform-dependent resize/focus callback ordering.
@@ -156,7 +156,7 @@ static void testIconifiedInput(GLFWwindow* window) {
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   CHECK(cursorMode == GLFW_CURSOR_DISABLED);
   key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
-  CHECK(selectedBlock() == material && selectedHotbarSlot() == slot);
+  CHECK(selectedBlock(input) == material && selectedHotbarSlot(input) == slot);
   key(window, GLFW_KEY_F5, 0, GLFW_PRESS, 0);
   CHECK(!input->saveRequested);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
@@ -224,7 +224,7 @@ static void testWireframeInput(GLFWwindow* window) {
   CHECK(!input->wireframe);
   Camera camera = *input->camera;
   Player player = input->player;
-  int slot = selectedHotbarSlot();
+  int slot = selectedHotbarSlot(input);
   keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
   CHECK(input->wireframe);
   keyCallback(window, GLFW_KEY_F4, 0, GLFW_REPEAT, 0);
@@ -249,7 +249,7 @@ static void testWireframeInput(GLFWwindow* window) {
   setCursorCaptured(window, true);
   CHECK(input->wireframe);
   keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
-  CHECK(!input->wireframe && !input->saveRequested && selectedHotbarSlot() == slot);
+  CHECK(!input->wireframe && !input->saveRequested && selectedHotbarSlot(input) == slot);
   CHECK(input->camera->position.x == camera.position.x && input->camera->position.y == camera.position.y && input->camera->position.z == camera.position.z);
   CHECK(input->player.position.x == player.position.x && input->player.position.y == player.position.y && input->player.position.z == player.position.z);
   bool flying = input->flying;
@@ -520,7 +520,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   InputState saved = *input;
   Camera camera = *input->camera;
-  int slot = selectedHotbarSlot();
+  int slot = selectedHotbarSlot(input);
   Vec3i target = {50, 41, 53};
   CHECK(setBlock(&(Vec3i){50, 39, 50}, BLOCK_STONE));
   for (int y = 40; y <= 42; y++)
@@ -549,7 +549,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
       iconified = reason == 3;
       zeroFramebuffer = reason == 4;
       if (reason == 5)
-        keyCallback(window, selectedHotbarSlot() == 8 ? GLFW_KEY_1 : GLFW_KEY_9, 0, GLFW_PRESS, 0);
+        keyCallback(window, selectedHotbarSlot(input) == 8 ? GLFW_KEY_1 : GLFW_KEY_9, 0, GLFW_PRESS, 0);
       if (reason == 6)
         mouseButtonCallback(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
       if (reason == 7)
@@ -593,9 +593,9 @@ static void testEditing(GLFWwindow* window) {
   for (int number = GLFW_KEY_4; number <= GLFW_KEY_6; number++) {
     int material = number - GLFW_KEY_1 + 1;
     key(window, number, 0, GLFW_PRESS, 0);
-    CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+    CHECK(selectedHotbarSlot(input) == material - 1 && selectedBlock(input) == material);
     key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
-    CHECK(selectedHotbarSlot() == material - 1 && selectedBlock() == material);
+    CHECK(selectedHotbarSlot(input) == material - 1 && selectedBlock(input) == material);
     click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(getBlock(&placement)->id == material);
     click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
@@ -607,10 +607,10 @@ static void testEditing(GLFWwindow* window) {
 
   for (int number = GLFW_KEY_7; number <= GLFW_KEY_9; number++) {
     key(window, number, 0, GLFW_PRESS, 0);
-    CHECK(selectedBlock() == BLOCK_AIR);
-    CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);
+    CHECK(selectedBlock(input) == BLOCK_AIR);
+    CHECK(selectedHotbarSlot(input) == number - GLFW_KEY_1);
     key(window, GLFW_KEY_1, 0, GLFW_REPEAT, 0);
-    CHECK(selectedHotbarSlot() == number - GLFW_KEY_1);
+    CHECK(selectedHotbarSlot(input) == number - GLFW_KEY_1);
     click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
     CHECK(getBlock(&placement)->id == BLOCK_AIR);
   }
@@ -620,9 +620,9 @@ static void testEditing(GLFWwindow* window) {
   CHECK(getBlock(&target)->id == BLOCK_AIR);
   CHECK(setBlock(&target, BLOCK_STONE));
   key(window, GLFW_KEY_2, 0, GLFW_PRESS, 0);
-  CHECK(selectedBlock() == BLOCK_DIRT);
+  CHECK(selectedBlock(input) == BLOCK_DIRT);
   key(window, GLFW_KEY_3, 0, GLFW_REPEAT, 0);
-  CHECK(selectedBlock() == BLOCK_DIRT);
+  CHECK(selectedBlock(input) == BLOCK_DIRT);
   click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_RELEASE, 0);
   CHECK(getBlock(&placement)->id == BLOCK_AIR);
   click(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
@@ -635,7 +635,7 @@ static void testEditing(GLFWwindow* window) {
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
   key(window, GLFW_KEY_9, 0, GLFW_PRESS, 0);
-  CHECK(getBlock(&target)->id == BLOCK_STONE && selectedBlock() == BLOCK_DIRT && selectedHotbarSlot() == 1);
+  CHECK(getBlock(&target)->id == BLOCK_STONE && selectedBlock(input) == BLOCK_DIRT && selectedHotbarSlot(input) == 1);
   key(window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
   focused = GLFW_FALSE;
   click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
@@ -906,6 +906,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 #include "chat_input_checks.h"
 #include "player_input_checks.h"
 #include "player_live_checks.h"
+#include "inventory_input_checks.h"
 
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
@@ -920,6 +921,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     testWalkingControls(window);
     testBreakingCancellation(window);
     testEditing(window);
+    testInventoryInput(window);
     InputState* input = glfwGetWindowUserPointer(window);
     Camera* camera = input->camera;
     camera->position.x = -0.5f;
@@ -1020,7 +1022,9 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   }
   if (frame >= 93 && frame < 102)
     playerViewFrame(window);
-  return frame >= 102;
+  if (frame >= 102 && frame < 111)
+    inventoryLiveFrame(window);
+  return frame >= 111;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1055,14 +1059,25 @@ int __wrap_glfwGetKey(GLFWwindow* window, int key) {
 }
 
 void __wrap_glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height) {
-  (void)window;
+  if (frame >= 102) {
+    extern void __real_glfwGetFramebufferSize(GLFWwindow*, int*, int*);
+    __real_glfwGetFramebufferSize(window, width, height);
+    return;
+  }
   int index = frame < 0 ? 0 : frame > 3 ? 3 : frame;
   *width = zeroFramebuffer ? 0 : sizes[index][0];
   *height = zeroFramebuffer ? 0 : sizes[index][1];
 }
 
 void __wrap_glfwWaitEvents(void) {
-  CHECK(frame == 2 || frame == 47);
+  CHECK(frame == 2 || frame == 47 || frame == 108);
+  if (frame == 108) {
+    InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
+    CHECK(input->inventoryOpen && input->simulationSteps == 0 && !input->inventoryGesture.pending);
+    CHECK(input->clock.tick == inventoryPausedTick);
+    waits++;
+    return;
+  }
   GLFWkeyfun key = glfwSetKeyCallback(glfwGetCurrentContext(), NULL);
   glfwSetKeyCallback(glfwGetCurrentContext(), key);
   key(glfwGetCurrentContext(), GLFW_KEY_3, 0, GLFW_PRESS, 0);
@@ -1073,7 +1088,7 @@ void __wrap_glfwWaitEvents(void) {
   bool wireframe = input->wireframe;
   key(glfwGetCurrentContext(), GLFW_KEY_F4, 0, GLFW_PRESS, 0);
   CHECK(input->wireframe == wireframe);
-  CHECK(selectedBlock() == BLOCK_GRASS);
+  CHECK(selectedBlock(input) == BLOCK_GRASS);
   waits++;
 }
 
@@ -1085,7 +1100,7 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
   // Sample an unobstructed background separately: the production sky is now
   // submitted after terrain. Keep the wireframe and lighting coverage probes
   // independent of the terrain they are meant to check.
-  bool probe = frame < 4 || frame == 60 || frame >= 70;
+  bool probe = frame < 4 || frame == 60 || (frame >= 70 && frame < 102);
   GLuint framebuffer = 0, texture = 0;
   GLint drawFramebuffer = 0, readFramebuffer = 0, binding = 0;
   if (probe) {
@@ -1123,12 +1138,12 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
   if (frame >= 78 && frame <= 81)
     CHECK(fabsf(state->sunDirection.y - 0.30901699f) < 0.00001f);
   if (frame < 4) {
-    glReadPixels(sizes[frame][0] / 2 + 16, sizes[frame][1] / 2 + 16, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyProbe);
+    glReadPixels(sizes[frame][0] / 2 + 64, sizes[frame][1] / 2 + 16, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyProbe);
     CHECK(skyProbe[0] || skyProbe[1] || skyProbe[2]);
   }
   if (frame == 60)
     glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, skyTint);
-  if (frame >= 70)
+  if (frame >= 70 && frame < 102)
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
   if (frame == 84)
     glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, cloudSky);
@@ -1153,7 +1168,8 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
 
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
-  checkPlayerRenderedFrame(input);
+  if (!input->inventoryOpen)
+    checkPlayerRenderedFrame(input);
   CHECK(data->showDebug == input->showDebug);
   CHECK(data->wireframe == input->wireframe);
   CHECK(data->crouched == input->player.crouched && data->running == input->player.running);
@@ -1201,6 +1217,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
 
   __real_HUDDraw(program, data);
   CHECK(data->chat == &input->chat);
+  CHECK(data->inventory == &input->inventory && data->inventoryOpen == input->inventoryOpen);
 }
 
 static void captureFrame(int width, int height, const unsigned char* pixels) {
@@ -1221,6 +1238,23 @@ static void captureFrame(int width, int height, const unsigned char* pixels) {
 void __real_glfwSwapBuffers(GLFWwindow* window);
 
 void __wrap_glfwSwapBuffers(GLFWwindow* window) {
+  if (frame >= 102) {
+    checkInventoryLiveFrame(window);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    if (getenv("KERNELCRAFT_TEST_CAPTURE")) {
+      unsigned char* pixels = malloc((size_t)width * height * 3);
+      CHECK(pixels);
+      glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+      captureFrame(width, height, pixels);
+      free(pixels);
+    }
+    CHECK(glGetError() == GL_NO_ERROR);
+    swaps++;
+    __real_glfwSwapBuffers(window);
+    return;
+  }
   if (frame >= 84) {
     CHECK(glGetError() == GL_NO_ERROR);
     if (frame >= 85 && getenv("KERNELCRAFT_TEST_CAPTURE")) {
@@ -1338,7 +1372,9 @@ void __wrap_glfwSwapBuffers(GLFWwindow* window) {
   if (pixel[0] <= 240 || pixel[1] <= 240 || pixel[2] <= 240)
     fprintf(stderr, "Frame %d crosshair pixel: %u %u %u\n", frame, pixel[0], pixel[1], pixel[2]);
   CHECK(pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240);
-  glReadPixels(sizes[frame][0] / 2 + 16, sizes[frame][1] / 2 + 16, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+  // The mined sprite occupies the old center-adjacent sample. Check open sky
+  // to its right, below the clouds and above the first-person hand.
+  glReadPixels(sizes[frame][0] / 2 + 64, sizes[frame][1] / 2 + 16, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
   CHECK(!getChunk(&(Vec2i){7, 8})->dirty);
   int width = sizes[frame][0], height = sizes[frame][1];
   unsigned char* pixels = malloc((size_t)width * height * 3);
@@ -1373,7 +1409,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 100 && waits == 2);
+    CHECK(swaps == 108 && waits == 3);
+    puts("Application inventory/player preview, equipment, crafting, portrait resize and pause checks passed");
     puts("Application player skin, camera views, movement poses, timed punches, foreground hand and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");
     puts("Application cloud layer pixels checked through the live game loop");

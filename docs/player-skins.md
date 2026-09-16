@@ -11,7 +11,7 @@ limit its distance near terrain. When less than 0.8 blocks remain, that frame
 uses first-person rendering. This does not change the selected camera mode.
 The selected third-person camera keeps the standing-height anchor while crouched;
 only the first-person eye moves down to the crouched eye height.
-F6 ignores repeats, chat entry, inactive/minimized windows, and zero framebuffer
+F6 ignores repeats, chat or inventory entry, inactive/minimized windows, and zero framebuffer
 sizes. The chosen mode survives pauses and resets to first person on restart.
 
 The original eye camera still controls movement, aiming, block selection,
@@ -19,6 +19,14 @@ placement, breaking, and the saved yaw/pitch. Third-person front view is an
 inspection view: editing still follows the player's aim, away from that display
 camera. The model and display camera do not change collision dimensions, standing
 or crouched eye heights, reach, block-breaking durations, or save formats.
+
+E opens the [inventory](inventory.md), which renders the same skin into a private
+preview framebuffer. The preview follows the pointer without turning the world
+camera. Equipped leather pieces follow the same body joints in that preview
+and in third person. They use code-colored geometry while dedicated artwork is
+pending; the cap leaves the face visible. Equipment is stored in v5 saves and
+does not change collision dimensions. First-person held-item and armor sleeve
+models remain future work.
 
 ## Model and animation
 
@@ -113,8 +121,8 @@ camera obstruction, view controls, movement poses, and unchanged timed block
 removal. Live hand captures compare depth bytes before and after the pass and
 check the resting aim region at portrait and landscape sizes. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
-disposable package. Persistence tests retain their existing save formats and
-two-process restart checks.
+disposable package. Persistence tests retain legacy v1–v4 compatibility and
+exercise v5 inventory/equipment state through two-process restart checks.
 
 For interactive review, start a temporary session with `--no-save`, cycle F6,
 walk/run/crouch/jump, hold and release breaking, and move the camera near walls.

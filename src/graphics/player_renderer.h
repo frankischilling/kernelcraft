@@ -32,8 +32,17 @@ typedef struct {
   GLint outerLayerLocation;
   GLint outerPassLocation;
   GLint skinLocation;
+  GLint solidColorEnabledLocation;
+  GLint solidColorLocation;
   bool fractionalAlpha;
 } PlayerRenderer;
+
+typedef struct {
+  bool helmet;
+  bool chestplate;
+  bool leggings;
+  bool boots;
+} PlayerEquipmentVisuals;
 
 // Initializes a renderer from one exact 64x64 RGBA skin. The skin uses source
 // PNG coordinates with a top-left origin and is sampled nearest/clamped.
@@ -43,6 +52,12 @@ void cleanupPlayerRenderer(PlayerRenderer* renderer);
 // Draw the six-part avatar in world space. Caller supplies the same view and
 // projection used for terrain; the pass preserves every OpenGL state it changes.
 void renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const Mat4 view, const Mat4 projection, const DayNightState* daylight);
+
+// Draw code-defined armor primitives over the skinned world model. The armor
+// follows the same posed joints and lighting while keeping skin geometry/assets
+// unchanged. Call after renderPlayerModel so the inflated pieces sit above it.
+void renderPlayerEquipment(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const PlayerEquipmentVisuals* equipment, const Mat4 view, const Mat4 projection,
+                           const DayNightState* daylight);
 
 // Draw the skin's right arm as a camera-space first-person view model. This pass
 // never reads or writes the world depth buffer, leaving selection/raycast depth

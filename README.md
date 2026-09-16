@@ -28,6 +28,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **camera.c**: Manages camera movement and orientation.
     - **player_renderer.c**: Draws the skinned player body and first-person arm through a separate texture and shader.
     - **hud.c**: Draws gameplay status, a responsive hotbar, and F3 diagnostics.
+    - **inventory_ui.c**: Draws inventory, crafting, tooltips, and a live equipped-player preview.
     - **shader.c**: Handles shader loading and compilation.
     - **frustum.c**: Implements frustum culling for optimization.
     - **texture.c**: Implements texture loading and binding.
@@ -42,6 +43,8 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
     - **player_model.c**: Skin UV layout, articulated body parts, movement poses, and timed hand animation.
     - **save.c**: Validated, versioned chunk and player snapshots with safe file replacement.
+    - **inventory.c**: Stack ownership, equipment slots, transfers, and atomic 2×2 crafting.
+    - **dropped_items.c**: Bounded item drops, voxel contact, and capacity-aware pickup.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
     - **text.c**: Utility functions for rendering text.
@@ -71,7 +74,9 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Mouse input for looking around.
   - Enter opens local chat with `/time set day`, `/time set night`, numeric time commands, and `/moon set` phase previews.
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
-  - F5 and clean-exit saves; restarting restores edited blocks, player position, view, and selected hotbar slot.
+  - E opens a 36-slot inventory with 2×2 crafting, armor/offhand slots, stack management, and an equipped-player preview. See [inventory controls and limits](docs/inventory.md).
+  - Finite block stacks, collectible mined items, and Q/Ctrl-Q item drops.
+  - F5 and clean-exit saves restore blocks, position, view, selected slot, inventory, equipment, crafting inputs, cursor items, and world drops.
 
 ## Getting Started
 
@@ -121,7 +126,7 @@ Concurrent builds should use different configurations or separate checkouts.
 ### Checks and current status
 
 ```sh
-make test              # CPU world, mesh, edit, DDA, player, seed, save, and CLI checks; no graphics dependencies
+make test              # CPU world, movement, inventory, crafting, drops, saves, and CLI checks; no graphics dependencies
 make test-sanitize     # CPU checks with AddressSanitizer and UBSan
 sudo apt-get install clang xvfb xauth
 make test-build        # Real incremental/configuration builds in a temporary copy
@@ -202,15 +207,24 @@ status remains visible with diagnostics hidden. Below 192 pixels wide or 120
 high, the hotbar is hidden; control hints also disappear when space is too short.
 This does not establish physical high-DPI scaling behavior.
 
-Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
+E opens the inventory. Left/right click moves or splits stacks; drag distributes
+items, Shift-click transfers or equips, and number keys swap with hotbar slots.
+The four-square recipe turns four stone into four stone bricks. E or Escape
+returns crafting/cursor items to storage, dropping any overflow. The equipped
+player preview follows the pointer. [Inventory controls](docs/inventory.md)
+describe offhand exchange, armor, drops, and full-storage behavior.
+
+Outside inventory, Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
 press Escape after returning to resume. Minimized windows pause rendering and
 input even if their framebuffer size stays positive. Zero-size framebuffers
 also pause. The first mouse sample after capture or an observed pause is
 discarded to avoid a turn jump. Hold left mouse to break
 the target; right click places on its face. Keys 1–9 select the corresponding
-hotbar slot. Slots 1–6 contain grass, dirt, stone, cobblestone, oak planks, and
-stone bricks as flat texture icons; slots 7–9 are empty. Empty slots can break
-blocks but cannot place them. A gold
+hotbar slot; the mouse wheel cycles them. New inventories have 999 grass, dirt,
+stone, cobblestone, oak planks, and stone bricks in slots 1–6; slots 7–9 start
+empty. Contents and counts change through crafting, transfers, pickup, and
+placement. Empty slots can break blocks; placement can use the offhand when
+the selected slot has no placeable block. A gold
 border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
 Breaking by hand takes 0.5 seconds for dirt, 0.75 for grass, 1 for oak planks,
 1.5 for stone, and 2 for cobblestone or stone bricks. A gold bar above the
@@ -223,7 +237,7 @@ Holding through completion starts the next target from zero; excess time never
 carries over. Tools and their speed modifiers remain planned. See
 [timed hand breaking](docs/timed-block-breaking.md) for timing and checks.
 
-Each right press places once within six world units; breaking uses the same
+Each right press places once and consumes one item within six world units; breaking uses the same
 reach. A gold outline marks the
 selected block, including visible edges touching the floor or neighboring blocks. A faint gold tint marks the targeted face, keeping selection
 visible under low ceilings when the outline is off-screen. See the
@@ -281,10 +295,10 @@ without replacing the file. `--no-save` makes a temporary session (optionally
 with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
-Versions 1-3 still load, preserving their selected material or hotbar slot.
-New saves use version 4, which adds oak planks and stone bricks while retaining
-all nine selected slots. Older builds cannot reopen version 4 saves. Existing
-worlds retain their terrain; the new materials are available from the hotbar.
+Versions 1–4 still load, preserving terrain and the selected material or hotbar
+slot while supplying the starter inventory. New saves use version 5, adding all
+owned item stacks and dropped items. Pending cursor/crafting items reopen the
+inventory on restart. Older builds cannot reopen version 5 saves.
 See [building materials and compatibility](docs/building-materials.md).
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
@@ -297,8 +311,10 @@ power-loss durability is not guaranteed. See the [format and validation record](
 The [block, building, and item design backlog](docs/content-roadmap.md) expands
 the planned content into terrain materials, wood and masonry sets, shaped
 building pieces, decorations, workstations, tools, weapons, armor, and supplies.
-Those checklists describe future content; the game currently has grass, dirt,
-and stone. Pickaxes, axes, swords, and the other listed items are not implemented.
+Those checklists describe future content. Current materials are grass, dirt,
+stone, cobblestone, oak planks, and stone bricks, with a starter leather armor
+set and one 2×2 recipe. Pickaxes, axes, swords, armor damage reduction, and the
+remaining progression are not implemented.
 
 ### Phase 1: Core Engine Development
 - **Basic Rendering**:
@@ -490,11 +506,12 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
 
 ### Phase 3: Gameplay Features
 - **World Interaction**:
-  - [ ] Add inventory system
-  - [ ] Support item stacks with a maximum of 999 items per stack
-  - [ ] Add item management: move, split, and merge stacks between inventory and hotbar slots
-  - [ ] Implement crafting system
-  - [ ] Create a basic UI system for inventory and crafting
+  - [x] Add inventory system with 36 carried slots, four armor slots, and offhand storage
+  - [x] Support item stacks with a maximum of 999 items per stack; equipment is nonstackable
+  - [x] Add item management: move, split, merge, quick-transfer, gather, and distribute stacks
+  - [x] Implement 2×2 crafting with atomic output and a stone-brick recipe
+  - [ ] Add a 3×3 crafting table, recipe book, and recipes for future item progression
+  - [x] Create inventory/crafting UI with a live equipped-player preview
   - [ ] Add health mechanics
   - [ ] Add hunger mechanics with food depletion and recovery
   - [ ] Add thirst mechanics with water depletion and recovery
@@ -505,8 +522,9 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Show a health bar
   - [ ] Add damage from mobs, falls, and other environmental hazards
   - [ ] Add player death, respawn, and bed or checkpoint spawn rules
-  - [ ] Let the player drop items from the inventory and hotbar
-  - [ ] Render dropped items as spinning textured sprites, similar to Minecraft
+  - [x] Let the player drop items from inventory and hotbar, with bounded storage and collectible overflow
+  - [x] Render dropped blocks as spinning textured sprites; equipment uses code-defined markers
+  - [x] Equip a starter leather set and render it on the preview and third-person player
   - [ ] Implement tool durability
   - [ ] Add tool repair costs and durability UI
   - [ ] Add pickaxes, axes, shovels, hoes, shears, and fishing rods

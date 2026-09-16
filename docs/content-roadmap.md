@@ -1,9 +1,10 @@
 # Block, building, and item design backlog
 
 Unchecked entries below are planned content and design tasks. Grass, dirt,
-stone, and cobblestone are the merged block materials. Oak planks and stone
-bricks are implemented on the building-materials branch; see the
-[controls and compatibility](building-materials.md). Keep the existing voxel foundation and develop the colorful,
+stone, cobblestone, oak planks, and stone bricks are implemented materials.
+The [player inventory](inventory.md) adds a starter leather armor set and a
+four-stone to four-stone-bricks 2×2 recipe. Combat, tools, durability, and the
+remaining progression are still planned. Keep the existing voxel foundation and develop the colorful,
 explorable Cube World-inspired direction through coherent content sets.
 
 ## Terrain and underground blocks
@@ -29,7 +30,7 @@ explorable Cube World-inspired direction through coherent content sets.
 
 - [ ] Oak, birch, pine, willow, and acacia tree sets with recognizable silhouettes.
 - [ ] Logs with bark sides, end grain, and placement orientation.
-- [x] Oak planks: solid building block in hotbar slot 5, implemented on the current branch.
+- [x] Oak planks: solid building block, initially in hotbar slot 5.
 - [ ] Stripped logs, bark blocks, and planks for the remaining wood families.
 - [ ] Leaves with defined cutout rendering, transparency sorting needs, and decay rules.
 - [ ] Saplings, roots, branches, and stumps, including growth and harvest behavior.
@@ -42,7 +43,7 @@ explorable Cube World-inspired direction through coherent content sets.
 
 ## Building sets and shapes
 
-- [x] Stone bricks: solid building block in hotbar slot 6, implemented on the current branch.
+- [x] Stone bricks: solid building block, initially in hotbar slot 6 and craftable from four stone.
 - [ ] Clay brick, mossy brick, and cracked brick sets.
 - [ ] Carved sandstone, patterned terracotta, and glazed tile sets.
 - [ ] Copper, iron, and brass panels, grates, rivets, and trim.
@@ -94,7 +95,9 @@ explorable Cube World-inspired direction through coherent content sets.
 - [ ] Daggers, spears, maces, and war hammers with clearly different combat roles.
 - [ ] Bows, crossbows, arrows, bolts, and quivers.
 - [ ] Wooden and metal shields with visible blocking feedback and durability.
-- [ ] Cloth, leather, chain, plate, and crystal armor sets: helmet, chest, legs, and boots.
+- [x] Starter leather cap, tunic, pants, and boots with equipment slots and posed rendering.
+- [ ] Dedicated leather artwork, acquisition recipes, durability, and damage reduction.
+- [ ] Cloth, chain, plate, and crystal armor sets: helmet, chest, legs, and boots.
 - [ ] Gloves, belts, capes, and backpacks; decide cosmetic versus gameplay effects.
 - [ ] Staffs and wands for a later magic increment with explicit resource and targeting rules.
 - [ ] Define damage, cooldowns, stamina/resource costs, hit detection, and enemy reactions before balancing equipment tiers.
