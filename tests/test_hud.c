@@ -187,7 +187,9 @@ static void capture(int width, int height, int index, int debug, const unsigned 
 
 // Find the cached 128x128 framebuffer icon nearest-scaled to the 32-pixel HUD
 // quad and alpha-composited over the slot background. Search inside the slot
-// instead of sharing HUD layout calculations.
+// instead of sharing HUD layout calculations. Four-to-one reduction puts every
+// fragment center exactly between source texels (4*x+2). GPU interpolation can
+// round to either side of that boundary; both adjacent nearest texels are valid.
 static bool hasIcon(const unsigned char* pixels, int width, int height, int slot, const unsigned char* reference) {
   enum { DESTINATION = 32, BACKGROUND = 31 };
 
@@ -201,13 +203,19 @@ static bool hasIcon(const unsigned char* pixels, int width, int height, int slot
           const unsigned char* actual = pixels + ((size_t)(bottom + y) * width + left + x) * 3;
           int sourceX = (int)(((x + 0.5f) * ITEM_ICON_SIZE) / DESTINATION);
           int sourceY = (int)(((y + 0.5f) * ITEM_ICON_SIZE) / DESTINATION);
-          const unsigned char* source = reference + ((size_t)sourceY * ITEM_ICON_SIZE + sourceX) * 4;
-          int alpha = source[3];
-          for (int channel = 0; channel < 3; channel++) {
-            int expected = (source[channel] * alpha + BACKGROUND * (255 - alpha) + 127) / 255;
-            if (abs((int)actual[channel] - expected) > 2)
-              match = false;
-          }
+          bool nearest = false;
+          for (int dy = -1; dy <= 0; dy++)
+            for (int dx = -1; dx <= 0; dx++) {
+              const unsigned char* source = reference + ((size_t)(sourceY + dy) * ITEM_ICON_SIZE + sourceX + dx) * 4;
+              int alpha = source[3];
+              bool candidate = true;
+              for (int channel = 0; channel < 3; channel++) {
+                int expected = (source[channel] * alpha + BACKGROUND * (255 - alpha) + 127) / 255;
+                candidate &= abs((int)actual[channel] - expected) <= 2;
+              }
+              nearest |= candidate;
+            }
+          match = nearest;
         }
 
       if (match)
