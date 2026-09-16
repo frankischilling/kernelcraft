@@ -59,7 +59,8 @@ static unsigned changedPlayerPixels(const unsigned char* before, const unsigned 
       bool different = memcmp(before + offset, after + offset, 3) != 0;
       changed += different;
       hash = (hash ^ (unsigned)different) * UINT64_C(1099511628211);
-      // The arm must leave the central aiming/selection/progress region clear.
+      // The resting arm leaves aim clear. An active strike sweeps inward, with
+      // the crosshair and breaking bar subsequently drawn above it by the HUD.
       if (hand && abs(x - width / 2) < width / 12 && abs(y - height / 2) < height / 12)
         CHECK(!different);
     }
@@ -118,7 +119,7 @@ void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPo
   glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, after);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
   uint64_t hash = 0;
-  CHECK(changedPlayerPixels(before, after, viewport[2], viewport[3], &hash, true) > 200);
+  CHECK(changedPlayerPixels(before, after, viewport[2], viewport[3], &hash, pose->punch <= 0 || pose->punch >= 1) > 200);
   CHECK(memcmp(depthBefore, depthAfter, pixels * sizeof(float)) == 0);
   if (frame == 55 || frame == 60 || frame == 65)
     punchSilhouettes[(frame - 55) / 5] = hash;

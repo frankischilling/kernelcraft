@@ -416,7 +416,7 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [x] Add support for different camera modes (first person, third person)
   - [x] Add a textured first-person hand with movement and timed block-breaking animations
   - [x] Add a textured third-person player model and skin textures, with hand and body animations
-    - F6 cycles first/rear/front views; [skin layout and rendering](docs/player-skins.md) document the six separate parts and optional outer layers.
+    - F6 cycles first/rear/front views. The classic four-pixel arm uses its own first-person strike/recovery, and outer skin layers extend beyond all six faces. See [skin layout and rendering](docs/player-skins.md).
   - [ ] Add environmental player skin effects: wet skin after swimming, sweat in heat, mud from dirt, and sore or bruised hands after punching blocks for materials
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 

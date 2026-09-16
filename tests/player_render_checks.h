@@ -21,7 +21,8 @@ typedef struct {
   GLint depthFunc, cullFace, frontFace, polygonMode[2];
   GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha;
   GLint blendEquationRGB, blendEquationAlpha;
-  GLboolean depthTest, depthMask, blend, cull;
+  GLfloat polygonOffsetFactor, polygonOffsetUnits;
+  GLboolean depthTest, depthMask, blend, cull, polygonOffsetFill;
   GLdouble depthRange[2];
 } PlayerCheckGLState;
 
@@ -49,6 +50,8 @@ static void playerCheckCaptureState(PlayerCheckGLState* state) {
   glGetIntegerv(GL_CULL_FACE_MODE, &state->cullFace);
   glGetIntegerv(GL_FRONT_FACE, &state->frontFace);
   glGetIntegerv(GL_POLYGON_MODE, state->polygonMode);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &state->polygonOffsetFactor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &state->polygonOffsetUnits);
   glGetIntegerv(GL_BLEND_SRC_RGB, &state->blendSrcRGB);
   glGetIntegerv(GL_BLEND_DST_RGB, &state->blendDstRGB);
   glGetIntegerv(GL_BLEND_SRC_ALPHA, &state->blendSrcAlpha);
@@ -58,6 +61,7 @@ static void playerCheckCaptureState(PlayerCheckGLState* state) {
   state->depthTest = glIsEnabled(GL_DEPTH_TEST);
   state->blend = glIsEnabled(GL_BLEND);
   state->cull = glIsEnabled(GL_CULL_FACE);
+  state->polygonOffsetFill = glIsEnabled(GL_POLYGON_OFFSET_FILL);
   glGetBooleanv(GL_DEPTH_WRITEMASK, &state->depthMask);
   glGetDoublev(GL_DEPTH_RANGE, state->depthRange);
 }
@@ -71,7 +75,8 @@ static bool playerCheckStateEqual(const PlayerCheckGLState* left, const PlayerCh
          left->blendDstRGB == right->blendDstRGB && left->blendSrcAlpha == right->blendSrcAlpha && left->blendDstAlpha == right->blendDstAlpha &&
          left->blendEquationRGB == right->blendEquationRGB && left->blendEquationAlpha == right->blendEquationAlpha && left->depthTest == right->depthTest &&
          left->depthMask == right->depthMask && left->blend == right->blend && left->cull == right->cull && fabs(left->depthRange[0] - right->depthRange[0]) < 1e-12 &&
-         fabs(left->depthRange[1] - right->depthRange[1]) < 1e-12;
+         fabs(left->depthRange[1] - right->depthRange[1]) < 1e-12 && left->polygonOffsetFill == right->polygonOffsetFill &&
+         left->polygonOffsetFactor == right->polygonOffsetFactor && left->polygonOffsetUnits == right->polygonOffsetUnits;
 }
 
 static void playerCheckRestoreState(const PlayerCheckGLState* state) {
@@ -98,6 +103,11 @@ static void playerCheckRestoreState(const PlayerCheckGLState* state) {
   glBlendEquationSeparate((GLenum)state->blendEquationRGB, (GLenum)state->blendEquationAlpha);
   glPolygonMode(GL_FRONT, (GLenum)state->polygonMode[0]);
   glPolygonMode(GL_BACK, (GLenum)state->polygonMode[1]);
+  glPolygonOffset(state->polygonOffsetFactor, state->polygonOffsetUnits);
+  if (state->polygonOffsetFill)
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  else
+    glDisable(GL_POLYGON_OFFSET_FILL);
   if (state->depthTest)
     glEnable(GL_DEPTH_TEST);
   else
@@ -149,6 +159,8 @@ static bool playerCheckSetSentinels(GLuint shader, PlayerCheckSentinels* sentine
   glFrontFace(GL_CW);
   glPolygonMode(GL_FRONT, GL_LINE);
   glPolygonMode(GL_BACK, GL_POINT);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(2.5f, 3.0f);
   playerCheckCaptureState(state);
   return glGetError() == GL_NO_ERROR;
 }
@@ -275,6 +287,12 @@ static bool playerCheckMakeMappedSkin(const char* path) {
   playerCheckFillRect(pixels, 12, 12, 4, 4, (PlayerCheckColor){230, 200, 20, 255});
   playerCheckFillRect(pixels, 20, 20, 8, 12, (PlayerCheckColor){180, 60, 200, 255});
   playerCheckFillRect(pixels, 44, 20, 4, 12, (PlayerCheckColor){30, 190, 190, 255});
+  // Right-hand bottom: atlas top row meets the back edge, with its first column
+  // on the wearer's right. Four different colors catch either flipped axis.
+  playerCheckFillRect(pixels, 48, 16, 2, 2, (PlayerCheckColor){245, 20, 30, 255});
+  playerCheckFillRect(pixels, 50, 16, 2, 2, (PlayerCheckColor){20, 220, 40, 255});
+  playerCheckFillRect(pixels, 48, 18, 2, 2, (PlayerCheckColor){30, 40, 230, 255});
+  playerCheckFillRect(pixels, 50, 18, 2, 2, (PlayerCheckColor){230, 200, 20, 255});
   playerCheckFillRect(pixels, 36, 52, 4, 12, (PlayerCheckColor){210, 110, 30, 255});
   playerCheckFillRect(pixels, 4, 20, 4, 12, (PlayerCheckColor){80, 200, 60, 255});
   playerCheckFillRect(pixels, 20, 52, 4, 12, (PlayerCheckColor){200, 60, 90, 255});
@@ -289,6 +307,15 @@ static bool playerCheckMakeArmSkin(const char* path, unsigned char outerAlpha) {
     playerCheckFillRect(pixels, base[face][0], base[face][1], base[face][2], base[face][3], (PlayerCheckColor){40, 80, 200, 255});
     playerCheckFillRect(pixels, outer[face][0], outer[face][1], outer[face][2], outer[face][3], (PlayerCheckColor){200, 180, 20, outerAlpha});
   }
+  return playerCheckWriteTga(path, 4, pixels);
+}
+
+static bool playerCheckMakeSeamSkin(const char* path) {
+  unsigned char pixels[PLAYER_SKIN_SIZE * PLAYER_SKIN_SIZE * 4] = {0};
+  playerCheckFillRect(pixels, 20, 36, 8, 12, (PlayerCheckColor){180, 60, 200, 255});
+  playerCheckFillRect(pixels, 44, 36, 4, 12, (PlayerCheckColor){30, 190, 190, 255});
+  playerCheckFillRect(pixels, 4, 36, 4, 12, (PlayerCheckColor){80, 200, 60, 255});
+  playerCheckFillRect(pixels, 4, 52, 4, 12, (PlayerCheckColor){200, 60, 90, 255});
   return playerCheckWriteTga(path, 4, pixels);
 }
 
@@ -402,6 +429,73 @@ static bool playerCheckMappedModel(const PlayerRenderer* renderer) {
   return ok && glGetError() == GL_NO_ERROR;
 }
 
+static bool playerCheckJointSeams(const PlayerRenderer* renderer, bool outer) {
+  // Classic hip pivots are 3.8 pixels apart, so the two four-pixel legs have a
+  // narrow shared front plane. Expanded sleeves/jacket/legs overlap as well.
+  // Independent colors identify the stable frontmost part throughout an orbit.
+  const float pixel = PLAYER_HEIGHT / 32;
+  const Vec3 points[] = {{0, 6, outer ? -2.25f : -2}, {4, 22, -2.25f}, {1.9f, 12, -2.25f}};
+  const PlayerCheckColor expected[] = {{200, 60, 90, 255}, {30, 190, 190, 255}, {80, 200, 60, 255}};
+  const Vec3 up = {0, 1, 0};
+  PlayerModelPose pose;
+  PlayerPoseInput input = {.yaw = -90, .grounded = true};
+  playerModelPose(&pose, &input);
+  DayNightState daylight = playerCheckWhiteLight();
+  Mat4 view, projection;
+  mat4_perspective(projection, 35, (float)PLAYER_CHECK_WIDTH / PLAYER_CHECK_HEIGHT, 0.1f, 1000);
+  glDepthMask(GL_TRUE);
+  glClearDepth(1);
+  int seamCount = outer ? 3 : 1;
+  for (int seam = 0; seam < seamCount; seam++) {
+    Vec3 target = {points[seam].x * pixel, points[seam].y * pixel, points[seam].z * pixel};
+    for (int yaw = -6; yaw <= 6; yaw++)
+      for (int pitch = -4; pitch <= 4; pitch++) {
+        float a = toRadians(yaw * 7.0f), b = toRadians(pitch * 4.0f);
+        Vec3 eye = {target.x + sinf(a) * cosf(b), target.y + sinf(b), target.z - cosf(a) * cosf(b)};
+        mat4_lookAt(view, &eye, &target, &up);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        renderPlayerModel(renderer, (Vec3){0}, &pose, view, projection, &daylight);
+        unsigned char color[3];
+        glReadPixels(PLAYER_CHECK_WIDTH / 2, PLAYER_CHECK_HEIGHT / 2, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, color);
+        if (color[0] != expected[seam].r || color[1] != expected[seam].g || color[2] != expected[seam].b) {
+          fprintf(stderr, "Player %s seam %d at yaw %d pitch %d has wrong color: %u,%u,%u\n", outer ? "outer" : "base", seam, yaw, pitch, color[0], color[1], color[2]);
+          return false;
+        }
+      }
+  }
+  return glGetError() == GL_NO_ERROR;
+}
+
+static bool playerCheckBottomOrientation(const PlayerRenderer* renderer) {
+  const float pixel = PLAYER_HEIGHT / 32;
+  const Vec3 target = {6 * pixel, 12 * pixel, 0}, eye = {6 * pixel, -2, 0}, up = {0, 0, 1};
+  const Vec3 points[] = {{7 * pixel, 12 * pixel, pixel}, {5 * pixel, 12 * pixel, pixel}, {7 * pixel, 12 * pixel, -pixel}, {5 * pixel, 12 * pixel, -pixel}};
+  const PlayerCheckColor colors[] = {{245, 20, 30, 255}, {20, 220, 40, 255}, {30, 40, 230, 255}, {230, 200, 20, 255}};
+  PlayerModelPose pose;
+  playerCheckNeutralPose(&pose);
+  DayNightState daylight = playerCheckWhiteLight();
+  Mat4 view, projection, combined;
+  mat4_lookAt(view, &eye, &target, &up);
+  mat4_perspective(projection, 35, (float)PLAYER_CHECK_WIDTH / PLAYER_CHECK_HEIGHT, 0.1f, 20);
+  mat4_multiply(combined, projection, view);
+  glClearDepth(1);
+  glDepthMask(GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  renderPlayerModel(renderer, (Vec3){0}, &pose, view, projection, &daylight);
+  for (int corner = 0; corner < 4; corner++) {
+    int x, y;
+    if (!playerCheckProject(combined, points[corner], &x, &y))
+      return false;
+    unsigned char color[3];
+    glReadPixels(x, y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, color);
+    if (abs((int)color[0] - colors[corner].r) > 2 || abs((int)color[1] - colors[corner].g) > 2 || abs((int)color[2] - colors[corner].b) > 2) {
+      fprintf(stderr, "Player bottom UV corner %d: %u,%u,%u\n", corner, color[0], color[1], color[2]);
+      return false;
+    }
+  }
+  return glGetError() == GL_NO_ERROR;
+}
+
 static bool playerCheckBodyAlphaDepth(const PlayerRenderer* transparent, const PlayerRenderer* half, const PlayerRenderer* opaque) {
   PlayerModelPose pose;
   playerCheckNeutralPose(&pose);
@@ -444,6 +538,43 @@ static bool playerCheckBodyAlphaDepth(const PlayerRenderer* transparent, const P
   ok &= colorDifference > 60;
   glClearColor(0, 0, 0, 0);
   return ok && glGetError() == GL_NO_ERROR;
+}
+
+static bool playerCheckShellSeparation(const PlayerRenderer* base, const PlayerRenderer* outer) {
+  // The old sleeve grew only in X/Z. Its cap shared the skin's depth plane,
+  // which can alternate the visible color as the view changes.
+  const Vec3 normals[] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, -1}, {0, 0, 1}};
+  const Vec3 center = {6 * (PLAYER_HEIGHT / 32), 18 * (PLAYER_HEIGHT / 32), 0};
+  PlayerModelPose pose;
+  playerCheckNeutralPose(&pose);
+  DayNightState daylight = playerCheckWhiteLight();
+  Mat4 view, projection;
+  mat4_perspective(projection, 35, (float)PLAYER_CHECK_WIDTH / PLAYER_CHECK_HEIGHT, 0.1f, 1000);
+  glViewport(0, 0, PLAYER_CHECK_WIDTH, PLAYER_CHECK_HEIGHT);
+  glClearColor(0, 0, 0, 1);
+  glClearDepth(1);
+  glDepthMask(GL_TRUE);
+  for (int face = 0; face < 6; face++)
+    for (int angle = -2; angle <= 2; angle++) {
+      Vec3 normal = normals[face];
+      Vec3 up = fabsf(normal.y) > 0.5f ? (Vec3){0, 0, -normal.y} : (Vec3){0, 1, 0};
+      Vec3 eye = {center.x + normal.x * 2.5f + angle * up.x * 0.07f, center.y + normal.y * 2.5f + angle * up.y * 0.07f, center.z + normal.z * 2.5f + angle * up.z * 0.07f};
+      mat4_lookAt(view, &eye, &center, &up);
+      float depth[2];
+      unsigned char color[3];
+      const PlayerRenderer* renderers[] = {base, outer};
+      for (int pass = 0; pass < 2; pass++) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        renderPlayerModel(renderers[pass], (Vec3){0}, &pose, view, projection, &daylight);
+        glReadPixels(PLAYER_CHECK_WIDTH / 2, PLAYER_CHECK_HEIGHT / 2, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth[pass]);
+      }
+      glReadPixels(PLAYER_CHECK_WIDTH / 2, PLAYER_CHECK_HEIGHT / 2, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, color);
+      if (!(depth[0] > 0 && depth[0] < 1 && depth[1] < depth[0] - 0.000001f) || abs((int)color[0] - 200) > 2 || abs((int)color[1] - 180) > 2 || abs((int)color[2] - 20) > 2) {
+        fprintf(stderr, "Player sleeve face %d angle %d is not separated: base %.9f outer %.9f color %u,%u,%u\n", face, angle, depth[0], depth[1], color[0], color[1], color[2]);
+        return false;
+      }
+    }
+  return glGetError() == GL_NO_ERROR;
 }
 
 static bool playerCheckHandAlphaAndDepth(const PlayerRenderer* transparent, const PlayerRenderer* half, const PlayerRenderer* opaque) {
@@ -510,9 +641,22 @@ static bool playerCheckHandAlphaAndDepth(const PlayerRenderer* transparent, cons
   if (ok) {
     int centerLit = playerCheckLitPixels(zeroPixels, PLAYER_CHECK_WIDTH / 2 - 96, PLAYER_CHECK_HEIGHT / 2 - 54, PLAYER_CHECK_WIDTH / 2 + 96, PLAYER_CHECK_HEIGHT / 2 + 54);
     int lowerRight = playerCheckLitPixels(zeroPixels, PLAYER_CHECK_WIDTH / 2, 0, PLAYER_CHECK_WIDTH, PLAYER_CHECK_HEIGHT / 2);
-    ok &= centerLit == 0 && lowerRight > 100;
+    int restLeft = PLAYER_CHECK_WIDTH, restRight = -1;
+    for (int y = 0; y < PLAYER_CHECK_HEIGHT; y++)
+      for (int x = 0; x < PLAYER_CHECK_WIDTH; x++) {
+        size_t pixel = ((size_t)y * PLAYER_CHECK_WIDTH + x) * 3;
+        if (zeroPixels[pixel] || zeroPixels[pixel + 1] || zeroPixels[pixel + 2]) {
+          if (x < restLeft)
+            restLeft = x;
+          if (x > restRight)
+            restRight = x;
+        }
+      }
+    // A classic four-pixel wrist occupies a substantial foreground silhouette;
+    // the previous scaled-down hanging arm was narrower than this bound.
+    ok &= centerLit == 0 && lowerRight > 8000 && restRight - restLeft > 180;
     PlayerModelPose punching;
-    PlayerPoseInput input = {.yaw = -90, .punch = 1, .grounded = true};
+    PlayerPoseInput input = {.yaw = -90, .punch = 0.15f, .grounded = true};
     playerModelPose(&punching, &input);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     renderPlayerHand(transparent, &punching, (float)PLAYER_CHECK_WIDTH / PLAYER_CHECK_HEIGHT, &daylight);
@@ -521,7 +665,14 @@ static bool playerCheckHandAlphaAndDepth(const PlayerRenderer* transparent, cons
     for (size_t pixel = 0; pixel < colorBytes; pixel += 3)
       changed += memcmp(zeroPixels + pixel, punchedPixels + pixel, 3) != 0;
     ok &= changed > 100;
-    ok &= playerCheckLitPixels(punchedPixels, PLAYER_CHECK_WIDTH / 2 - 96, PLAYER_CHECK_HEIGHT / 2 - 54, PLAYER_CHECK_WIDTH / 2 + 96, PLAYER_CHECK_HEIGHT / 2 + 54) == 0;
+    // The strike sweeps inward toward aim; the HUD is drawn above it. At the
+    // end of the cycle it must return to the identical foreground rest pose.
+    input.punch = 1;
+    playerModelPose(&punching, &input);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderPlayerHand(transparent, &punching, (float)PLAYER_CHECK_WIDTH / PLAYER_CHECK_HEIGHT, &daylight);
+    glReadPixels(0, 0, PLAYER_CHECK_WIDTH, PLAYER_CHECK_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, punchedPixels);
+    ok &= memcmp(zeroPixels, punchedPixels, colorBytes) == 0;
   }
 
   free(zeroPixels);
@@ -577,9 +728,10 @@ static bool testPlayerRendering(GLuint shader) {
   const char* halfPath = "test-player-alpha128.tga";
   const char* opaquePath = "test-player-alpha255.tga";
   const char* rgbPath = "test-player-rgb.tga";
+  const char* seamPath = "test-player-seams.tga";
   bool ok = playerCheckMakeMappedSkin(mappedPath) && playerCheckMakeArmSkin(transparentPath, 0) && playerCheckMakeArmSkin(halfPath, 128) &&
-            playerCheckMakeArmSkin(opaquePath, 255) && playerCheckMakeRgbSkin(rgbPath);
-  PlayerRenderer supplied = {0}, mapped = {0}, transparent = {0}, half = {0}, opaque = {0};
+            playerCheckMakeArmSkin(opaquePath, 255) && playerCheckMakeRgbSkin(rgbPath) && playerCheckMakeSeamSkin(seamPath);
+  PlayerRenderer supplied = {0}, mapped = {0}, transparent = {0}, half = {0}, opaque = {0}, seams = {0};
   PlayerCheckGLState original, expected, actual;
   PlayerCheckSentinels sentinels = {0};
   playerCheckCaptureState(&original);
@@ -600,19 +752,26 @@ static bool testPlayerRendering(GLuint shader) {
     ok = playerCheckInvalidSkin("missing-player-skin.png") && playerCheckInvalidSkin("assets/textures/dirt.png") && playerCheckInvalidSkin(rgbPath);
   if (ok)
     ok = initPlayerRenderer(&mapped, mappedPath) && initPlayerRenderer(&transparent, transparentPath) && initPlayerRenderer(&half, halfPath) &&
-         initPlayerRenderer(&opaque, opaquePath);
+         initPlayerRenderer(&opaque, opaquePath) && initPlayerRenderer(&seams, seamPath);
   if (ok)
     ok = !transparent.fractionalAlpha && half.fractionalAlpha && !opaque.fractionalAlpha;
   if (ok)
     ok = playerCheckMappedModel(&mapped);
   if (ok)
+    ok = playerCheckJointSeams(&mapped, false) && playerCheckJointSeams(&seams, true);
+  if (ok)
+    ok = playerCheckBottomOrientation(&mapped);
+  if (ok)
     ok = playerCheckBodyAlphaDepth(&transparent, &half, &opaque);
+  if (ok)
+    ok = playerCheckShellSeparation(&transparent, &opaque);
   if (ok)
     ok = playerCheckHandAlphaAndDepth(&transparent, &half, &opaque);
   if (ok)
     ok = playerCheckRenderState(shader, &supplied);
 
   cleanupPlayerRenderer(&opaque);
+  cleanupPlayerRenderer(&seams);
   cleanupPlayerRenderer(&half);
   cleanupPlayerRenderer(&transparent);
   cleanupPlayerRenderer(&mapped);
@@ -622,6 +781,7 @@ static bool testPlayerRendering(GLuint shader) {
   remove(halfPath);
   remove(opaquePath);
   remove(rgbPath);
+  remove(seamPath);
   glViewport(0, 0, PLAYER_CHECK_WIDTH, PLAYER_CHECK_HEIGHT);
   glClearColor(0, 0, 0, 0);
   glClearDepth(1);

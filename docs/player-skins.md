@@ -24,23 +24,44 @@ or crouched eye heights, reach, block-breaking durations, or save formats.
 and poses. Local X points to the wearer's right, Y points up, and the front
 faces negative Z. The standing model is 32 skin pixels high, scaled to the
 existing 1.8-block player height. Arms and legs are four pixels wide; the torso
-is eight pixels wide. Shoulders and hips rotate independently, and the head
-follows the viewing pitch.
+is eight pixels wide. The classic wide-arm joints place the shoulders five
+pixels from the center and 22 pixels above the feet. The torso pivots at the
+neck, while the hip pivots are 1.9 pixels from the center. The head follows the
+viewing pitch. The bottom UV row direction follows the folded skin net, including
+the palm and sole faces.
 
 Walking phase advances from actual horizontal displacement on credited physics
-ticks. Running increases the swing; standing against a wall stops phase advance
-and eases the limbs toward rest. Airborne movement has a separate pose. Crouching
-uses a smaller render scale and a bent posture to follow the existing one-block
+ticks, at `4 * 0.6662` radians per block. Swing weight follows actual speed;
+the legs swing 1.4 times as far as the opposite arms. Running increases the swing;
+standing against a wall stops phase advance and eases the limbs toward rest.
+Airborne movement has a separate pose. Crouching uses a smaller render scale
+and a bent posture to follow the existing one-block
 body height. The fully posed outer shell is fitted between feet and ceiling,
 including head pitch and limb swing. These poses are presentation only; physics retains its existing
 fixed-step simulation and immediate posture changes.
 
-Punches use a repeating 0.35-second visual cycle sampled from the existing
+Punches use a repeating 0.3-second visual cycle sampled from the existing
 `BlockBreaking.elapsed` value. They do not accumulate another gameplay timer.
+Progress travels from zero to one, with a forward strike and a lowered recovery
+that returns to rest. The third-person strike also turns the torso and shoulders.
 Resetting/cancelling the break returns the hand to rest, including release,
 changed slots, right-click, flight transitions, pause, and target/reach changes.
 Held breaking still removes a block only when the original material duration
 has elapsed. Pauses clear gait and punch state without a resumed-frame jump.
+
+The first-person arm has its own transform, using the classic bare right-hand
+pose and swing sequence with a neutral equip offset. The shared four-pixel wrist
+uses sixteenth-block model units, with the shoulder extending below the screen.
+It does not inherit world-space shoulder rotations, crouch translation, or root
+scale. Walking contributes a small foreground bob. The normal 16:9 composition
+follows the classic transform; narrower windows fit the arm uniformly.
+
+The reference conventions come from the classic `ModelBox` skin net,
+`PlayerModel` wide-arm joints, and `ItemInHandRenderer.renderPlayerArm`. The
+[published bare-arm transform](https://forums.minecraftforge.net/topic/121014-1193-displaying-hands-in-first-person/)
+uses a monotonic swing parameter; the CPU tests check independently calculated
+hand positions along that path. KernelCraft retains its existing movement,
+one-block crouch height, and material-breaking rules.
 
 ## Rendering
 
@@ -51,11 +72,19 @@ incorrectly sized, or invalid assets fail initialization and release partial GPU
 resources while the context remains current.
 
 The body draws after terrain/sky and before selection/clouds with ordinary
-depth testing. Fully transparent skin fragments discard. Opaque outer-layer
-fragments write depth; fractional outer alpha blends without changing depth.
+depth testing. Outer geometry grows in all three axes: half a skin pixel per
+face for the head and a quarter pixel per face for the body and limbs. Base and
+outer caps therefore have separate depth planes. Where different parts overlap
+at the shoulders, jacket hem, or legs, a small fixed polygon offset gives each
+part a stable depth order. The offset has no slope factor, so it does not grow
+as the camera turns. Rendering restores the caller's offset settings afterward.
+Fully transparent skin fragments discard. Opaque outer-layer fragments write
+depth; fractional outer alpha blends without changing depth.
 The first-person pass draws the same right-arm mesh and sleeve in camera space
 after clouds and before the HUD. It preserves the world depth buffer so nearby
 terrain cannot cut through the hand and the HUD remains independent.
+The resting arm leaves aim clear. The strike sweeps inward toward the target,
+with the crosshair and breaking bar drawn over it by the HUD.
 
 Both player passes draw filled geometry even when F4 makes the terrain wireframe,
 then restore the OpenGL state they changed. The skin uses its own texture/shader
@@ -67,15 +96,19 @@ renderer.
 ## Checks
 
 `make test` includes independent pixel rectangle/proportion expectations,
-left/right limb separation, pose relationships, displacement-driven animation,
-pause/teleport handling, and the existing timing/physics/save tests.
+left/right limb separation, physical hand/foot swing direction, classic
+first-person hand-position goldens, full crouched shell bounds,
+displacement-driven animation, pause/teleport handling, and the existing
+timing/physics/save tests.
 
 `make test-gl` and native `.\build.cmd -Test` exercise the actual player shaders
 and application loop. The fixtures check supplied-skin colors, outer alpha and
-depth, texture validation, OpenGL state restoration, first-person rendering,
+depth on all six faces from multiple angles, 468 camera-orbit samples of painted
+base/outer joint seams, asymmetric bottom-face UV markers, texture validation,
+OpenGL state restoration, first-person wrist size and return to rest,
 camera obstruction, view controls, movement poses, and unchanged timed block
 removal. Live hand captures compare depth bytes before and after the pass and
-keep the central aim region clear at portrait and landscape sizes. Startup
+check the resting aim region at portrait and landscape sizes. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
 disposable package. Persistence tests retain their existing save formats and
 two-process restart checks.

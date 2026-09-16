@@ -70,9 +70,9 @@ Each cuboid unwrap begins at `(u, v)`, using pixel dimensions `(w, h, d)`:
 A rectangle covers X through X + width - 1 and Y through Y + height - 1.
 Right and left refer to the wearer's sides. On each vertical face, the first row
 is the top; the first column is the left edge when looking directly at that face
-from outside. The top face's first row touches the back; the bottom face's first
-row touches the front. Both horizontal faces start their columns on the wearer's
-right side.
+from outside. On both the top and bottom faces, the first row touches the back
+and the first column touches the wearer's right. The bottom face reverses V
+when the net folds around the cuboid; the PNG itself is never flipped.
 
 | Body part | Dimensions `(w, h, d)` | Base origin `(u, v)` | Outer origin `(u, v)` |
 | --- | --- | --- | --- |
@@ -85,6 +85,8 @@ right side.
 
 Keep base face pixels opaque. Leave unused cells transparent. Outer layers may
 be completely transparent, partially painted, or translucent. Transparent
-outer pixels reveal the base and do not write depth; opaque outer pixels use a
-slightly wider shell. The first-person hand reuses the right arm and sleeve
-regions. See [player rendering](../docs/player-skins.md) for poses and checks.
+outer pixels reveal the base and do not write depth. The head shell extends
+half a skin pixel beyond every face; body and limb shells extend a quarter
+pixel on every face, including the top and bottom. The first-person hand reuses
+the right arm and sleeve regions. See [player rendering](../docs/player-skins.md)
+for poses and checks.

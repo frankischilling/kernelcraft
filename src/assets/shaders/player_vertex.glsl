@@ -14,10 +14,9 @@ uniform vec3 partCenter;
 uniform vec3 partTranslation;
 uniform vec3 partRotation;
 uniform vec3 partScale;
-uniform vec3 shellScale;
+uniform float shellInflation;
 uniform bool viewModel;
-uniform vec3 viewModelOffset;
-uniform float viewModelScale;
+uniform mat4 viewModelTransform;
 
 out vec3 Normal;
 out vec2 TexCoord;
@@ -44,26 +43,17 @@ vec3 rotatePose(vec3 p) {
 }
 
 void main() {
-    vec3 p = aPos * partSize * shellScale + partCenter;
-    p *= partScale;
-    p = rotatePose(p);
-    vec3 safeScale = max(abs(partScale), vec3(0.000001));
-    vec3 normal = normalize(rotatePose(aNormal / safeScale));
+    vec3 p = aPos * (partSize + 2.0 * shellInflation) + partCenter;
+    vec3 normal;
 
     if (viewModel) {
-        // Use the same right-arm cuboid and UVs as the world model. A compact
-        // camera-space transform keeps every animation pose below/right of aim.
-        p += partTranslation;
-        p = rotateX(p, radians(-24.0));
-        p = rotateY(p, radians(-18.0));
-        p = rotateZ(p, radians(-8.0));
-        p *= viewModelScale;
-        p += viewModelOffset;
-        normal = rotateX(normal, radians(-24.0));
-        normal = rotateY(normal, radians(-18.0));
-        normal = rotateZ(normal, radians(-8.0));
+        p = vec3(viewModelTransform * vec4(p, 1.0));
+        normal = mat3(viewModelTransform) * aNormal;
         gl_Position = viewProjection * vec4(p, 1.0);
     } else {
+        p = rotatePose(p * partScale);
+        vec3 safeScale = max(abs(partScale), vec3(0.000001));
+        normal = normalize(rotatePose(aNormal / safeScale));
         p += partPivot + partTranslation;
         p *= rootScale;
         p = rotateY(p, rootYaw);

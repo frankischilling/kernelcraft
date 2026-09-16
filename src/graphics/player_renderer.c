@@ -26,7 +26,8 @@ typedef struct {
   GLint polygonMode[2];
   GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha;
   GLint blendEquationRGB, blendEquationAlpha;
-  GLboolean depthTest, depthMask, blend, cull;
+  GLfloat polygonOffsetFactor, polygonOffsetUnits;
+  GLboolean depthTest, depthMask, blend, cull, polygonOffsetFill;
 } PlayerRenderState;
 
 static const float faceCorners[PLAYER_MODEL_FACE_COUNT][4][3] = {
@@ -60,6 +61,10 @@ static void emitFace(PlayerVertex* vertices, size_t* count, PlayerModelFace face
     memcpy(out->position, faceCorners[face][corner], sizeof(out->position));
     memcpy(out->normal, faceNormals[face], sizeof(out->normal));
     memcpy(out->uv, uv[corner], sizeof(out->uv));
+    // The skin net folds the bottom back toward the front; its V direction is
+    // opposite the side quads. Keep the rectangle and horizontal order intact.
+    if (face == PLAYER_MODEL_FACE_BOTTOM)
+      out->uv[1] = v0 + v1 - out->uv[1];
   }
 }
 
@@ -90,6 +95,8 @@ static void snapshotRenderState(PlayerRenderState* state) {
   glGetIntegerv(GL_CULL_FACE_MODE, &state->cullFace);
   glGetIntegerv(GL_FRONT_FACE, &state->frontFace);
   glGetIntegerv(GL_POLYGON_MODE, state->polygonMode);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &state->polygonOffsetFactor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &state->polygonOffsetUnits);
   glGetIntegerv(GL_BLEND_SRC_RGB, &state->blendSrcRGB);
   glGetIntegerv(GL_BLEND_DST_RGB, &state->blendDstRGB);
   glGetIntegerv(GL_BLEND_SRC_ALPHA, &state->blendSrcAlpha);
@@ -99,6 +106,7 @@ static void snapshotRenderState(PlayerRenderState* state) {
   state->depthTest = glIsEnabled(GL_DEPTH_TEST);
   state->blend = glIsEnabled(GL_BLEND);
   state->cull = glIsEnabled(GL_CULL_FACE);
+  state->polygonOffsetFill = glIsEnabled(GL_POLYGON_OFFSET_FILL);
   glGetBooleanv(GL_DEPTH_WRITEMASK, &state->depthMask);
 }
 
@@ -113,6 +121,11 @@ static void restoreRenderState(const PlayerRenderState* state) {
   glBlendEquationSeparate((GLenum)state->blendEquationRGB, (GLenum)state->blendEquationAlpha);
   glPolygonMode(GL_FRONT, (GLenum)state->polygonMode[0]);
   glPolygonMode(GL_BACK, (GLenum)state->polygonMode[1]);
+  glPolygonOffset(state->polygonOffsetFactor, state->polygonOffsetUnits);
+  if (state->polygonOffsetFill)
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  else
+    glDisable(GL_POLYGON_OFFSET_FILL);
   if (state->depthTest)
     glEnable(GL_DEPTH_TEST);
   else
@@ -139,27 +152,11 @@ static void setLighting(const PlayerRenderer* renderer, const DayNightState* day
 }
 
 static bool validUniforms(const PlayerRenderer* renderer) {
-  const GLint locations[] = {renderer->viewProjectionLocation,
-                             renderer->feetLocation,
-                             renderer->rootYawLocation,
-                             renderer->rootScaleLocation,
-                             renderer->partSizeLocation,
-                             renderer->partPivotLocation,
-                             renderer->partCenterLocation,
-                             renderer->partTranslationLocation,
-                             renderer->partRotationLocation,
-                             renderer->partScaleLocation,
-                             renderer->shellScaleLocation,
-                             renderer->viewModelLocation,
-                             renderer->viewModelOffsetLocation,
-                             renderer->viewModelScaleLocation,
-                             renderer->lightDirectionLocation,
-                             renderer->lightColorLocation,
-                             renderer->skyColorLocation,
-                             renderer->groundColorLocation,
-                             renderer->outerLayerLocation,
-                             renderer->outerPassLocation,
-                             renderer->skinLocation};
+  const GLint locations[] = {renderer->viewProjectionLocation,     renderer->feetLocation,           renderer->rootYawLocation,        renderer->rootScaleLocation,
+                             renderer->partSizeLocation,           renderer->partPivotLocation,      renderer->partCenterLocation,     renderer->partTranslationLocation,
+                             renderer->partRotationLocation,       renderer->partScaleLocation,      renderer->shellInflationLocation, renderer->viewModelLocation,
+                             renderer->viewModelTransformLocation, renderer->lightDirectionLocation, renderer->lightColorLocation,     renderer->skyColorLocation,
+                             renderer->groundColorLocation,        renderer->outerLayerLocation,     renderer->outerPassLocation,      renderer->skinLocation};
   for (size_t i = 0; i < sizeof(locations) / sizeof(*locations); i++)
     if (locations[i] < 0)
       return false;
@@ -248,10 +245,9 @@ bool initPlayerRenderer(PlayerRenderer* renderer, const char* skinPath) {
   PLAYER_UNIFORM(partTranslationLocation, "partTranslation");
   PLAYER_UNIFORM(partRotationLocation, "partRotation");
   PLAYER_UNIFORM(partScaleLocation, "partScale");
-  PLAYER_UNIFORM(shellScaleLocation, "shellScale");
+  PLAYER_UNIFORM(shellInflationLocation, "shellInflation");
   PLAYER_UNIFORM(viewModelLocation, "viewModel");
-  PLAYER_UNIFORM(viewModelOffsetLocation, "viewModelOffset");
-  PLAYER_UNIFORM(viewModelScaleLocation, "viewModelScale");
+  PLAYER_UNIFORM(viewModelTransformLocation, "viewModelTransform");
   PLAYER_UNIFORM(lightDirectionLocation, "lightDirection");
   PLAYER_UNIFORM(lightColorLocation, "lightColor");
   PLAYER_UNIFORM(skyColorLocation, "skyColor");
@@ -309,16 +305,18 @@ void cleanupPlayerRenderer(PlayerRenderer* renderer) {
 static void setPart(const PlayerRenderer* renderer, PlayerModelPart part, const PlayerModelPose* pose, PlayerSkinLayer layer, bool viewModel, int outerPass) {
   const PlayerPartSpec* spec = playerModelPartSpec(part);
   const PlayerPartPose* partPose = &pose->parts[part];
+  // Classic joints overlap on coplanar front/back faces. Give those seams a
+  // stable per-part order in depth-buffer units without moving the geometry.
+  // No slope factor: the bias stays bounded as the camera orbits the player.
+  if (!viewModel)
+    glPolygonOffset(0, -8.0f * (part + 1));
   glUniform3f(renderer->partSizeLocation, spec->size.x, spec->size.y, spec->size.z);
   glUniform3f(renderer->partPivotLocation, spec->pivot.x, spec->pivot.y, spec->pivot.z);
   glUniform3f(renderer->partCenterLocation, spec->centerOffset.x, spec->centerOffset.y, spec->centerOffset.z);
   glUniform3f(renderer->partTranslationLocation, partPose->translation.x, partPose->translation.y, partPose->translation.z);
   glUniform3f(renderer->partRotationLocation, partPose->rotation.x, partPose->rotation.y, partPose->rotation.z);
   glUniform3f(renderer->partScaleLocation, partPose->scale.x, partPose->scale.y, partPose->scale.z);
-  // Keep outer-layer Y within the pose's standing/crouching envelope. The
-  // horizontal shell is slightly wider; LEQUAL lets coplanar top and
-  // bottom overlay texels remain visible without changing the base depth.
-  glUniform3f(renderer->shellScaleLocation, layer == PLAYER_SKIN_OUTER ? PLAYER_MODEL_OUTER_SCALE : 1.0f, 1.0f, layer == PLAYER_SKIN_OUTER ? PLAYER_MODEL_OUTER_SCALE : 1.0f);
+  glUniform1f(renderer->shellInflationLocation, layer == PLAYER_SKIN_OUTER ? playerModelOuterInflation(part) : 0);
   glUniform1i(renderer->outerLayerLocation, layer == PLAYER_SKIN_OUTER);
   glUniform1i(renderer->outerPassLocation, outerPass);
   glUniform1i(renderer->viewModelLocation, viewModel);
@@ -360,13 +358,14 @@ void renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerMo
   glUniform1f(renderer->rootYawLocation, pose->rootYaw);
   glUniform1f(renderer->rootScaleLocation, pose->rootScale);
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_POLYGON_OFFSET_FILL);
   glDepthFunc(GL_LESS);
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
   for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++)
     drawPart(renderer, (PlayerModelPart)part, pose, PLAYER_SKIN_BASE, false, 0);
 
-  glDepthFunc(GL_LEQUAL);
+  glDepthFunc(GL_LESS);
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
   for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++)
@@ -399,14 +398,11 @@ void renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPose* pos
   glUniform3f(renderer->feetLocation, 0, 0, 0);
   glUniform1f(renderer->rootYawLocation, 0);
   glUniform1f(renderer->rootScaleLocation, 1);
-  const float halfFov = tanf(toRadians(35.0f));
-  const float handDepth = 0.92f;
-  const float anchorNdc = 0.58f;
-  const float portraitScale = fmaxf(0.75f, fminf(1.0f, aspect / 0.75f));
-  glUniform3f(renderer->viewModelOffsetLocation, halfFov * aspect * handDepth * anchorNdc, -0.34f, -handDepth);
-  glUniform1f(renderer->viewModelScaleLocation, 0.42f * portraitScale);
-  // The view-model path in the player shader places the shared right-arm mesh
-  // in the lower-right camera quadrant after applying its live gait/punch pose.
+  Mat4 handTransform;
+  playerModelHandTransform(handTransform, pose, aspect);
+  glUniformMatrix4fv(renderer->viewModelTransformLocation, 1, GL_FALSE, handTransform);
+  // The foreground arm shares its mesh/skin with the body but has an independent
+  // bare-hand swing. Its shoulder extends offscreen, leaving the fist in view.
   glDisable(GL_DEPTH_TEST);
   glDepthMask(GL_FALSE);
   glDisable(GL_BLEND);

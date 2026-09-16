@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #define PLAYER_SKIN_SIZE 64
-#define PLAYER_MODEL_OUTER_SCALE 1.0625f
 
 typedef enum {
   PLAYER_MODEL_HEAD = 0,
@@ -61,6 +60,10 @@ typedef struct {
   float rootYaw;
   // Uniform render-only scale about the feet. Crouching uses the collision height.
   float rootScale;
+  // Presentation inputs retained separately from the posed third-person joints.
+  double gaitPhase;
+  float gaitWeight;
+  float punch;
 } PlayerModelPose;
 
 typedef struct {
@@ -68,7 +71,7 @@ typedef struct {
   float pitch;
   double gaitPhase;
   float gaitWeight;
-  float punch; // 0 is idle/rest, 1 is the punch peak.
+  float punch; // Normalized swing progress: 0 starts at rest, 1 returns to rest.
   bool crouched;
   bool running;
   bool grounded;
@@ -84,7 +87,11 @@ typedef struct {
 
 const PlayerSkinRect* playerModelSkinRect(PlayerModelPart part, PlayerSkinLayer layer, PlayerModelFace face);
 const PlayerPartSpec* playerModelPartSpec(PlayerModelPart part);
+// Per-face shell dilation in model units, shared by rendering and pose bounds.
+float playerModelOuterInflation(PlayerModelPart part);
 void playerModelPose(PlayerModelPose* pose, const PlayerPoseInput* input);
+// Maps the unposed right-arm cuboid (including centerOffset) into camera space.
+void playerModelHandTransform(Mat4 transform, const PlayerModelPose* pose, float aspect);
 
 void resetPlayerModelAnimation(PlayerModelAnimation* state, Vec3 feet);
 void advancePlayerModelAnimation(PlayerModelAnimation* state, const Player* player, bool flying, bool active, double seconds);

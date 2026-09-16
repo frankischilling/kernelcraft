@@ -22,10 +22,9 @@ typedef struct {
   GLint partTranslationLocation;
   GLint partRotationLocation;
   GLint partScaleLocation;
-  GLint shellScaleLocation;
+  GLint shellInflationLocation;
   GLint viewModelLocation;
-  GLint viewModelOffsetLocation;
-  GLint viewModelScaleLocation;
+  GLint viewModelTransformLocation;
   GLint lightDirectionLocation;
   GLint lightColorLocation;
   GLint skyColorLocation;
