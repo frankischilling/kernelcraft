@@ -15,8 +15,11 @@ typedef struct {
   GLint scissorBox[4];
   GLint drawFramebuffer;
   GLint readFramebuffer;
+  GLint renderbuffer;
+  GLint pixelUnpackBuffer;
   GLint activeTexture;
   GLint texture0;
+  GLint textureArray0;
   GLint sampler0;
   GLint polygonMode[2];
   GLint depthFunc;
@@ -31,6 +34,7 @@ typedef struct {
   GLboolean cull;
   GLboolean colorMask[4];
   GLdouble clearDepth;
+  GLdouble depthRange[2];
 } InventoryCheckGLState;
 
 static void inventoryCheckCaptureState(InventoryCheckGLState* state) {
@@ -41,9 +45,12 @@ static void inventoryCheckCaptureState(InventoryCheckGLState* state) {
   glGetIntegerv(GL_SCISSOR_BOX, state->scissorBox);
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &state->drawFramebuffer);
   glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &state->readFramebuffer);
+  glGetIntegerv(GL_RENDERBUFFER_BINDING, &state->renderbuffer);
+  glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &state->pixelUnpackBuffer);
   glGetIntegerv(GL_ACTIVE_TEXTURE, &state->activeTexture);
   glActiveTexture(GL_TEXTURE0);
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &state->texture0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &state->textureArray0);
   glGetIntegerv(GL_SAMPLER_BINDING, &state->sampler0);
   glActiveTexture((GLenum)state->activeTexture);
   glGetIntegerv(GL_POLYGON_MODE, state->polygonMode);
@@ -63,18 +70,21 @@ static void inventoryCheckCaptureState(InventoryCheckGLState* state) {
   glGetBooleanv(GL_DEPTH_WRITEMASK, &state->depthMask);
   glGetBooleanv(GL_COLOR_WRITEMASK, state->colorMask);
   glGetDoublev(GL_DEPTH_CLEAR_VALUE, &state->clearDepth);
+  glGetDoublev(GL_DEPTH_RANGE, state->depthRange);
 }
 
 static bool inventoryCheckStateEqual(const InventoryCheckGLState* left, const InventoryCheckGLState* right) {
   return left->program == right->program && left->vao == right->vao && left->arrayBuffer == right->arrayBuffer &&
          !memcmp(left->viewport, right->viewport, sizeof(left->viewport)) && !memcmp(left->scissorBox, right->scissorBox, sizeof(left->scissorBox)) &&
-         left->drawFramebuffer == right->drawFramebuffer && left->readFramebuffer == right->readFramebuffer && left->activeTexture == right->activeTexture &&
-         left->texture0 == right->texture0 && left->sampler0 == right->sampler0 && left->polygonMode[0] == right->polygonMode[0] && left->polygonMode[1] == right->polygonMode[1] &&
-         left->depthFunc == right->depthFunc && left->scissor == right->scissor && left->cullFace == right->cullFace && left->frontFace == right->frontFace &&
-         left->blendSrcRGB == right->blendSrcRGB && left->blendDstRGB == right->blendDstRGB && left->blendSrcAlpha == right->blendSrcAlpha &&
+         left->drawFramebuffer == right->drawFramebuffer && left->readFramebuffer == right->readFramebuffer && left->renderbuffer == right->renderbuffer &&
+         left->pixelUnpackBuffer == right->pixelUnpackBuffer && left->activeTexture == right->activeTexture && left->texture0 == right->texture0 &&
+         left->textureArray0 == right->textureArray0 && left->sampler0 == right->sampler0 && left->polygonMode[0] == right->polygonMode[0] &&
+         left->polygonMode[1] == right->polygonMode[1] && left->depthFunc == right->depthFunc && left->scissor == right->scissor && left->cullFace == right->cullFace &&
+         left->frontFace == right->frontFace && left->blendSrcRGB == right->blendSrcRGB && left->blendDstRGB == right->blendDstRGB && left->blendSrcAlpha == right->blendSrcAlpha &&
          left->blendDstAlpha == right->blendDstAlpha && left->blendEquationRGB == right->blendEquationRGB && left->blendEquationAlpha == right->blendEquationAlpha &&
          left->depthTest == right->depthTest && left->depthMask == right->depthMask && left->blend == right->blend && left->cull == right->cull &&
-         !memcmp(left->colorMask, right->colorMask, sizeof(left->colorMask)) && left->clearDepth == right->clearDepth;
+         !memcmp(left->colorMask, right->colorMask, sizeof(left->colorMask)) && left->clearDepth == right->clearDepth && left->depthRange[0] == right->depthRange[0] &&
+         left->depthRange[1] == right->depthRange[1];
 }
 
 static void inventoryCheckRestoreState(const InventoryCheckGLState* state) {
@@ -83,12 +93,15 @@ static void inventoryCheckRestoreState(const InventoryCheckGLState* state) {
   glBindBuffer(GL_ARRAY_BUFFER, (GLuint)state->arrayBuffer);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)state->drawFramebuffer);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)state->readFramebuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)state->renderbuffer);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, (GLuint)state->pixelUnpackBuffer);
   glViewport(state->viewport[0], state->viewport[1], state->viewport[2], state->viewport[3]);
   glScissor(state->scissorBox[0], state->scissorBox[1], state->scissorBox[2], state->scissorBox[3]);
   glPolygonMode(GL_FRONT, (GLenum)state->polygonMode[0]);
   glPolygonMode(GL_BACK, (GLenum)state->polygonMode[1]);
   glDepthFunc((GLenum)state->depthFunc);
   glDepthMask(state->depthMask);
+  glDepthRange(state->depthRange[0], state->depthRange[1]);
   glColorMask(state->colorMask[0], state->colorMask[1], state->colorMask[2], state->colorMask[3]);
   glClearDepth(state->clearDepth);
   glCullFace((GLenum)state->cullFace);
@@ -114,6 +127,7 @@ static void inventoryCheckRestoreState(const InventoryCheckGLState* state) {
   glActiveTexture(GL_TEXTURE0);
   glBindSampler(0, (GLuint)state->sampler0);
   glBindTexture(GL_TEXTURE_2D, (GLuint)state->texture0);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, (GLuint)state->textureArray0);
   glActiveTexture((GLenum)state->activeTexture);
 }
 
@@ -164,25 +178,87 @@ static void inventoryReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
     glPixelStorei(settings[i], saved[i]);
 }
 
-static bool inventoryCheckPreviewPixels(const InventoryUILayout* layout) {
-  InventoryUIRect preview = {
-      layout->panel.x + (int)lroundf(26 * layout->scale),
-      layout->panel.y + (int)lroundf(8 * layout->scale),
-      (int)lroundf(75 * layout->scale) - (int)lroundf(26 * layout->scale),
-      (int)lroundf(78 * layout->scale) - (int)lroundf(8 * layout->scale),
-  };
-  size_t bytes = (size_t)preview.width * preview.height * 3;
+typedef struct {
+  int left, top, right, bottom;
+  size_t pixels;
+  unsigned long long headHash;
+} InventoryCheckBounds;
+
+static bool inventoryAvatarBounds(int framebufferHeight, int left, int top, int right, int bottom, int rowThreshold, int headBottom, InventoryCheckBounds* bounds) {
+  int width = right - left, height = bottom - top;
+  if (!bounds || width <= 0 || height <= 0)
+    return false;
+  size_t bytes = (size_t)width * height * 3;
   unsigned char* pixels = malloc(bytes);
   if (!pixels)
     return false;
-  inventoryReadPixels(preview.x, layout->framebufferHeight - preview.y - preview.height, preview.width, preview.height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-  size_t modelPixels = 0;
-  for (size_t i = 0; i < bytes; i += 3) {
-    int difference = abs((int)pixels[i] - 38) + abs((int)pixels[i + 1] - 38) + abs((int)pixels[i + 2] - 38);
-    modelPixels += difference > 24;
+  inventoryReadPixels(left, framebufferHeight - bottom, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+  *bounds = (InventoryCheckBounds){.left = right, .top = bottom, .right = left - 1, .bottom = top - 1, .headHash = 1469598103934665603ULL};
+  for (int sourceRow = 0; sourceRow < height; sourceRow++) {
+    int screenY = bottom - 1 - sourceRow;
+    int rowPixels = 0;
+    for (int x = 0; x < width; x++) {
+      const unsigned char* pixel = pixels + ((size_t)sourceRow * width + x) * 3;
+      if (screenY < headBottom)
+        for (int channel = 0; channel < 3; channel++) {
+          bounds->headHash ^= pixel[channel];
+          bounds->headHash *= 1099511628211ULL;
+        }
+      int difference = abs((int)pixel[0] - 38) + abs((int)pixel[1] - 38) + abs((int)pixel[2] - 38);
+      if (difference <= 24)
+        continue;
+      rowPixels++;
+      bounds->pixels++;
+      int screenX = left + x;
+      if (screenX < bounds->left)
+        bounds->left = screenX;
+      if (screenX > bounds->right)
+        bounds->right = screenX;
+    }
+    if (rowPixels >= rowThreshold) {
+      if (screenY < bounds->top)
+        bounds->top = screenY;
+      if (screenY > bounds->bottom)
+        bounds->bottom = screenY;
+    }
   }
   free(pixels);
-  return modelPixels > 100;
+  return bounds->pixels > 100 && bounds->right >= bounds->left && bounds->bottom >= bounds->top;
+}
+
+static bool inventoryCheckAvatarCase(InventoryUI* ui, ItemRenderer* items, const PlayerRenderer* playerRenderer, const Inventory* inventory, const PlayerModelPose* livePose,
+                                     const DayNightState* liveDaylight, int framebufferWidth, int framebufferHeight, int scale, int panelX, int panelY, int mouseX, int mouseY,
+                                     int selectedSlot, const char* label, InventoryCheckBounds* outputBounds) {
+  glViewport(0, 0, framebufferWidth, framebufferHeight);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glClearDepth(1);
+  glDepthMask(GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  inventoryUIDraw(ui, inventory, playerRenderer, livePose, liveDaylight, items, selectedSlot, framebufferWidth, framebufferHeight, mouseX, mouseY);
+
+  // Independent classic-layout goldens: armor begins at logical y=8 and the
+  // boots slot ends at y=80. The avatar column itself is logical x=26..75.
+  int armorTop = panelY + 8 * scale;
+  int armorBottom = panelY + 80 * scale;
+  int previewLeft = panelX + 26 * scale;
+  int previewRight = panelX + 75 * scale;
+  InventoryCheckBounds bounds;
+  if (!inventoryAvatarBounds(framebufferHeight, previewLeft, armorTop, previewRight, armorBottom, scale > 1 ? scale * 2 : 2, armorTop + 20 * scale, &bounds)) {
+    fprintf(stderr, "Inventory avatar %s has no stable visible bounds\n", label);
+    return false;
+  }
+
+  int inset = 2 * scale;
+  int visibleHeight = bounds.bottom - bounds.top + 1;
+  bool ok =
+      bounds.top >= armorTop + inset - 1 && bounds.bottom <= armorBottom - inset && visibleHeight >= 54 * scale && bounds.left > previewLeft && bounds.right < previewRight - 1;
+  if (!ok)
+    fprintf(stderr, "Inventory avatar %s bounds %d,%d..%d,%d height %d outside armor band y=%d..%d scale=%d\n", label, bounds.left, bounds.top, bounds.right, bounds.bottom,
+            visibleHeight, armorTop, armorBottom, scale);
+  if (outputBounds)
+    *outputBounds = bounds;
+  return ok;
 }
 
 static bool testInventoryRendering(void) {
@@ -197,10 +273,12 @@ static bool testInventoryRendering(void) {
     return true;
 
   PlayerRenderer renderer = {0};
+  ItemRenderer items = {0};
   InventoryUI ui = {0};
-  bool ok = initPlayerRenderer(&renderer, "assets/player/skin.png") && inventoryUIInit(&ui);
-  Inventory inventory;
-  inventoryInit(&inventory);
+  bool ok = initPlayerRenderer(&renderer, "assets/player/skin.png") && initItemRenderer(&items) && inventoryUIInit(&ui);
+  Inventory unarmored;
+  inventoryInit(&unarmored);
+  Inventory inventory = unarmored;
   for (int armor = 0; armor < INVENTORY_ARMOR_SLOT_COUNT; armor++) {
     inventory.armor[armor] = inventory.carried[INVENTORY_HOTBAR_SLOT_COUNT + armor];
     inventory.carried[INVENTORY_HOTBAR_SLOT_COUNT + armor] = (ItemStack){0};
@@ -214,9 +292,38 @@ static bool testInventoryRendering(void) {
       .skyFill = {0.45f, 0.45f, 0.45f},
       .groundFill = {0.30f, 0.30f, 0.30f},
   };
-  GLuint textures[INVENTORY_UI_BLOCK_TEXTURE_COUNT] = {0};
-  InventoryUILayout layout;
-  ok &= inventoryUILayout(original.viewport[2], original.viewport[3], &layout);
+  PlayerModelPose disturbedPose;
+  PlayerPoseInput disturbedInput = {.yaw = 17, .pitch = 81, .gaitPhase = 2.4, .gaitWeight = 1, .punch = 0.35f, .crouched = true, .running = true, .grounded = false};
+  playerModelPose(&disturbedPose, &disturbedInput);
+  DayNightState darkWorld = {.lightDirection = {0, -1, 0}, .lightColor = {0.01f, 0.01f, 0.01f}, .skyFill = {0.01f, 0.01f, 0.01f}, .groundFill = {0.01f, 0.01f, 0.01f}};
+
+  // Fixed framebuffer cases keep expectations independent of inventoryUILayout.
+  InventoryCheckBounds unarmoredBounds = {0}, equippedBounds = {0};
+  if (ok)
+    ok = inventoryCheckAvatarCase(&ui, &items, &renderer, &unarmored, &pose, &daylight, 960, 540, 2, 304, 104, 480, 270, 8, "unarmored-center", &unarmoredBounds);
+  if (ok)
+    ok = inventoryCheckAvatarCase(&ui, &items, &renderer, &inventory, &disturbedPose, &darkWorld, 960, 540, 2, 304, 104, 480, 270, 8, "equipped-center", &equippedBounds);
+  if (ok && (equippedBounds.top > unarmoredBounds.top || equippedBounds.bottom < unarmoredBounds.bottom + 1 || equippedBounds.pixels <= unarmoredBounds.pixels ||
+             equippedBounds.headHash == unarmoredBounds.headHash)) {
+    fprintf(stderr, "Equipped inventory avatar does not visibly add cap/boots: bare y=%d..%d pixels=%zu head=%llu, equipped y=%d..%d pixels=%zu head=%llu\n", unarmoredBounds.top,
+            unarmoredBounds.bottom, unarmoredBounds.pixels, unarmoredBounds.headHash, equippedBounds.top, equippedBounds.bottom, equippedBounds.pixels, equippedBounds.headHash);
+    ok = false;
+  }
+  if (ok)
+    ok = inventoryCheckAvatarCase(&ui, &items, &renderer, &inventory, &disturbedPose, &darkWorld, 960, 540, 2, 304, 104, 0, 0, 0, "equipped-mouse-upper-left", NULL);
+  if (ok)
+    ok = inventoryCheckAvatarCase(&ui, &items, &renderer, &inventory, &disturbedPose, &darkWorld, 960, 540, 2, 304, 104, 959, 539, 0, "equipped-mouse-lower-right", NULL);
+  if (ok)
+    ok = inventoryCheckAvatarCase(&ui, &items, &renderer, &inventory, &disturbedPose, &darkWorld, 360, 540, 1, 92, 187, 359, 0, 0, "equipped-portrait", NULL);
+
+  // Exercise shared 3D icons through both derived-result and cursor paths while
+  // keeping ownership valid: four carried stones move into crafting and three
+  // dirt move onto the cursor.
+  inventory.carried[2].count -= INVENTORY_CRAFTING_SLOT_COUNT;
+  for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++)
+    inventory.crafting[slot] = (ItemStack){ITEM_STONE, 1};
+  inventory.carried[1].count -= 3;
+  inventory.cursor = (ItemStack){ITEM_DIRT, 3};
 
   glClearDepth(0.375);
   glDepthMask(GL_TRUE);
@@ -234,6 +341,7 @@ static bool testInventoryRendering(void) {
   glDisable(GL_DEPTH_TEST);
   glDepthMask(GL_FALSE);
   glDepthFunc(GL_GREATER);
+  glDepthRange(0.2, 0.8);
   glEnable(GL_BLEND);
   glEnable(GL_CULL_FACE);
   glColorMask(GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
@@ -241,12 +349,12 @@ static bool testInventoryRendering(void) {
   InventoryCheckGLState expected, actual;
   inventoryCheckCaptureState(&expected);
 
-  inventoryUIDraw(&ui, &inventory, &renderer, &pose, &daylight, textures, original.viewport[2], original.viewport[3], original.viewport[2] / 2, original.viewport[3] / 3);
+  inventoryUIDraw(&ui, &inventory, &renderer, &disturbedPose, &darkWorld, &items, 0, original.viewport[2], original.viewport[3], original.viewport[2] / 2,
+                  original.viewport[3] / 3);
   inventoryCheckCaptureState(&actual);
   ok &= inventoryCheckStateEqual(&expected, &actual);
   inventoryReadPixels(sampleX, sampleY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depthAfter);
   ok &= depthBefore == depthAfter;
-  ok &= inventoryCheckPreviewPixels(&layout);
 
   PlayerEquipmentVisuals equipment = {.helmet = true, .chestplate = true, .leggings = true, .boots = true};
   Vec3 eye = {0, 0.9f, -4};
@@ -260,6 +368,7 @@ static bool testInventoryRendering(void) {
   ok &= inventoryCheckStateEqual(&expected, &actual);
 
   inventoryUICleanup(&ui);
+  cleanupItemRenderer(&items);
   cleanupPlayerRenderer(&renderer);
   inventoryCheckRestoreState(&original);
   if (!ok)

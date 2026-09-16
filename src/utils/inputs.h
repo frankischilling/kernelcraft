@@ -67,6 +67,10 @@ void inputPlayerPose(const InputState* input, PlayerModelPose* pose);
 // Discard simulation backlog, queued jumps, run/tap state, and cached mouse position.
 // Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);
+// World simulation runs while normal gameplay is captured or while the focused
+// inventory is open. Chat, an ordinary released cursor, focus loss,
+// iconification, and zero-size framebuffers pause simulation.
+bool inputSimulationActive(GLFWwindow* window, const InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 // Run after movement and before rendering/saving so selection uses the new eye.
 void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTime);

@@ -4,7 +4,6 @@
 #include "graphics/hud.h"
 #include "utils/text.h"
 #include "world/cube.h"
-#include "../libs/stb_image.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,9 +20,10 @@ static const char* expectedWireframe;
 static bool sawWireframe;
 static bool chatLayout, sawChatPrompt, sawChatMessage, sawChatTail;
 static int modeBaseline = -1, chatPromptBaseline = -1, chatHistoryBaseline = -1, chatCaretBaseline = -1;
-static const char* failTexture;
-static GLuint partialTextures[6];
-static int partialCount;
+static bool failMaterialLoad;
+static unsigned materialArrayCalls;
+static GLuint failedMaterialArray;
+static PFNGLTEXIMAGE3DPROC realMaterialTexImage3D;
 static float rectangles[32][4];
 static float materialX[9];
 static GLuint iconTextures[6];
@@ -69,7 +69,7 @@ static GLenum GLAPIENTRY failFontFramebuffer(GLenum target) {
     }                                                                                                                                                                              \
   } while (0)
 
-GLuint __real_loadTexture(const char* path);
+GLuint __real_loadTextureArray(const char* const paths[], int layers);
 
 #ifdef _WIN32
 extern void(FGAPIENTRY* __real___imp_glutBitmapString)(void* font, const unsigned char* string);
@@ -87,12 +87,30 @@ void FGAPIENTRY __wrap_glutBitmapString(void* font, const unsigned char* string)
 void(FGAPIENTRY* __wrap___imp_glutBitmapString)(void* font, const unsigned char* string) = __wrap_glutBitmapString;
 #endif
 
-GLuint __wrap_loadTexture(const char* path) {
-  if (failTexture && !strcmp(path, failTexture))
+static void GLAPIENTRY captureMaterialStorage(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format,
+                                              GLenum type, const void* pixels) {
+  GLint texture = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &texture);
+  failedMaterialArray = (GLuint)texture;
+  realMaterialTexImage3D(target, level, internalFormat, width, height, depth, border, format, type, pixels);
+}
+
+GLuint __wrap_loadTextureArray(const char* const paths[], int layers) {
+  materialArrayCalls++;
+  if (!failMaterialLoad)
+    return __real_loadTextureArray(paths, layers);
+  CHECK(paths && layers == 10);
+  if (!paths || layers != 10)
     return 0;
-  GLuint texture = __real_loadTexture(path);
-  if (failTexture && partialCount < 6)
-    partialTextures[partialCount++] = texture;
+  const char* substituted[10];
+  memcpy(substituted, paths, sizeof(substituted));
+  // Fail after array allocation and several successful layer uploads.
+  substituted[4] = "nonexistent-item-material.png";
+  failedMaterialArray = 0;
+  realMaterialTexImage3D = __glewTexImage3D;
+  __glewTexImage3D = captureMaterialStorage;
+  GLuint texture = __real_loadTextureArray(substituted, layers);
+  __glewTexImage3D = realMaterialTexImage3D;
   return texture;
 }
 
@@ -167,21 +185,29 @@ static void capture(int width, int height, int index, int debug, const unsigned 
   CHECK(fclose(file) == 0);
 }
 
-// Find the complete upright PNG, enlarged by two with no color filtering.
-// Search inside the slot instead of sharing HUD layout or UV calculations.
+// Find the cached 128x128 framebuffer icon nearest-scaled to the 32-pixel HUD
+// quad and alpha-composited over the slot background. Search inside the slot
+// instead of sharing HUD layout calculations.
 static bool hasIcon(const unsigned char* pixels, int width, int height, int slot, const unsigned char* reference) {
+  enum { DESTINATION = 32, BACKGROUND = 31 };
+
   for (int bottom = 16; bottom + 32 < height && bottom < 80; bottom++)
     for (int left = (int)materialX[slot] - 24; left <= (int)materialX[slot]; left++) {
       if (left < 0 || left + 32 > width)
         continue;
       bool match = true;
-      for (int y = 0; match && y < 32; y++)
-        for (int x = 0; match && x < 32; x++) {
+      for (int y = 0; match && y < DESTINATION; y++)
+        for (int x = 0; match && x < DESTINATION; x++) {
           const unsigned char* actual = pixels + ((size_t)(bottom + y) * width + left + x) * 3;
-          const unsigned char* expected = reference + ((15 - y / 2) * 16 + x / 2) * 4;
-          for (int channel = 0; channel < 3; channel++)
-            if (abs((int)actual[channel] - expected[channel]) > 1)
+          int sourceX = (int)(((x + 0.5f) * ITEM_ICON_SIZE) / DESTINATION);
+          int sourceY = (int)(((y + 0.5f) * ITEM_ICON_SIZE) / DESTINATION);
+          const unsigned char* source = reference + ((size_t)sourceY * ITEM_ICON_SIZE + sourceX) * 4;
+          int alpha = source[3];
+          for (int channel = 0; channel < 3; channel++) {
+            int expected = (source[channel] * alpha + BACKGROUND * (255 - alpha) + 127) / 255;
+            if (abs((int)actual[channel] - expected) > 2)
               match = false;
+          }
         }
 
       if (match)
@@ -363,7 +389,7 @@ int main(int argc, char** argv) {
   initCamera(&camera);
   Inventory inventory;
   inventoryInit(&inventory);
-  // Single items leave the complete icon visible for the existing PNG goldens.
+  // Single items leave the cached 3D icon unobstructed by a count label.
   for (int slot = 0; slot < 6; slot++)
     inventory.carried[slot].count = 1;
   RenderResult stats = {.submittedQuads = 100000, .submittedTriangles = 200000};
@@ -384,6 +410,33 @@ int main(int argc, char** argv) {
   glActiveTexture(GL_TEXTURE1);
   CHECK(HUDInit("kernelcraft", "HUD test"));
   HUDItemTextures(iconTextures);
+  unsigned char* reference[6] = {0};
+  GLint packAlignment = 0;
+  glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glActiveTexture(GL_TEXTURE0);
+  for (int slot = 0; slot < 6; slot++) {
+    CHECK(iconTextures[slot] && glIsTexture(iconTextures[slot]));
+    reference[slot] = malloc((size_t)ITEM_ICON_SIZE * ITEM_ICON_SIZE * 4);
+    CHECK(reference[slot]);
+    if (!reference[slot])
+      return 1;
+    glBindTexture(GL_TEXTURE_2D, iconTextures[slot]);
+    GLint iconWidth = 0, iconHeight = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &iconWidth);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &iconHeight);
+    CHECK(iconWidth == ITEM_ICON_SIZE && iconHeight == ITEM_ICON_SIZE);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, reference[slot]);
+    bool transparent = false, opaque = false;
+    for (int pixel = 0; pixel < ITEM_ICON_SIZE * ITEM_ICON_SIZE; pixel++) {
+      transparent |= reference[slot][pixel * 4 + 3] == 0;
+      opaque |= reference[slot][pixel * 4 + 3] == 255;
+    }
+    CHECK(transparent && opaque);
+  }
+  glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
+  glBindTexture(GL_TEXTURE_2D, sentinel);
+  glActiveTexture(GL_TEXTURE1);
   testTextPixels();
   testTextReuse();
   testTextClientState();
@@ -393,19 +446,6 @@ int main(int argc, char** argv) {
   glActiveTexture(GL_TEXTURE0);
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBeforeDraw);
   CHECK(textureBeforeDraw == (GLint)sentinel);
-  const char* paths[] = {"assets/textures/grass-side.png",  "assets/textures/dirt.png",       "assets/textures/stone.png",
-                         "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
-  unsigned char* reference[6];
-  for (int slot = 0; slot < 6; slot++) {
-    int width, height, channels;
-    reference[slot] = stbi_load(paths[slot], &width, &height, &channels, 4);
-    CHECK(reference[slot] && width == 16 && height == 16);
-    if (!reference[slot] || width != 16 || height != 16)
-      return 1;
-    for (int pixel = 0; pixel < 16 * 16; pixel++)
-      CHECK(reference[slot][pixel * 4 + 3] == 255);
-  }
-
   const int sizes[][2] = {{320, 240}, {240, 320}, {640, 360}, {1280, 720}, {1920, 1080}, {192, 120}, {640, 120}, {1280, 120}, {96, 120}, {64, 64}, {1, 1}, {0, 0}};
   for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
     int width = sizes[i][0], height = sizes[i][1];
@@ -578,7 +618,7 @@ int main(int argc, char** argv) {
   glClear(GL_COLOR_BUFFER_BIT);
   HUDDraw(0, &data);
   CHECK(sawMaterial);
-  unsigned char movedIcons[640 * 480 * 3];
+  static unsigned char movedIcons[640 * 480 * 3];
   glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, movedIcons);
   CHECK(hasIcon(movedIcons, 640, 480, 0, reference[5]));
   CHECK(hasIcon(movedIcons, 640, 480, 5, reference[0]));
@@ -683,7 +723,7 @@ int main(int argc, char** argv) {
   glReadPixels(639, 8, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, outside);
   for (int channel = 0; channel < 3; channel++)
     CHECK(abs(outside[channel] - backdrop[channel]) <= 1);
-  unsigned char panelCapture[640 * 480 * 3];
+  static unsigned char panelCapture[640 * 480 * 3];
   glReadPixels(0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, panelCapture);
   capture(640, 480, 200, 0, panelCapture);
   // On a wider window, input keeps spanning the screen while history stops
@@ -709,18 +749,18 @@ int main(int argc, char** argv) {
   for (int slot = 0; slot < 6; slot++)
     CHECK(iconTextures[slot] && !glIsTexture(iconTextures[slot]));
   HUDCleanup();
-  for (int failedSlot = 3; failedSlot < 6; failedSlot++) {
-    partialCount = 0;
-    failTexture = paths[failedSlot];
-    CHECK(!HUDInit("kernelcraft", "missing material icon"));
-    CHECK(partialCount == failedSlot);
-    for (int slot = 0; slot < partialCount; slot++)
-      CHECK(partialTextures[slot] && !glIsTexture(partialTextures[slot]));
-    HUDCleanup();
-  }
+  unsigned arraysBeforeFailure = materialArrayCalls;
+  failMaterialLoad = true;
+  failedMaterialArray = 0;
+  CHECK(!HUDInit("kernelcraft", "missing material icon"));
+  failMaterialLoad = false;
+  CHECK(materialArrayCalls == arraysBeforeFailure + 1);
+  CHECK(failedMaterialArray && !glIsTexture(failedMaterialArray));
+  ItemRenderer* failedItems = HUDItems();
+  CHECK(!failedItems->materials && !failedItems->program && !failedItems->compositeProgram && !failedItems->vao && !failedItems->vbo);
+  HUDCleanup();
 
-  partialCount = 0;
-  failTexture = "font cache"; // Record all icons before font initialization fails.
+  unsigned arraysBeforeFontFailure = materialArrayCalls;
   realCheckFramebufferStatus = __glewCheckFramebufferStatus;
   __glewCheckFramebufferStatus = failFontFramebuffer;
   GLint viewportBefore[4], viewportAfter[4], activeBefore, activeAfter, framebufferBefore, framebufferAfter;
@@ -734,16 +774,15 @@ int main(int argc, char** argv) {
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebufferAfter);
   CHECK(!memcmp(viewportBefore, viewportAfter, sizeof(viewportBefore)));
   CHECK(activeBefore == activeAfter && framebufferBefore == framebufferAfter);
-  CHECK(partialCount == 6);
-  for (int slot = 0; slot < partialCount; slot++)
-    CHECK(!glIsTexture(partialTextures[slot]));
+  CHECK(materialArrayCalls == arraysBeforeFontFailure);
   CHECK(failedFontTexture && !glIsTexture(failedFontTexture));
   CHECK(failedFontFramebuffer && !glIsFramebuffer(failedFontFramebuffer));
-  failTexture = NULL;
+  unsigned arraysBeforeTextFailure = materialArrayCalls;
   realTextBufferData = __glewBufferData;
   __glewBufferData = failTextStorage;
   CHECK(!HUDInit("kernelcraft", "failed text storage"));
   __glewBufferData = realTextBufferData;
+  CHECK(materialArrayCalls == arraysBeforeTextFailure);
   CHECK(failedTextBuffer && !glIsBuffer(failedTextBuffer));
   CHECK(failedTextVAO && !glIsVertexArray(failedTextVAO));
   CHECK(failedTextTexture && !glIsTexture(failedTextTexture));
@@ -757,7 +796,7 @@ int main(int argc, char** argv) {
     CHECK(iconTextures[slot] && !glIsTexture(iconTextures[slot]));
   glDeleteTextures(1, &sentinel);
   for (int slot = 0; slot < 6; slot++)
-    stbi_image_free(reference[slot]);
+    free(reference[slot]);
   CHECK(glGetError() == GL_NO_ERROR);
   glfwDestroyWindow(window);
   glfwTerminate();

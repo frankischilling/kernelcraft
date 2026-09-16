@@ -97,14 +97,22 @@ void windowFocusCallback(GLFWwindow* window, int focused) {
 }
 
 static bool acceptsWindowInput(GLFWwindow* window) {
+  if (!window)
+    return false;
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
   return width > 0 && height > 0 && glfwGetWindowAttrib(window, GLFW_FOCUSED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED);
 }
 
+bool inputSimulationActive(GLFWwindow* window, const InputState* input) {
+  if (!input || input->chat.open || !acceptsWindowInput(window))
+    return false;
+  return input->inventoryOpen || glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+}
+
 static bool acceptsEditing(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
-  return input && !input->chat.open && !input->inventoryOpen && acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+  return input && !input->inventoryOpen && inputSimulationActive(window, input);
 }
 
 int selectedBlock(const InputState* input) {
@@ -241,7 +249,6 @@ static void openInventory(GLFWwindow* window, InputState* input) {
   setCursorCaptured(window, false);
   glfwGetCursorPos(window, &input->inventoryMouseX, &input->inventoryMouseY);
   glfwGetFramebufferSize(window, &input->inventoryWidth, &input->inventoryHeight);
-  advanceDayNight(&input->clock, 0, false);
 }
 
 static void inventoryMouseButton(GLFWwindow* window, InputState* input, int button, int action, int mods) {
@@ -493,7 +500,11 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
   if (!input)
     return;
   input->simulationSteps = 0;
-  if (input->inventoryOpen && acceptsWindowInput(window)) {
+  if (input->inventoryOpen) {
+    if (!inputSimulationActive(window, input)) {
+      pauseInput(input);
+      return;
+    }
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     if (width != input->inventoryWidth || height != input->inventoryHeight) {
@@ -503,7 +514,18 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
       input->inventoryHeight = height;
     }
     firstMouse = true;
-    resetInputTiming(input);
+    if (!isfinite(deltaTime) || deltaTime <= 0)
+      return;
+    if (!input->flying) {
+      input->simulationSteps = playerAdvance(&input->player, (PlayerMotion){0}, deltaTime);
+      input->camera->position = playerEyePosition(&input->player);
+      updateCameraFov(input->camera, false, deltaTime);
+      if (input->simulationSteps > 0)
+        advancePlayerModelAnimation(&input->animation, &input->player, false, true, input->simulationSteps * PLAYER_STEP_SECONDS);
+    } else {
+      updateCameraFov(input->camera, false, deltaTime);
+      advancePlayerModelAnimation(&input->animation, &input->player, true, true, deltaTime);
+    }
     return;
   }
   if (!acceptsEditing(window)) {

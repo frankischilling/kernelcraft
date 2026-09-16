@@ -1,3 +1,4 @@
+#include "graphics/item_renderer.h"
 #include "graphics/player_renderer.h"
 #include <stdint.h>
 #include <string.h>
@@ -6,6 +7,8 @@ static int playerRenderedFrame = -1;
 static int inventoryPreviewFrame = -1;
 static unsigned liveBodyFrames;
 static uint64_t punchSilhouettes[3];
+static float punchPhases[3];
+static uint64_t heldItemColorHashes[3];
 
 static void playerViewFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
@@ -44,11 +47,33 @@ static void playerViewFrame(GLFWwindow* window) {
   if (frame == 99) {
     keyCallback(window, GLFW_KEY_F6, 0, GLFW_PRESS, 0);
     CHECK(input->view == CAMERA_FIRST_PERSON);
+    input->selectedSlot = 8;
+    input->inventory.carried[8] = (ItemStack){0};
+    input->inventory.offhand = (ItemStack){0};
   }
   if (frame == 100)
     setCursorCaptured(window, false);
   if (frame == 101)
     setCursorCaptured(window, true);
+}
+
+static void heldItemFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (frame < 111 || frame > 114)
+    return;
+  CHECK(!input->inventoryOpen && input->view == CAMERA_FIRST_PERSON && cursorMode == GLFW_CURSOR_DISABLED);
+  input->selectedSlot = 2;
+  input->inventory.offhand = (ItemStack){0};
+  if (frame == 111)
+    input->inventory.carried[2] = (ItemStack){ITEM_STONE, 1};
+  else if (frame == 112)
+    input->inventory.carried[2] = (ItemStack){0};
+  else if (frame == 113)
+    input->inventory.carried[2] = (ItemStack){ITEM_LEATHER_HELMET, 1};
+  else {
+    input->inventory.carried[2] = (ItemStack){0};
+    input->inventory.offhand = (ItemStack){ITEM_STONE_BRICKS, 1};
+  }
 }
 
 static unsigned changedPlayerPixels(const unsigned char* before, const unsigned char* after, int width, int height, uint64_t* silhouette, bool hand) {
@@ -67,6 +92,26 @@ static unsigned changedPlayerPixels(const unsigned char* before, const unsigned 
     }
   if (silhouette)
     *silhouette = hash;
+  return changed;
+}
+
+static unsigned changedHeldPixels(const unsigned char* before, const unsigned char* after, size_t pixels, uint64_t* silhouette, uint64_t* colorHash) {
+  unsigned changed = 0;
+  uint64_t shape = UINT64_C(14695981039346656037), color = UINT64_C(14695981039346656037);
+  for (size_t pixel = 0; pixel < pixels; pixel++) {
+    size_t offset = pixel * 3;
+    bool different = memcmp(before + offset, after + offset, 3) != 0;
+    shape = (shape ^ (unsigned)different) * UINT64_C(1099511628211);
+    if (!different)
+      continue;
+    changed++;
+    for (int channel = 0; channel < 3; channel++)
+      color = (color ^ after[offset + channel]) * UINT64_C(1099511628211);
+  }
+  if (silhouette)
+    *silhouette = shape;
+  if (colorHash)
+    *colorHash = color;
   return changed;
 }
 
@@ -131,7 +176,7 @@ void __real_renderPlayerHand(const PlayerRenderer*, const PlayerModelPose*, floa
 void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
   CHECK(playerRenderedFrame != frame);
   playerRenderedFrame = frame;
-  bool probe = frame == 0 || frame == 1 || frame == 3 || frame == 55 || frame == 60 || frame == 65 || frame == 99;
+  bool probe = frame == 99 || frame == 112 || frame == 114;
   if (!probe) {
     __real_renderPlayerHand(renderer, pose, aspect, daylight);
     return;
@@ -149,17 +194,76 @@ void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPo
   __real_renderPlayerHand(renderer, pose, aspect, daylight);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, after);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
-  uint64_t hash = 0;
-  CHECK(changedPlayerPixels(before, after, viewport[2], viewport[3], &hash, pose->punch <= 0 || pose->punch >= 1) > 200);
+  CHECK(changedPlayerPixels(before, after, viewport[2], viewport[3], NULL, pose->punch <= 0 || pose->punch >= 1) > 200);
   CHECK(memcmp(depthBefore, depthAfter, pixels * sizeof(float)) == 0);
-  if (frame == 55 || frame == 60 || frame == 65)
-    punchSilhouettes[(frame - 55) / 5] = hash;
-  if (frame == 65)
-    CHECK(punchSilhouettes[0] != punchSilhouettes[1] && punchSilhouettes[1] != punchSilhouettes[2]);
   free(before);
   free(after);
   free(depthBefore);
   free(depthAfter);
+}
+
+bool __real_renderHeldItems(ItemRenderer*, ItemStack, ItemStack, const PlayerModelPose*, float, const DayNightState*);
+
+bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
+  InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
+  CHECK(input);
+  ItemStack expectedMain = input->inventory.carried[input->selectedSlot];
+  CHECK(mainHand.item == expectedMain.item && mainHand.count == expectedMain.count);
+  CHECK(offhand.item == input->inventory.offhand.item && offhand.count == input->inventory.offhand.count);
+  if (mainHand.count) {
+    CHECK(playerRenderedFrame != frame);
+    playerRenderedFrame = frame;
+  }
+
+  bool probePunch = frame == 55 || frame == 60 || frame == 65;
+  bool probeItem = frame == 111 || frame == 113 || frame == 114;
+  if (!probePunch && !probeItem)
+    return __real_renderHeldItems(renderer, mainHand, offhand, pose, aspect, daylight);
+
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  size_t pixels = (size_t)viewport[2] * viewport[3];
+  unsigned char* before = malloc(pixels * 3);
+  unsigned char* after = malloc(pixels * 3);
+  float* depthBefore = malloc(pixels * sizeof(float));
+  float* depthAfter = malloc(pixels * sizeof(float));
+  CHECK(before && after && depthBefore && depthAfter);
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, before);
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthBefore);
+  bool rendered = __real_renderHeldItems(renderer, mainHand, offhand, pose, aspect, daylight);
+  CHECK(rendered);
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, after);
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
+  uint64_t silhouette = 0, colorHash = 0;
+  CHECK(changedHeldPixels(before, after, pixels, &silhouette, &colorHash) > 100);
+  CHECK(memcmp(depthBefore, depthAfter, pixels * sizeof(float)) == 0);
+
+  if (probePunch) {
+    int index = (frame - 55) / 5;
+    punchSilhouettes[index] = silhouette;
+    punchPhases[index] = pose->punch;
+    if (frame == 65) {
+      CHECK(punchPhases[0] != punchPhases[1] && punchPhases[1] != punchPhases[2] && punchPhases[0] != punchPhases[2]);
+      CHECK(punchSilhouettes[0] != punchSilhouettes[1] && punchSilhouettes[1] != punchSilhouettes[2] && punchSilhouettes[0] != punchSilhouettes[2]);
+    }
+  } else {
+    int index = frame == 111 ? 0 : frame == 113 ? 1 : 2;
+    heldItemColorHashes[index] = colorHash;
+    if (frame == 111)
+      CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count);
+    if (frame == 113)
+      CHECK(mainHand.item == ITEM_LEATHER_HELMET && mainHand.count == 1 && !offhand.count);
+    if (frame == 114) {
+      CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1);
+      CHECK(heldItemColorHashes[0] != heldItemColorHashes[1] && heldItemColorHashes[1] != heldItemColorHashes[2] && heldItemColorHashes[0] != heldItemColorHashes[2]);
+    }
+  }
+
+  free(before);
+  free(after);
+  free(depthBefore);
+  free(depthAfter);
+  return rendered;
 }
 
 static void checkPlayerRenderedFrame(const InputState* input) {

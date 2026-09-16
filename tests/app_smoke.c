@@ -1024,7 +1024,9 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     playerViewFrame(window);
   if (frame >= 102 && frame < 111)
     inventoryLiveFrame(window);
-  return frame >= 111;
+  if (frame >= 111 && frame < 115)
+    heldItemFrame(window);
+  return frame >= 115;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1409,9 +1411,9 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 108 && waits == 3);
-    puts("Application inventory/player preview, equipment, crafting, portrait resize and pause checks passed");
-    puts("Application player skin, camera views, movement poses, timed punches, foreground hand and preserved depth checks passed");
+    CHECK(swaps == 112 && waits == 3);
+    puts("Application inventory/player preview, live simulation, equipment, crafting, portrait resize and pause checks passed");
+    puts("Application player skin, camera views, movement poses, timed held-item punches, bare hand, 3D held items and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");
     puts("Application cloud layer pixels checked through the live game loop");
     puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");

@@ -10,6 +10,7 @@
 #include <GL/glew.h>
 #include "camera.h"
 #include "world_renderer.h"
+#include "item_renderer.h"
 #include "../utils/raycast.h"
 #include "../world/chat.h"
 #include "../world/inventory.h"
@@ -45,5 +46,7 @@ bool HUDInit(const char* buildName, const char* buildVersion);
 void HUDCleanup(void);
 // Borrowed handles, indexed by placeable item ID minus one; HUD owns them.
 void HUDItemTextures(GLuint textures[6]);
+// Shared item meshes, cached GUI images, and reusable first-person target.
+ItemRenderer* HUDItems(void);
 
 #endif // HUD_H

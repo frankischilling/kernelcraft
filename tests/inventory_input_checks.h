@@ -53,9 +53,28 @@ static void testInventoryInput(GLFWwindow* window) {
   input->inventory.carried[0] = (ItemStack){ITEM_STONE, 10};
   input->inventory.carried[1] = (ItemStack){ITEM_DIRT, 7};
   input->inventory.carried[9] = (ItemStack){ITEM_LEATHER_HELMET, 1};
+  setCursorCaptured(window, false);
+  CHECK(!inputSimulationActive(window, input));
   setCursorCaptured(window, true);
+  CHECK(inputSimulationActive(window, input));
+  zeroFramebuffer = true;
+  CHECK(!inputSimulationActive(window, input));
+  zeroFramebuffer = false;
+  iconified = true;
+  CHECK(!inputSimulationActive(window, input));
+  iconified = false;
+  input->jumpRequested = true;
+  input->runInput = (PlayerRunInput){.forwardDown = true, .tapPending = true, .running = true};
+  input->player.running = true;
+  input->player.velocity.x = 3;
+  input->player.velocity.z = -2;
+  input->animation.gaitWeight = 1;
+  input->breakHeld = true;
+  input->breaking = (BlockBreaking){.block = BLOCK_STONE, .active = true};
   keyCallback(window, GLFW_KEY_E, 0, GLFW_PRESS, 0);
-  CHECK(input->inventoryOpen && cursorMode == GLFW_CURSOR_NORMAL);
+  CHECK(input->inventoryOpen && cursorMode == GLFW_CURSOR_NORMAL && inputSimulationActive(window, input));
+  CHECK(!input->jumpRequested && !input->runInput.forwardDown && !input->runInput.tapPending && !input->runInput.running && !input->player.running);
+  CHECK(!input->breakHeld && !input->breaking.active && input->animation.gaitWeight == 0);
   keyCallback(window, GLFW_KEY_E, 0, GLFW_REPEAT, 0);
   Camera pausedCamera = *input->camera;
   bool flying = input->flying;
@@ -66,9 +85,41 @@ static void testInventoryInput(GLFWwindow* window) {
   keyCallback(window, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
   keyCallback(window, GLFW_KEY_F6, 0, GLFW_PRESS, 0);
   keyCallback(window, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
-  CHECK(!input->chat.open && !input->jumpRequested && input->view == view && input->flying == flying && input->simulationSteps == 0);
+  CHECK(!input->chat.open && !input->jumpRequested && input->view == view && input->flying == flying && input->simulationSteps == PLAYER_MAX_STEPS);
+  CHECK(input->player.velocity.x == 0 && input->player.velocity.z == 0);
   CHECK(!memcmp(input->camera, &pausedCamera, sizeof(pausedCamera)));
   pressedKey = -1;
+
+  // Inventory is modal for controls, but neutral player physics continues.
+  CHECK(setBlock(&(Vec3i){72, 39, 72}, BLOCK_AIR));
+  float fallStart = input->player.position.y;
+  float fixedX = input->player.position.x, fixedZ = input->player.position.z;
+  pressedKey = GLFW_KEY_W;
+  processInput(window, input, 1.0 / 30);
+  CHECK(input->simulationSteps > 0 && input->player.position.y < fallStart);
+  CHECK(input->player.position.x == fixedX && input->player.position.z == fixedZ);
+  CHECK(input->camera->position.x == fixedX && input->camera->position.z == fixedZ && input->camera->position.y == playerEyePosition(&input->player).y);
+  pressedKey = -1;
+  CHECK(playerSetPosition(&input->player, (Vec3){73.5f, 40, 72.5f}));
+  CHECK(setBlock(&(Vec3i){72, 39, 72}, BLOCK_STONE));
+  CHECK(playerSetPosition(&input->player, (Vec3){72.5f, 40, 72.5f}));
+  input->camera->position = playerEyePosition(&input->player);
+
+  // Losing focus still discards backlog. Refocusing an open inventory resumes
+  // fixed-step physics without replaying the paused interval.
+  Vec3 beforePause = input->player.position;
+  focused = GLFW_FALSE;
+  windowFocusCallback(window, GLFW_FALSE);
+  CHECK(!inputSimulationActive(window, input));
+  processInput(window, input, 20);
+  CHECK(input->simulationSteps == 0 && input->player.accumulator == 0 && !memcmp(&beforePause, &input->player.position, sizeof(beforePause)));
+  focused = GLFW_TRUE;
+  windowFocusCallback(window, GLFW_TRUE);
+  CHECK(inputSimulationActive(window, input));
+  processInput(window, input, PLAYER_STEP_SECONDS / 2);
+  CHECK(input->simulationSteps == 0);
+  processInput(window, input, PLAYER_STEP_SECONDS / 2);
+  CHECK(input->simulationSteps == 1);
 
   // Registered inventory controls build one recipe, including right-click splits.
   inventoryTestClick(window, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 0}, GLFW_MOUSE_BUTTON_RIGHT, 0);
@@ -98,15 +149,26 @@ static void testInventoryInput(GLFWwindow* window) {
 
   // A drag spans real pointer callbacks, retains the remainder, and cancels on focus loss.
   inventoryClear(&input->inventory);
+  for (int slot = 0; slot < 20; slot++)
+    input->inventory.carried[slot] = (ItemStack){ITEM_DIRT, INVENTORY_STACK_MAX};
   input->inventory.cursor = (ItemStack){ITEM_STONE, 10};
   inventoryTestPoint(window, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 20});
   mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
   inventoryTestPoint(window, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 21});
   inventoryTestPoint(window, (InventorySlotRef){INVENTORY_SLOT_CARRIED, 22});
   processInput(window, input, 1.0 / 30);
+  Vec3 pickup = inputBodyFeet(input);
+  pickup.y += 0.5f;
+  CHECK(droppedItemsSpawn(&input->drops, (ItemStack){ITEM_STONE, 2}, pickup, (Vec3){0}, 0));
+  uint32_t conservedStone = inventoryCountItem(&input->inventory, ITEM_STONE) + inventoryTestDroppedCount(&input->drops, ITEM_STONE);
+  droppedItemsAdvance(&input->drops, &input->inventory, inputBodyFeet(input), PLAYER_STEP_SECONDS, inputSimulationActive(window, input));
+  CHECK(inventoryTestDroppedCount(&input->drops, ITEM_STONE) == 0 && inventoryCountItem(&input->inventory, ITEM_STONE) == conservedStone);
+  CHECK(input->inventoryGesture.pending && input->inventoryGesture.count == 3);
   mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
   CHECK(input->inventory.cursor.count == 1);
-  CHECK(input->inventory.carried[20].count == 3 && input->inventory.carried[21].count == 3 && input->inventory.carried[22].count == 3);
+  CHECK(input->inventory.carried[20].item == ITEM_STONE && input->inventory.carried[20].count == 5);
+  CHECK(input->inventory.carried[21].count == 3 && input->inventory.carried[22].count == 3);
+  CHECK(inventoryCountItem(&input->inventory, ITEM_STONE) == conservedStone);
   inventoryClear(&input->inventory);
   input->inventory.carried[0] = (ItemStack){ITEM_STONE, 2};
   input->inventory.carried[9] = (ItemStack){ITEM_STONE, 3};
@@ -188,12 +250,17 @@ static void testInventoryInput(GLFWwindow* window) {
 
 static unsigned inventoryLivePanels;
 static unsigned inventoryPausedTick;
-static Vec3 inventoryPausedPosition;
+static Vec3 inventorySimulationStart;
+static double inventoryClockStart;
+static bool inventoryClockShouldAdvance;
 
 static void inventoryLiveFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   if (frame == 102) {
-    CHECK(playerSetPosition(&input->player, (Vec3){-60.5f, 40, -60.5f}));
+    for (int y = 39; y <= 44; y++)
+      CHECK(setBlock(&(Vec3i){-61, y, -61}, y == 39 ? BLOCK_STONE : BLOCK_AIR));
+    CHECK(playerSetPosition(&input->player, (Vec3){-60.5f, 42, -60.5f}));
+    input->flying = false;
     input->camera->position = playerEyePosition(&input->player);
     input->view = CAMERA_FIRST_PERSON;
     input->showDebug = false;
@@ -255,15 +322,23 @@ static void inventoryLiveFrame(GLFWwindow* window) {
   }
   eventSeconds = -1;
   inventoryPausedTick = input->clock.tick;
-  inventoryPausedPosition = input->camera->position;
+  inventorySimulationStart = input->camera->position;
+  inventoryClockStart = dayNightPhase(&input->clock);
+  inventoryClockShouldAdvance = inputSimulationActive(window, input) && input->clock.active;
 }
 
 static void checkInventoryLiveFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   if (!input->inventoryOpen)
     return;
-  CHECK(input->simulationSteps == 0 && input->clock.tick == inventoryPausedTick);
-  CHECK(!memcmp(&input->camera->position, &inventoryPausedPosition, sizeof(inventoryPausedPosition)));
+  CHECK(inputSimulationActive(window, input) && input->simulationSteps > 0);
+  CHECK(input->camera->position.x == inventorySimulationStart.x && input->camera->position.z == inventorySimulationStart.z);
+  CHECK(input->camera->position.y < inventorySimulationStart.y);
+  double clockPhase = dayNightPhase(&input->clock);
+  if (inventoryClockShouldAdvance)
+    CHECK(clockPhase > inventoryClockStart);
+  else
+    CHECK(clockPhase == inventoryClockStart);
   CHECK(inventoryPreviewFrame == frame);
   inventoryLivePanels++;
   int width, height;

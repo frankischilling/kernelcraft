@@ -66,11 +66,11 @@ WORLD_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(WORLD_SOURCES))
 SHADER_OBJECTS := $(OBJ_DIR)/src/graphics/shader.o $(OBJ_DIR)/src/graphics/texture.o
 TEST_SOURCES := tests/test_options.c tests/test_save.c tests/test_seed.c tests/test_player.c tests/test_selection.c tests/test_edits.c tests/test_world.c tests/test_shader.c tests/render_benchmark.c tests/app_smoke.c tests/app_persistence.c
 TEST_SOURCES += tests/test_hud.c
-TEST_SOURCES += tests/test_inventory.c tests/test_dropped_items.c
+TEST_SOURCES += tests/test_inventory.c tests/test_dropped_items.c tests/test_item_model.c
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
 WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw -Wl,--wrap=renderSky
-WRAP_STARTUP += -Wl,--wrap=renderPlayerModel -Wl,--wrap=renderPlayerHand
-WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents %--wrap=renderSky %--wrap=renderPlayerModel %--wrap=renderPlayerHand,$(WRAP_STARTUP))
+WRAP_STARTUP += -Wl,--wrap=renderPlayerModel -Wl,--wrap=renderPlayerHand -Wl,--wrap=renderHeldItems
+WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents %--wrap=renderSky %--wrap=renderPlayerModel %--wrap=renderPlayerHand %--wrap=renderHeldItems,$(WRAP_STARTUP))
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -Wl,--wrap=occlusionBoundsHidden -Wl,--wrap=meshVisibilityIntersects -Wl,--wrap=renderText
 
 # Quote option text as data, including embedded single quotes. Keep this in a
@@ -97,7 +97,7 @@ $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS) | check-deps
 	$(CC) $(PROJECT_CPPFLAGS) $(COMPILE_FLAGS) -MMD -MP -c $< -o $@
 
 # CPU tests and their shared objects need neither GL headers nor graphics packages.
-$(OBJ_DIR)/src/utils/options.o $(OBJ_DIR)/tests/test_options.o $(WORLD_OBJECTS) $(OBJ_DIR)/tests/test_world.o $(OBJ_DIR)/tests/test_edits.o $(OBJ_DIR)/tests/test_selection.o $(OBJ_DIR)/tests/test_player.o $(OBJ_DIR)/tests/test_seed.o $(OBJ_DIR)/tests/test_save.o $(OBJ_DIR)/tests/test_inventory.o $(OBJ_DIR)/tests/test_dropped_items.o: $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS)
+$(OBJ_DIR)/src/utils/options.o $(OBJ_DIR)/tests/test_options.o $(WORLD_OBJECTS) $(OBJ_DIR)/tests/test_world.o $(OBJ_DIR)/tests/test_edits.o $(OBJ_DIR)/tests/test_selection.o $(OBJ_DIR)/tests/test_player.o $(OBJ_DIR)/tests/test_seed.o $(OBJ_DIR)/tests/test_save.o $(OBJ_DIR)/tests/test_inventory.o $(OBJ_DIR)/tests/test_dropped_items.o $(OBJ_DIR)/tests/test_item_model.o: $(OBJ_DIR)/%.o: %.c $(BUILD_SETTINGS)
 	@mkdir -p $(dir $@)
 	$(CC) -Isrc $(CPPFLAGS) $(COMPILE_FLAGS) -MMD -MP -c $< -o $@
 
@@ -143,7 +143,10 @@ $(BIN_DIR)/test-inventory: $(OBJ_DIR)/tests/test_inventory.o $(WORLD_OBJECTS) $(
 $(BIN_DIR)/test-dropped-items: $(OBJ_DIR)/tests/test_dropped_items.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
 
-test: $(BIN_DIR)/test-options $(BIN_DIR)/test-world $(BIN_DIR)/test-edits $(BIN_DIR)/test-selection $(BIN_DIR)/test-player $(BIN_DIR)/test-seed $(BIN_DIR)/test-save $(BIN_DIR)/test-inventory $(BIN_DIR)/test-dropped-items
+$(BIN_DIR)/test-item-model: $(OBJ_DIR)/tests/test_item_model.o $(WORLD_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
+	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) -lm $(LDLIBS)
+
+test: $(BIN_DIR)/test-options $(BIN_DIR)/test-world $(BIN_DIR)/test-edits $(BIN_DIR)/test-selection $(BIN_DIR)/test-player $(BIN_DIR)/test-seed $(BIN_DIR)/test-save $(BIN_DIR)/test-inventory $(BIN_DIR)/test-dropped-items $(BIN_DIR)/test-item-model
 	./$(BIN_DIR)/test-options
 	./$(BIN_DIR)/test-world
 	./$(BIN_DIR)/test-edits
@@ -153,6 +156,7 @@ test: $(BIN_DIR)/test-options $(BIN_DIR)/test-world $(BIN_DIR)/test-edits $(BIN_
 	./$(BIN_DIR)/test-save
 	./$(BIN_DIR)/test-inventory
 	./$(BIN_DIR)/test-dropped-items
+	./$(BIN_DIR)/test-item-model
 
 $(BIN_DIR)/test-shader: $(OBJ_DIR)/tests/test_shader.o $(SHADER_OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
@@ -161,7 +165,7 @@ $(BIN_DIR)/benchmark: $(OBJ_DIR)/tests/render_benchmark.o $(filter-out $(OBJ_DIR
 	$(CC) $(filter %.o,$^) $(WRAP_BENCHMARK) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 $(BIN_DIR)/test-hud: $(OBJ_DIR)/tests/test_hud.o $(filter-out $(OBJ_DIR)/src/main.o,$(OBJECTS)) $(BUILD_SETTINGS) | $(BIN_DIR)
-	$(CC) $(filter %.o,$^) -Wl,--wrap=renderText -Wl,--wrap=loadTexture -Wl,--wrap=glutBitmapString -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
+	$(CC) $(filter %.o,$^) -Wl,--wrap=renderText -Wl,--wrap=loadTextureArray -Wl,--wrap=glutBitmapString -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)
 
 $(BIN_DIR)/test-startup: $(OBJ_DIR)/tests/app_smoke.o $(OBJECTS) $(BUILD_SETTINGS) | $(BIN_DIR)
 	$(CC) $(filter %.o,$^) $(WRAP_STARTUP) -o $@ $(LDFLAGS) $(PROJECT_LDLIBS)

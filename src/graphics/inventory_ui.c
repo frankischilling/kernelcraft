@@ -10,7 +10,7 @@ enum {
   INVENTORY_UI_PREVIEW_X = 26,
   INVENTORY_UI_PREVIEW_Y = 8,
   INVENTORY_UI_PREVIEW_WIDTH = 49,
-  INVENTORY_UI_PREVIEW_HEIGHT = 70,
+  INVENTORY_UI_PREVIEW_HEIGHT = 72,
 };
 
 static int roundedEdge(const InventoryUILayout* layout, int logical) {
@@ -232,9 +232,28 @@ static float clampUnit(float value) {
   return fmaxf(-1.0f, fminf(1.0f, value));
 }
 
-static bool renderPreview(InventoryUI* ui, const InventoryUIRect* rect, const Inventory* inventory, const PlayerRenderer* renderer, const PlayerModelPose* playerPose,
-                          const DayNightState* daylight, int mouseX, int mouseY) {
-  if (!ui || !rect || !inventory || !renderer || !playerPose || !daylight || rect->width < 2 || rect->height < 2 || !resizePreview(ui, rect->width, rect->height))
+static void inventoryOrtho(Mat4 result, float left, float right, float bottom, float top, float nearPlane, float farPlane) {
+  mat4_identity(result);
+  result[0] = 2.0f / (right - left);
+  result[5] = 2.0f / (top - bottom);
+  result[10] = -2.0f / (farPlane - nearPlane);
+  result[12] = -(right + left) / (right - left);
+  result[13] = -(top + bottom) / (top - bottom);
+  result[14] = -(farPlane + nearPlane) / (farPlane - nearPlane);
+}
+
+static DayNightState inventoryStudioLight(void) {
+  return (DayNightState){
+      .lightDirection = {-0.35f, 0.80f, 0.45f},
+      .lightColor = {0.72f, 0.72f, 0.72f},
+      .skyFill = {0.48f, 0.48f, 0.48f},
+      .groundFill = {0.30f, 0.30f, 0.30f},
+  };
+}
+
+static bool renderPreview(InventoryUI* ui, const InventoryUIRect* rect, const Inventory* inventory, const PlayerRenderer* renderer, const ItemRenderer* items, int selectedSlot,
+                          int mouseX, int mouseY) {
+  if (!ui || !rect || !inventory || !renderer || rect->width < 2 || rect->height < 2 || !resizePreview(ui, rect->width, rect->height))
     return false;
 
   GLint drawFramebuffer, readFramebuffer, activeTexture;
@@ -255,20 +274,36 @@ static bool renderPreview(InventoryUI* ui, const InventoryUIRect* rect, const In
   float centerY = rect->y + rect->height * 0.52f;
   float lookX = clampUnit((mouseX - centerX) / fmaxf(rect->width * 0.7f, 1.0f));
   float lookY = clampUnit((mouseY - centerY) / fmaxf(rect->height * 0.7f, 1.0f));
-  PlayerModelPose pose = *playerPose;
+  // Inventory presentation stays full-height and stable while gameplay physics
+  // continues behind the modal. Mouse movement supplies only a bounded studio
+  // look; crouch, falling, gait, punches, and world yaw never change framing.
+  PlayerModelPose pose;
+  PlayerPoseInput previewInput = {.yaw = 270.0f, .grounded = true};
+  playerModelPose(&pose, &previewInput);
   pose.rootYaw = lookX * 0.45f;
   pose.parts[PLAYER_MODEL_HEAD].rotation.y = lookX * 0.30f;
-  pose.parts[PLAYER_MODEL_HEAD].rotation.x = -lookY * 0.38f;
+  pose.parts[PLAYER_MODEL_HEAD].rotation.x = -lookY * 0.24f;
 
-  Vec3 eye = {0, 0.9f, -4.0f};
-  Vec3 center = {0, 0.9f, 0};
+  // The armor column spans logical y=8..80. The matching 72-pixel preview uses
+  // a fixed orthographic studio volume so the 32-pixel body, skin shells, cap,
+  // and boot inflation keep the same physical proportions at every GUI scale.
+  const float centerHeight = PLAYER_HEIGHT * (0.5f + 1.0f / 120.0f);
+  const float halfHeight = PLAYER_HEIGHT * (53.0f / 90.0f);
+  float aspect = (float)rect->width / rect->height;
+  Vec3 eye = {0, centerHeight, -4.0f};
+  Vec3 center = {0, centerHeight, 0};
   Vec3 up = {0, 1, 0};
   Mat4 view, projection;
   mat4_lookAt(view, &eye, &center, &up);
-  mat4_perspective(projection, 30.0f, (float)rect->width / rect->height, 0.1f, 20.0f);
-  renderPlayerModel(renderer, (Vec3){0}, &pose, view, projection, daylight);
+  inventoryOrtho(projection, -halfHeight * aspect, halfHeight * aspect, -halfHeight, halfHeight, 0.1f, 20.0f);
+  DayNightState studio = inventoryStudioLight();
+  renderPlayerModel(renderer, (Vec3){0}, &pose, view, projection, &studio);
   PlayerEquipmentVisuals equipment = inventoryEquipment(inventory);
-  renderPlayerEquipment(renderer, (Vec3){0}, &pose, &equipment, view, projection, daylight);
+  renderPlayerEquipment(renderer, (Vec3){0}, &pose, &equipment, view, projection, &studio);
+  if (items) {
+    ItemStack mainHand = selectedSlot >= 0 && selectedSlot < INVENTORY_HOTBAR_SLOT_COUNT ? inventory->carried[selectedSlot] : (ItemStack){0};
+    renderPlayerHeldItems(items, (Vec3){0}, &pose, mainHand, inventory->offhand, view, projection, &studio);
+  }
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)drawFramebuffer);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)readFramebuffer);
@@ -292,7 +327,7 @@ static void fillRect(const TextState* state, const InventoryUIRect* rect, float 
   glEnd();
 }
 
-static void drawTexturedRect(const TextState* state, const InventoryUIRect* rect, GLuint texture, bool topOriginSource) {
+static void drawTexturedRect(const TextState* state, const InventoryUIRect* rect, GLuint texture) {
   if (!texture || rect->width <= 0 || rect->height <= 0)
     return;
   float bottom = glBottom(state, rect);
@@ -301,13 +336,13 @@ static void drawTexturedRect(const TextState* state, const InventoryUIRect* rect
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
   glColor4f(1, 1, 1, 1);
   glBegin(GL_QUADS);
-  glTexCoord2f(0, topOriginSource ? 1.0f : 0.0f);
+  glTexCoord2f(0, 0);
   glVertex2f((float)rect->x, bottom);
-  glTexCoord2f(1, topOriginSource ? 1.0f : 0.0f);
+  glTexCoord2f(1, 0);
   glVertex2f((float)(rect->x + rect->width), bottom);
-  glTexCoord2f(1, topOriginSource ? 0.0f : 1.0f);
+  glTexCoord2f(1, 1);
   glVertex2f((float)(rect->x + rect->width), bottom + rect->height);
-  glTexCoord2f(0, topOriginSource ? 0.0f : 1.0f);
+  glTexCoord2f(0, 1);
   glVertex2f((float)rect->x, bottom + rect->height);
   glEnd();
   glDisable(GL_TEXTURE_2D);
@@ -325,60 +360,16 @@ static InventoryUIRect insetRect(InventoryUIRect rect, int inset) {
   return rect;
 }
 
-static void itemColor(uint16_t item, float* r, float* g, float* b) {
-  uint32_t color = inventoryItemColor(item);
-  *r = ((color >> 16) & 0xff) / 255.0f;
-  *g = ((color >> 8) & 0xff) / 255.0f;
-  *b = (color & 0xff) / 255.0f;
-}
-
-static void drawEquipmentIcon(const TextState* state, const InventoryUIRect* rect, uint16_t item) {
-  if (rect->width < 8 || rect->height < 8)
-    return;
-  float r, g, b;
-  itemColor(item, &r, &g, &b);
-  InventoryUIRect area = insetRect(*rect, (rect->width + 11) / 12);
-  int unit = area.width / 5;
-  if (unit < 1)
-    unit = 1;
-  if (item == ITEM_LEATHER_HELMET) {
-    InventoryUIRect crown = {area.x + unit, area.y + unit, area.width - unit * 2, area.height - unit * 2};
-    fillRect(state, &crown, r, g, b, 1);
-    InventoryUIRect opening = {crown.x + unit, crown.y + crown.height / 2, crown.width - unit * 2, crown.height / 2};
-    fillRect(state, &opening, 0.12f, 0.12f, 0.12f, 1);
-  } else if (item == ITEM_LEATHER_CHESTPLATE) {
-    InventoryUIRect torso = {area.x + unit, area.y + unit * 2, area.width - unit * 2, area.height - unit * 3};
-    InventoryUIRect shoulder = {area.x, area.y + unit, area.width, unit * 2};
-    fillRect(state, &torso, r, g, b, 1);
-    fillRect(state, &shoulder, r, g, b, 1);
-  } else if (item == ITEM_LEATHER_LEGGINGS) {
-    InventoryUIRect waist = {area.x + unit, area.y + unit, area.width - unit * 2, unit * 2};
-    InventoryUIRect left = {area.x + unit, area.y + unit * 3, unit * 2, area.height - unit * 4};
-    InventoryUIRect right = {area.x + area.width - unit * 3, area.y + unit * 3, unit * 2, area.height - unit * 4};
-    fillRect(state, &waist, r, g, b, 1);
-    fillRect(state, &left, r, g, b, 1);
-    fillRect(state, &right, r, g, b, 1);
-  } else if (item == ITEM_LEATHER_BOOTS) {
-    InventoryUIRect left = {area.x + unit, area.y + area.height / 2, unit * 2, area.height / 2 - unit};
-    InventoryUIRect right = {area.x + area.width - unit * 3, area.y + area.height / 2, unit * 2, area.height / 2 - unit};
-    fillRect(state, &left, r, g, b, 1);
-    fillRect(state, &right, r, g, b, 1);
-  } else {
-    fillRect(state, &area, r, g, b, 1);
-  }
-}
-
-static void drawStackIcon(const TextState* state, const InventoryUIRect* rect, ItemStack stack, const GLuint blockTextures[INVENTORY_UI_BLOCK_TEXTURE_COUNT]) {
-  if (!stack.count || stack.item == ITEM_NONE)
+static void drawStackIcon(const TextState* state, const InventoryUIRect* rect, ItemStack stack, const ItemRenderer* items) {
+  if (!items || !stack.count || stack.item == ITEM_NONE)
     return;
   int inset = rect->width / INVENTORY_UI_SLOT_SIZE;
   if (inset < 1)
     inset = 1;
   InventoryUIRect icon = insetRect(*rect, inset);
-  if (stack.item >= ITEM_GRASS_BLOCK && stack.item <= ITEM_STONE_BRICKS && blockTextures)
-    drawTexturedRect(state, &icon, blockTextures[stack.item - ITEM_GRASS_BLOCK], true);
-  else
-    drawEquipmentIcon(state, &icon, stack.item);
+  GLuint texture = itemRendererIcon(items, stack.item);
+  if (texture)
+    drawTexturedRect(state, &icon, texture);
 }
 
 static TextState countTextState(const TextState* state, float scale) {
@@ -518,15 +509,17 @@ static void drawTooltip(const TextState* state, const InventoryUILayout* layout,
 }
 
 void inventoryUIDraw(InventoryUI* ui, const Inventory* inventory, const PlayerRenderer* playerRenderer, const PlayerModelPose* playerPose, const DayNightState* daylight,
-                     const GLuint blockTextures[INVENTORY_UI_BLOCK_TEXTURE_COUNT], int framebufferWidth, int framebufferHeight, int mouseX, int mouseY) {
+                     const ItemRenderer* items, int selectedSlot, int framebufferWidth, int framebufferHeight, int mouseX, int mouseY) {
   if (!ui || !inventory || framebufferWidth <= 0 || framebufferHeight <= 0)
     return;
+  (void)playerPose;
+  (void)daylight;
   InventoryUILayout layout;
   if (!inventoryUILayout(framebufferWidth, framebufferHeight, &layout))
     return;
 
   InventoryUIRect preview = logicalRect(&layout, INVENTORY_UI_PREVIEW_X, INVENTORY_UI_PREVIEW_Y, INVENTORY_UI_PREVIEW_WIDTH, INVENTORY_UI_PREVIEW_HEIGHT);
-  bool previewReady = renderPreview(ui, &preview, inventory, playerRenderer, playerPose, daylight, mouseX, mouseY);
+  bool previewReady = renderPreview(ui, &preview, inventory, playerRenderer, items, selectedSlot, mouseX, mouseY);
 
   GLint activeTexture, texture0, sampler0;
   glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
@@ -561,7 +554,7 @@ void inventoryUIDraw(InventoryUI* ui, const Inventory* inventory, const PlayerRe
   fillRect(&state, &panelInner, 0.78f, 0.78f, 0.78f, 1);
   fillRect(&state, &preview, 0.15f, 0.15f, 0.15f, 1);
   if (previewReady)
-    drawTexturedRect(&state, &preview, ui->previewTexture, false);
+    drawTexturedRect(&state, &preview, ui->previewTexture);
   drawCraftArrow(&state, &layout);
 
   InventorySlotRef hovered = {0};
@@ -592,7 +585,7 @@ void inventoryUIDraw(InventoryUI* ui, const Inventory* inventory, const PlayerRe
       } else if (!stack.count && slot.kind == INVENTORY_SLOT_OFFHAND) {
         drawSlotHint(&smallText, &rect, "O");
       }
-      drawStackIcon(&state, &rect, stack, blockTextures);
+      drawStackIcon(&state, &rect, stack, items);
       drawStackCount(&smallText, &rect, stack);
     }
 
@@ -602,7 +595,7 @@ void inventoryUIDraw(InventoryUI* ui, const Inventory* inventory, const PlayerRe
     if (size < 8)
       size = 8;
     InventoryUIRect cursorRect = {mouseX - size / 2, mouseY - size / 2, size, size};
-    drawStackIcon(&state, &cursorRect, cursor, blockTextures);
+    drawStackIcon(&state, &cursorRect, cursor, items);
     drawStackCount(&smallText, &cursorRect, cursor);
   } else if (hasHovered) {
     drawTooltip(&smallText, &layout, stackForSlot(inventory, hovered), mouseX, mouseY);

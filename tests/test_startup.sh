@@ -55,4 +55,14 @@ status=0
 test "$status" -eq 1 || { echo "Missing player shader exit: $status (expected 1)" >&2; exit 1; }
 grep -q 'Failed to initialize player rendering' missing.log
 if grep -q 'Application smoke test:' missing.log; then cat missing.log; exit 1; fi
+cp "$assets/shaders/player_fragment.glsl" "$fixture/game/assets/shaders/"
+for shader in item_vertex item_fragment item_composite_vertex item_composite_fragment; do
+  rm "$fixture/game/assets/shaders/$shader.glsl"
+  status=0
+  "$fixture/game/test-startup" --no-save >missing.log 2>&1 || status=$?
+  test "$status" -eq 1 || { echo "Missing item shader exit: $status (expected 1)" >&2; exit 1; }
+  grep -q 'Failed to initialize 3D item rendering' missing.log
+  if grep -q 'Application smoke test:' missing.log; then cat missing.log; exit 1; fi
+  cp "$assets/shaders/$shader.glsl" "$fixture/game/assets/shaders/"
+done
 echo 'Application startup, missing assets, and shutdown tests passed'
