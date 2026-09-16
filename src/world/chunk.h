@@ -17,6 +17,7 @@
 typedef enum {
   BIOME_PLAINS,
   BIOME_HILLS,
+  BIOME_FOREST,
 } BiomeID;
 
 typedef struct {

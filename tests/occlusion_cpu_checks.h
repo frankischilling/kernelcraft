@@ -70,6 +70,8 @@ static void check_occluder_mesh(const ChunkMesh* mesh) {
       for (int corner = 0; corner < 4; corner++)
         same &= memcmp(&mesh->vertices[first + corner].position, &occluders.quads[i].corners[corner], sizeof(Vec3)) == 0;
       found |= same;
+      if (same)
+        CHECK(mesh->vertices[first].material != MATERIAL_OAK_LEAVES);
     }
 
     CHECK(found); // A chunk box or an invented solid span cannot become an occluder.

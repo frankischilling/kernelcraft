@@ -24,9 +24,10 @@ E opens the [inventory](inventory.md), which renders the same skin into a privat
 preview framebuffer. The preview follows the pointer without turning the world
 camera. Equipped leather pieces follow the same body joints in that preview
 and in third person. They use code-colored geometry while dedicated artwork is
-pending; the cap leaves the face visible. Equipment is stored in v5 saves and
-does not change collision dimensions. First-person held-item and armor sleeve
-models remain future work.
+pending; the cap leaves the face visible. Equipment is stored in supported
+inventory saves and does not change collision dimensions. First-person held
+placeable blocks render without skin geometry. Non-placeable held equipment uses
+the skin's arm and sleeve. Dedicated armor sleeves remain planned.
 
 ## Model and animation
 
@@ -51,12 +52,13 @@ aligned to the feet so rotated legs do not sink into the floor. Physics retains
 its existing one-block crouch collision and immediate posture changes; in a
 one-block passage the full-size visual model can intersect the surrounding blocks.
 
-Punches use a repeating 0.3-second visual cycle sampled from the existing
-`BlockBreaking.elapsed` value. They do not accumulate another gameplay timer.
+Punches use a repeating 0.3-second visual cycle sampled from
+`InputState.breakVisualElapsed`, separately from gameplay breaking progress.
 Progress travels from zero to one, with a forward strike and a lowered recovery
 that returns to rest. The third-person strike also turns the torso and shoulders.
-Resetting/cancelling the break returns the hand to rest, including release,
-changed slots, right-click, flight transitions, pause, and target/reach changes.
+Release, changed slots, right-click, flight transitions, and pauses return the
+hand to rest. While left mouse remains held, the visual cycle continues through
+target changes and block removal; surface cracks still follow gameplay progress.
 Held breaking still removes a block only when the original material duration
 has elapsed. Pauses clear gait and punch state without a resumed-frame jump.
 
@@ -99,9 +101,27 @@ The resting arm leaves aim clear. The strike sweeps inward toward the target,
 with the crosshair and breaking bar drawn over it by the HUD.
 
 Nonempty hands use the shared [3D item models](inventory.md#rendering-and-saves).
-First-person items have an independent depth attachment and are composited over
-the world. World and inventory-preview items follow the corresponding arm's
-joint transforms, including the root pose. The inventory portrait uses neutral
+First-person placeable blocks render alone in the private held-item target, so no
+arm or hand is visible beside the block. Non-placeable equipment can include the
+matching right/left skinned arm in that same private depth target. Walking,
+breaking, and placement still move the held model through its viewmodel path. At
+rest, a placeable block enters from the lower corner with roughly half of its
+projected height below the viewport; narrow portrait views lower it slightly more
+to preserve the same composition.
+The private pass never changes the world depth buffer. World and inventory-preview
+items follow the corresponding arm's joint transforms, including the root pose.
+
+![Held stone block without a first-person arm](held-block-arm.png)
+
+This native application fixture shows the lower-right held stone by itself, with
+its lower half clipped below the viewport. The matching offhand pose is mirrored
+and also omits the arm; an offhand block
+suppresses the otherwise empty main-hand fallback. The normal bare-arm pose still
+appears for an empty main hand when no offhand block replaces it. Regression
+captures also cover intermediate breaking and placement poses, including the
+last consumed block in a stack.
+
+The inventory portrait uses neutral
 standing proportions, bounded mouse look, and studio lighting so its head and
 feet remain framed beside the armor slots while world simulation continues.
 Held blocks share the bare hand's asymmetric strike/recovery curve during
@@ -112,7 +132,7 @@ visually until the swing returns to rest.
 Both player passes draw filled geometry even when F4 makes the terrain wireframe,
 then restore the OpenGL state they changed. The skin uses its own texture/shader
 path; it does not add layers or materials to the terrain array. Existing cached
-terrain shadow rendering is unchanged. The player receives day/night directional
+terrain shadows use a separate pass. The player receives day/night directional
 and ambient lighting; dynamic player-cast terrain shadows are not part of this
 renderer.
 
@@ -132,8 +152,11 @@ OpenGL state restoration, first-person wrist size and return to rest,
 camera obstruction, view controls, movement poses, and unchanged timed block
 removal. Renderer checks distinguish strike and recovery silhouettes, while a
 live removal-frame capture verifies that presentation progress remains nonzero
-after gameplay progress resets. Hand captures compare depth bytes before and
-after the pass and check the resting aim region at portrait and landscape sizes. Startup
+after gameplay progress resets. Held-item checks also bound the cube beside aim
+and require zero arm pixels for placeable blocks at rest, throughout breaking,
+and throughout main/offhand placement at portrait and landscape sizes. Mixed
+block/equipment checks keep the non-block skinned-arm path covered. Hand and held
+item captures compare depth bytes before and after the pass. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
 disposable package. Persistence tests retain legacy v1–v4 compatibility and
 exercise v5 inventory/equipment state through two-process restart checks.

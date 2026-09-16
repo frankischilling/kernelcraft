@@ -9,11 +9,13 @@
 typedef struct {
   GLuint vao;
   GLsizei indices;
+  GLenum indexType; // Zero retains the historical GL_UNSIGNED_INT default.
+  GLuint materials; // Optional terrain array for cutout alpha; zero is opaque.
 } ShadowGeometry;
 
 typedef struct {
   GLuint framebuffer, depth, program;
-  GLint transformLocation;
+  GLint transformLocation, cutoutLocation;
   int size;
   Vec3 center, direction;
   float radius;

@@ -97,8 +97,9 @@ static unsigned changedPlayerPixels(const unsigned char* before, const unsigned 
   return changed;
 }
 
-static unsigned changedHeldPixels(const unsigned char* before, const unsigned char* after, size_t pixels, uint64_t* silhouette, uint64_t* colorHash) {
+static unsigned changedHeldPixels(const unsigned char* before, const unsigned char* after, size_t pixels, uint64_t* silhouette, uint64_t* colorHash, unsigned* skinPixels) {
   unsigned changed = 0;
+  unsigned skin = 0;
   uint64_t shape = UINT64_C(14695981039346656037), color = UINT64_C(14695981039346656037);
   for (size_t pixel = 0; pixel < pixels; pixel++) {
     size_t offset = pixel * 3;
@@ -107,6 +108,11 @@ static unsigned changedHeldPixels(const unsigned char* before, const unsigned ch
     if (!different)
       continue;
     changed++;
+    unsigned r = after[offset], g = after[offset + 1], b = after[offset + 2];
+    // Both arm fronts in the supplied skin use warm flesh pixels. Keep the
+    // threshold viable under moonlight; gray stone/brick held items cannot meet
+    // the ordered-channel test, so an item-only draw still fails this witness.
+    skin += r > 60 && r > g + 2 && g > b + 2;
     for (int channel = 0; channel < 3; channel++)
       color = (color ^ after[offset + channel]) * UINT64_C(1099511628211);
   }
@@ -114,6 +120,8 @@ static unsigned changedHeldPixels(const unsigned char* before, const unsigned ch
     *silhouette = shape;
   if (colorHash)
     *colorHash = color;
+  if (skinPixels)
+    *skinPixels = skin;
   return changed;
 }
 
@@ -178,7 +186,7 @@ void __real_renderPlayerHand(const PlayerRenderer*, const PlayerModelPose*, floa
 void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
   CHECK(playerRenderedFrame != frame);
   playerRenderedFrame = frame;
-  bool probe = frame == 99 || frame == 112 || frame == 114;
+  bool probe = frame == 99 || frame == 112;
   if (!probe) {
     __real_renderPlayerHand(renderer, pose, aspect, daylight);
     return;
@@ -204,16 +212,18 @@ void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPo
   free(depthAfter);
 }
 
-bool __real_renderHeldItems(ItemRenderer*, ItemStack, ItemStack, const PlayerModelPose*, float, const DayNightState*);
+bool __real_renderHeldItems(ItemRenderer*, const PlayerRenderer*, ItemStack, ItemStack, const PlayerModelPose*, float, const DayNightState*);
 
-bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
+bool __wrap_renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect,
+                            const DayNightState* daylight) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
-  CHECK(input);
+  CHECK(input && playerRenderer && playerRenderer->texture);
   ItemStack expectedMain, expectedOffhand;
   inputHeldItems(input, &expectedMain, &expectedOffhand);
   CHECK(mainHand.item == expectedMain.item && mainHand.count == expectedMain.count);
   CHECK(offhand.item == expectedOffhand.item && offhand.count == expectedOffhand.count);
-  if (mainHand.count) {
+  bool offhandBlockWithoutMain = !mainHand.count && offhand.count && inventoryItemBlock(offhand.item) != BLOCK_AIR;
+  if (mainHand.count || offhandBlockWithoutMain) {
     CHECK(playerRenderedFrame != frame);
     playerRenderedFrame = frame;
   }
@@ -225,7 +235,7 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStac
     CHECK(!input->placement.active && !mainHand.count && !input->inventory.carried[input->selectedSlot].count);
   }
   if (!probePunch && !probeItem && !probePlacement)
-    return __real_renderHeldItems(renderer, mainHand, offhand, pose, aspect, daylight);
+    return __real_renderHeldItems(renderer, playerRenderer, mainHand, offhand, pose, aspect, daylight);
 
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
@@ -237,16 +247,31 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStac
   CHECK(before && after && depthBefore && depthAfter);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, before);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthBefore);
-  bool rendered = __real_renderHeldItems(renderer, mainHand, offhand, pose, aspect, daylight);
+  bool rendered = __real_renderHeldItems(renderer, playerRenderer, mainHand, offhand, pose, aspect, daylight);
   CHECK(rendered);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_RGB, GL_UNSIGNED_BYTE, after);
   glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, depthAfter);
   uint64_t silhouette = 0, colorHash = 0;
-  CHECK(changedHeldPixels(before, after, pixels, &silhouette, &colorHash) > 100);
+  unsigned skinPixels = 0;
+  CHECK(changedHeldPixels(before, after, pixels, &silhouette, &colorHash, &skinPixels) > 100);
   CHECK(memcmp(depthBefore, depthAfter, pixels * sizeof(float)) == 0);
+
+  printf("Application held frame %d: skin=%u punch=%.3f place=%.3f/%.3f\n", frame, skinPixels, pose->punch, pose->placeMain, pose->placeOffhand);
+  const char* capturePrefix = getenv("KERNELCRAFT_TEST_CAPTURE");
+  if (capturePrefix) {
+    char path[1024];
+    snprintf(path, sizeof(path), "%s-held-%d.ppm", capturePrefix, frame);
+    FILE* capture = fopen(path, "wb");
+    CHECK(capture);
+    fprintf(capture, "P6\n%d %d\n255\n", viewport[2], viewport[3]);
+    for (int row = viewport[3] - 1; row >= 0; row--)
+      CHECK(fwrite(after + (size_t)row * viewport[2] * 3, 1, (size_t)viewport[2] * 3, capture) == (size_t)viewport[2] * 3);
+    CHECK(fclose(capture) == 0);
+  }
 
   if (probePunch) {
     CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1);
+    CHECK(skinPixels == 0);
     if (frame == 69) {
       // Dirt completes between swing boundaries. Visual motion must survive the
       // gameplay timer reset on the removal frame instead of snapping to rest.
@@ -264,16 +289,17 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStac
     int index = frame == 111 ? 0 : frame == 113 ? 1 : 2;
     heldItemColorHashes[index] = colorHash;
     if (frame == 111)
-      CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count);
+      CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count && skinPixels == 0);
     if (frame == 113)
       CHECK(mainHand.item == ITEM_LEATHER_HELMET && mainHand.count == 1 && !offhand.count);
     if (frame == 114) {
-      CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1);
+      CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1 && skinPixels == 0);
       CHECK(heldItemColorHashes[0] != heldItemColorHashes[1] && heldItemColorHashes[1] != heldItemColorHashes[2] && heldItemColorHashes[0] != heldItemColorHashes[2]);
     }
   } else {
     CHECK(input->placement.active && input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN && !input->inventory.carried[input->selectedSlot].count);
     CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count);
+    CHECK(skinPixels == 0);
     if (frame == 122) {
       CHECK(pose->placeMain == 1 && pose->placeOffhand == 0);
     } else {

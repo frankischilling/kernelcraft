@@ -19,6 +19,9 @@ enum BlockID {
   BLOCK_COBBLESTONE = 4,
   BLOCK_OAK_PLANKS = 5,
   BLOCK_STONE_BRICKS = 6,
+  BLOCK_OAK_LOG = 7,
+  BLOCK_OAK_LEAVES = 8,
+  BLOCK_LEAFY_GRASS = 9,
 };
 
 // block struct
@@ -27,11 +30,21 @@ typedef struct {
 } Block;
 
 static inline bool blockIDValid(int id) {
-  return id >= BLOCK_AIR && id <= BLOCK_STONE_BRICKS;
+  return id >= BLOCK_AIR && id <= BLOCK_LEAFY_GRASS;
 }
 
 static inline bool blockIsSolid(int id) {
   return blockIDValid(id) && id != BLOCK_AIR;
+}
+
+// Cutout foliage remains solid for collision but cannot hide an opaque neighbor.
+// Equal leaf neighbors share one outer shell, without coplanar internal faces.
+static inline bool blockOccludesFaces(int id) {
+  return blockIsSolid(id) && id != BLOCK_OAK_LEAVES;
+}
+
+static inline bool blockFaceVisible(int id, int neighbor) {
+  return blockIsSolid(id) && !blockOccludesFaces(neighbor) && !(id == BLOCK_OAK_LEAVES && neighbor == BLOCK_OAK_LEAVES);
 }
 
 // Six vertices per face, each with position, normal, and UV coordinates.

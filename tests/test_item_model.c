@@ -76,8 +76,12 @@ static float expectedBlockLayer(uint16_t item, int face) {
     return 7;
   if (item == ITEM_OAK_PLANKS)
     return 8;
-  CHECK(item == ITEM_STONE_BRICKS);
-  return 9;
+  if (item == ITEM_STONE_BRICKS)
+    return 9;
+  if (item == ITEM_OAK_LOG)
+    return face == TOP || face == BOTTOM ? 11 : 10;
+  CHECK(item == ITEM_OAK_LEAVES);
+  return 12;
 }
 
 static float signedVolume(const ItemModel* model) {
@@ -127,7 +131,9 @@ static void checkGeometry(const ItemModel* model) {
 }
 
 static void testBlocks(void) {
-  for (uint16_t item = ITEM_GRASS_BLOCK; item <= ITEM_STONE_BRICKS; item++) {
+  static const uint16_t blocks[] = {ITEM_GRASS_BLOCK, ITEM_DIRT, ITEM_STONE, ITEM_COBBLESTONE, ITEM_OAK_PLANKS, ITEM_STONE_BRICKS, ITEM_OAK_LOG, ITEM_OAK_LEAVES};
+  for (size_t blockIndex = 0; blockIndex < sizeof(blocks) / sizeof(blocks[0]); blockIndex++) {
+    uint16_t item = blocks[blockIndex];
     ItemModel model;
     CHECK(itemModelBuild(item, &model));
     CHECK(model.count == 36);
@@ -150,6 +156,18 @@ static void testBlocks(void) {
     }
     for (int face = 0; face < 6; face++)
       CHECK(faceVertices[face] == 6);
+
+    if (item == ITEM_OAK_LOG) {
+      int bark = 0, endGrain = 0;
+      for (size_t i = 0; i < model.count; i++) {
+        bark += closeFloat(model.vertices[i].layer, 10);
+        endGrain += closeFloat(model.vertices[i].layer, 11);
+      }
+      CHECK(bark == 24 && endGrain == 12);
+    } else if (item == ITEM_OAK_LEAVES) {
+      for (size_t i = 0; i < model.count; i++)
+        CHECK(closeFloat(model.vertices[i].layer, 12));
+    }
 
     // A centered unit cube with outward triangles encloses one cubic unit. This
     // rejects flat sprites even if their bounds or per-face counts look plausible.

@@ -51,7 +51,9 @@ try {
     $optionsObject = Join-Path $releaseObjects 'src/utils/options.o'
     $worldDependency = Join-Path $releaseObjects 'src/world/world.d'
     $worldSettings = Join-Path $releaseObjects 'src/world/world.settings'
-    $header = Join-Path $fixture 'src/world/chunk.h'
+    # Options depends on chunk.h through render-distance bounds. Use the world
+    # API header to exercise a dependency that really is unrelated to options.
+    $header = Join-Path $fixture 'src/world/world.h'
     $source = Join-Path $fixture 'src/utils/options.c'
 
     Invoke-Build

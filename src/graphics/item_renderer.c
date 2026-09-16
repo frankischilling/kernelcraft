@@ -259,11 +259,12 @@ bool initItemRenderer(ItemRenderer* renderer) {
   if (image < 0)
     goto finish;
   glUniform1i(image, 0);
-  const char* paths[] = {"assets/textures/stone.png",       "assets/textures/dirt.png",        "assets/textures/grass-top.png",
-                         "assets/textures/grass-side.png",  "assets/textures/dirt-rocks.png",  "assets/textures/grass-top-leaves.png",
-                         "assets/textures/grass-bug.png",   "assets/textures/cobblestone.png", "assets/textures/oak-planks.png",
-                         "assets/textures/stone-bricks.png"};
-  renderer->materials = loadTextureArray(paths, 10);
+  const char* paths[] = {"assets/textures/stone.png",        "assets/textures/dirt.png",         "assets/textures/grass-top.png",
+                         "assets/textures/grass-side.png",   "assets/textures/dirt-rocks.png",   "assets/textures/grass-top-leaves.png",
+                         "assets/textures/grass-bug.png",    "assets/textures/cobblestone.png",  "assets/textures/oak-planks.png",
+                         "assets/textures/stone-bricks.png", "assets/textures/oak-log-side.png", "assets/textures/oak-log-top.png",
+                         "assets/textures/oak-leaves.png"};
+  renderer->materials = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!renderer->materials)
     goto finish;
   glGenVertexArrays(1, &renderer->vao);
@@ -376,6 +377,10 @@ static bool hasItem(ItemStack stack) {
   return stack.count && stack.item && inventoryStackValid(stack);
 }
 
+static bool heldItemShowsArm(ItemStack stack) {
+  return inventoryItemBlock(stack.item) == BLOCK_AIR;
+}
+
 void renderPlayerHeldItems(const ItemRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, ItemStack mainHand, ItemStack offhand, const Mat4 view, const Mat4 projection,
                            const DayNightState* daylight) {
   if (!ready(renderer) || !pose || !daylight || (!hasItem(mainHand) && !hasItem(offhand)))
@@ -425,10 +430,45 @@ static void compositeHeld(const ItemRenderer* renderer, GLuint texture, const GL
   glDrawArrays(GL_TRIANGLES, renderer->quadFirst, 6);
 }
 
-bool renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
+static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose, float aspect, bool block) {
+  float fit = fminf(1, aspect / 1.3f);
+  PlayerModelSwing attack = playerModelSwing(pose->punch);
+  PlayerModelSwing mainPlacement = playerModelSwing(pose->placeMain);
+  PlayerModelSwing offhandPlacement = playerModelSwing(pose->placeOffhand);
+  float bob = sinf((float)pose->gaitPhase) * pose->gaitWeight * 0.018f;
+  float side = hand ? -1.0f : 1.0f;
+  PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
+  PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
+  mat4_identity(model);
+  // Placeable blocks enter from below the viewport like Minecraft's first-person
+  // viewmodel, leaving roughly their upper half visible at rest. Equipment keeps
+  // the higher grip because its skinned arm is anchored to this same transform.
+  float restingY = block ? -0.80f - 0.12f * (1.0f - fit) : -0.32f;
+  translate(model, (Vec3){side * (0.48f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), restingY + bob + 0.12f * strike.lift - 0.10f * placement.arc,
+                          -1.25f - 0.18f * strike.arc - 0.20f * placement.arc});
+  rotate(model, 0, 0.26f - 0.48f * strike.arc + 0.35f * placement.arc);
+  rotate(model, 1, side * (-0.70f + 0.35f * strike.reach + 0.15f * placement.reach));
+  rotate(model, 2, side * (-0.16f - 0.30f * strike.roll + 0.12f * placement.roll));
+  scale(model, (Vec3){0.44f * fit, 0.44f * fit, 0.44f * fit});
+}
+
+static void heldArmTransform(Mat4 arm, const Mat4 grip, int hand) {
+  memcpy(arm, grip, sizeof(Mat4));
+  // Non-block equipment keeps the familiar first-person skinned arm. Anchor its
+  // wrist under the held model and send the forearm toward the matching corner.
+  translate(arm, (Vec3){hand ? -0.34f : 0.34f, -0.30f, 0.50f});
+  rotate(arm, 0, 3.141592654f);
+  rotate(arm, 2, hand ? 0.90f : -0.90f);
+  const PlayerPartSpec* spec = playerModelPartSpec(hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM);
+  translate(arm, (Vec3){-spec->centerOffset.x, -spec->centerOffset.y + spec->size.y * 0.5f, -spec->centerOffset.z});
+}
+
+bool renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect,
+                     const DayNightState* daylight) {
   if (!hasItem(mainHand) && !hasItem(offhand))
     return true;
-  if (!ready(renderer) || !pose || !daylight || !isfinite(aspect) || aspect <= 0)
+  if (!ready(renderer) || !playerRenderer || !playerRenderer->program || !playerRenderer->texture || !playerRenderer->vao || !playerRenderer->vbo || !pose || !daylight ||
+      !isfinite(aspect) || aspect <= 0)
     return false;
   ItemRenderState state;
   saveState(&state);
@@ -441,30 +481,35 @@ bool renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offha
   clearTarget(&renderer->heldTarget);
   Mat4 projection;
   mat4_perspective(projection, 70, aspect, 0.05f, 10);
+  // Establish the private-pass raster state before the first held draw. The arm
+  // helper preserves it while swapping shaders, so caller alpha/stencil/logic/
+  // sRGB settings cannot affect either hand.
   beginItems(renderer, projection, daylight);
-  float fit = fminf(1, aspect / 1.3f);
-  PlayerModelSwing attack = playerModelSwing(pose->punch);
-  PlayerModelSwing mainPlacement = playerModelSwing(pose->placeMain);
-  PlayerModelSwing offhandPlacement = playerModelSwing(pose->placeOffhand);
-  float bob = sinf((float)pose->gaitPhase) * pose->gaitWeight * 0.018f;
   ItemStack hands[] = {mainHand, offhand};
   for (int hand = 0; hand < 2; hand++) {
     if (!hasItem(hands[hand]))
       continue;
-    float side = hand ? -1.0f : 1.0f;
-    PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
-    PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
-    Mat4 model;
-    mat4_identity(model);
-    translate(model, (Vec3){side * (0.42f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit),
-                            -0.50f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
-                            -1.2f - 0.18f * strike.arc - 0.20f * placement.arc});
-    rotate(model, 0, 0.20f - 0.48f * strike.arc + 0.35f * placement.arc);
-    rotate(model, 1, side * (-0.55f + 0.35f * strike.reach + 0.15f * placement.reach));
-    rotate(model, 2, side * (-0.12f - 0.30f * strike.roll + 0.12f * placement.roll));
-    scale(model, (Vec3){0.5f * fit, 0.5f * fit, 0.5f * fit});
-    drawModel(renderer, hands[hand].item, model);
+    bool block = !heldItemShowsArm(hands[hand]);
+    Mat4 grip;
+    heldGripTransform(grip, hand, pose, aspect, block);
+    if (!block) {
+      Mat4 arm;
+      heldArmTransform(arm, grip, hand);
+      renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, false);
+    }
+    beginItems(renderer, projection, daylight);
+    drawModel(renderer, hands[hand].item, grip);
   }
+  // Fractional sleeve texels blend only after every opaque arm/item has depth.
+  if (playerRenderer->fractionalAlpha)
+    for (int hand = 0; hand < 2; hand++) {
+      if (!hasItem(hands[hand]) || !heldItemShowsArm(hands[hand]))
+        continue;
+      Mat4 grip, arm;
+      heldGripTransform(grip, hand, pose, aspect, false);
+      heldArmTransform(arm, grip, hand);
+      renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, true);
+    }
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)state.drawFramebuffer);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)state.readFramebuffer);
   compositeHeld(renderer, renderer->heldTarget.color, viewport);

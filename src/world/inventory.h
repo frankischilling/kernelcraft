@@ -17,8 +17,9 @@ enum {
   INVENTORY_DRAG_SLOT_MAX = 45,
 };
 
-// IDs 1..6 intentionally match the persisted world block IDs. Item IDs are a
-// save-format contract: append new items rather than reordering existing IDs.
+// IDs 1..6 intentionally match the original persisted world block IDs. Item
+// IDs are a save-format contract: append new items rather than reordering
+// existing IDs, even when newer placeable blocks use different block IDs.
 typedef enum {
   ITEM_NONE = 0,
   ITEM_GRASS_BLOCK = BLOCK_GRASS,
@@ -31,7 +32,9 @@ typedef enum {
   ITEM_LEATHER_CHESTPLATE = 8,
   ITEM_LEATHER_LEGGINGS = 9,
   ITEM_LEATHER_BOOTS = 10,
-  ITEM_ID_LAST = ITEM_LEATHER_BOOTS,
+  ITEM_OAK_LOG = 11,
+  ITEM_OAK_LEAVES = 12,
+  ITEM_ID_LAST = ITEM_OAK_LEAVES,
 } ItemID;
 
 typedef struct {
@@ -120,11 +123,11 @@ bool inventoryGather(Inventory* inventory, InventorySlotRef clicked);
 // ONE_EACH gives at most one to each unique eligible target in caller order.
 uint16_t inventoryDragDistribute(Inventory* inventory, const InventorySlotRef* slots, size_t slotCount, InventoryDragMode mode);
 
-// A recipe exists only when all four 2x2 inputs contain stone. One craft
-// consumes one stone from each input and yields four stone bricks. Craft-once
-// targets the cursor atomically. Craft-all performs the maximum whole crafts
-// whose complete outputs fit in carried slots; it never consumes a partial
-// recipe output.
+// Recipes are shapeless within the 2x2 input. Four occupied stone cells yield
+// four stone bricks; one occupied oak-log cell with the other three cells empty
+// yields four oak planks. Craft-once targets the cursor atomically. Craft-all
+// performs the maximum whole crafts whose complete outputs fit in carried
+// slots; it never consumes a partial recipe output.
 bool inventoryCraftOnce(Inventory* inventory);
 size_t inventoryCraftAll(Inventory* inventory);
 

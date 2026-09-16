@@ -1,0 +1,27 @@
+diff --git a/src/graphics/world_renderer.c b/src/graphics/world_renderer.c
+--- a/src/graphics/world_renderer.c
++++ b/src/graphics/world_renderer.c
+@@ -43,0 +44 @@
++static ChunkCandidate candidateScratch[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+@@ -317,8 +318,13 @@
+-  for (int i = 1; i < candidateCount; i++) {
+-    ChunkCandidate candidate = candidates[i];
+-    int slot = i;
+-    while (slot > 0 && candidates[slot - 1].distanceSquared > candidate.distanceSquared) {
+-      candidates[slot] = candidates[slot - 1];
+-      slot--;
+-    }
+-    candidates[slot] = candidate;
++  for (int width = 1; width < candidateCount; width *= 2) {
++    for (int start = 0; start < candidateCount; start += 2 * width) {
++      int middle = start + width < candidateCount ? start + width : candidateCount;
++      int end = start + 2 * width < candidateCount ? start + 2 * width : candidateCount;
++      int left = start, right = middle;
++      for (int out = start; out < end; out++) {
++        if (right >= end || (left < middle && candidates[left].distanceSquared <= candidates[right].distanceSquared))
++          candidateScratch[out] = candidates[left++];
++        else
++          candidateScratch[out] = candidates[right++];
++      }
++    }
++    memcpy(candidates, candidateScratch, (size_t)candidateCount * sizeof(*candidates));

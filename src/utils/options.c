@@ -1,4 +1,5 @@
 #include "options.h"
+#include "../world/render_distance.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,9 +18,9 @@ bool parseOptions(int argc, char* const argv[], AppOptions* options, char* error
     error[0] = 0;
   if (!options || argc < 1 || !argv)
     return fail(error, capacity, "Invalid command line");
-  *options = (AppOptions){0};
+  *options = (AppOptions){.renderDistance = WORLD_RENDER_DISTANCE_DEFAULT};
   const char* path = "kernelcraft.kcw";
-  bool worldGiven = false;
+  bool worldGiven = false, distanceGiven = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--help")) {
       options->help = true;
@@ -32,6 +33,19 @@ bool parseOptions(int argc, char* const argv[], AppOptions* options, char* error
         return fail(error, capacity, "--world needs one nonempty path");
       path = argv[i];
       worldGiven = true;
+    } else if (!strcmp(argv[i], "--render-distance")) {
+      if (distanceGiven || ++i == argc || !argv[i][0])
+        return fail(error, capacity, "--render-distance needs one decimal integer from 1 to 16");
+      unsigned distance = 0;
+      for (const char* p = argv[i]; *p; p++) {
+        if (*p < '0' || *p > '9' || distance > (WORLD_RENDER_DISTANCE_MAX - (unsigned)(*p - '0')) / 10)
+          return fail(error, capacity, "--render-distance must be a decimal integer from 1 to 16");
+        distance = distance * 10 + (unsigned)(*p - '0');
+      }
+      if (distance < WORLD_RENDER_DISTANCE_MIN || distance > WORLD_RENDER_DISTANCE_MAX)
+        return fail(error, capacity, "--render-distance must be a decimal integer from 1 to 16");
+      options->renderDistance = (int)distance;
+      distanceGiven = true;
     } else if (!strcmp(argv[i], "--seed")) {
       if (options->seedGiven || ++i == argc || !argv[i][0])
         return fail(error, capacity, "--seed needs one decimal integer from 0 to 4294967295");

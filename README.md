@@ -76,7 +76,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with shaded 3D item icons.
   - E opens a 36-slot inventory with 2×2 crafting, armor/offhand slots, stack management, and an equipped-player preview. See [inventory controls and limits](docs/inventory.md).
   - Finite block stacks, collectible mined items, and Q/Ctrl-Q item drops.
-  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands. The empty main hand uses the supplied player skin.
+  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands. First-person placeable blocks render by themselves; non-block equipment keeps its skinned arm and sleeve.
   - F5 and clean-exit saves restore blocks, position, view, selected slot, inventory, equipment, crafting inputs, cursor items, and world drops.
 
 ## Getting Started
@@ -230,16 +230,20 @@ empty. Contents and counts change through crafting, transfers, pickup, and
 placement. Empty slots can break blocks; placement can use the offhand when
 the selected slot has no placeable block. A gold
 border marks the selected slot. See [hotbar checks](docs/textured-hotbar.md).
-Breaking by hand takes 0.5 seconds for dirt, 0.75 for grass, 1 for oak planks,
-1.5 for stone, and 2 for cobblestone or stone bricks. A gold bar above the
-crosshair shows progress. Keep
+Breaking by hand takes 0.2 seconds for oak leaves, 0.5 for dirt, 0.75 for grass
+or leafy grass, 1 for oak planks, 1.5 for stone or oak logs, and 2 for
+cobblestone or stone bricks. A gold bar above the
+crosshair shows progress. Branching cracks spread and thicken across the target
+as breaking advances, then disappear on removal or cancellation. Keep
 aiming at the same block; releasing left mouse, losing or changing the target,
 or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
 a fresh press. All current slots use the same hand rates in walking and flight.
 Holding through completion starts the next target from zero; excess time never
-carries over. The visible held block follows an asymmetric strike and recovery
-path while breaking, so the recovery does not retrace the strike. Successful
+carries over. A resting held block enters from the lower corner with roughly
+half of its projected height below the viewport. While breaking, it follows an
+asymmetric strike and recovery path so the recovery does not retrace the strike.
+Successful
 placement plays a short swing in the hand that supplied the block; the final
 item in a stack remains visible until that swing finishes. Tools and their speed
 modifiers remain planned. See
@@ -259,16 +263,28 @@ limit. See the movement checkpoint for collision boundaries and test coverage.
 
 ### Worlds and saves
 
-Terrain uses occasional alternate tiles: about 2% of grass blocks have bug
+New worlds include oak forests over the existing plains and hills heightmap.
+Trees have upright bark-covered logs, end grain, and layered leaf canopies.
+Leafy grass is much more common near trunks; harvesting it gives ordinary
+grass. Logs can be collected, held, placed, and saved. Leaves use the updated
+cutout artwork and drop nothing when broken. Existing leaf items remain usable.
+One log in
+any otherwise empty 2×2 crafting square makes four oak planks. See
+[oak forests](docs/oak-forests.md) for generation and material behavior.
+
+Ordinary terrain uses occasional alternate tiles: about 2% of grass blocks have bug
 sides, 10% have leafy tops, and 25% of dirt surfaces have extra rocks. Ordinary
 tiles cover the rest. These choices depend on the block position and world
 seed, so mesh rebuilds and world reloads keep the same appearance. Rocky dirt
 also appears on grass undersides. The variants change appearance only.
 
-The horizontal render radius is six chunks (96 blocks), up from 32 blocks.
-Chunks outside the camera view are still culled. The world remains 256 by 256
-blocks; the larger view draws more terrain and can increase frame time. See
-[terrain variants and distance checks](docs/terrain-variants.md).
+The default horizontal render radius is twelve chunks (192 blocks). Use
+`--render-distance N` for a radius of 1–16 chunks; `--render-distance 6` restores
+the previous 96-block view. The limit uses chunk centers. Frustum and conservative
+occlusion culling still apply, and the world remains 256 by 256 blocks with all
+256 chunks resident. Larger views can increase frame time. Visibility scans use
+the radius neighborhood, and meshes use 16-bit GPU indices when they fit, with
+a 32-bit fallback for large meshes. See [chunk rendering measurements](docs/forest-performance.md).
 
 Run the built executable with a save path and a seed for a new world:
 
@@ -296,7 +312,8 @@ Crouched saves keep the current feet if standing there is clear; under a low
 ceiling they record a safe standing surface near that column. Taking the snapshot
 does not move the live player. Crouch and run state do not change the save format.
 
-Seed 0 preserves the original terrain. Seeds accept decimal integers from 0 to
+Seed 0 preserves the original terrain heights, with the new forest decorations.
+Existing saves retain their stored blocks and generator version. Seeds accept decimal integers from 0 to
 4294967295 and apply only to a new file; omit `--seed` when reopening a world.
 An existing save with `--seed`, or a corrupt/unsupported save, stops startup
 without replacing the file. `--no-save` makes a temporary session (optionally
@@ -304,9 +321,10 @@ with `--seed`) and cannot be combined with `--world`. `--help` needs no window.
 
 Each save stores all blocks in about 4 MiB, plus seed, version, and player state.
 Versions 1–4 still load, preserving terrain and the selected material or hotbar
-slot while supplying the starter inventory. New saves use version 5, adding all
-owned item stacks and dropped items. Pending cursor/crafting items reopen the
-inventory on restart. Older builds cannot reopen version 5 saves.
+slot while supplying the starter inventory. Version 5 inventories and drops
+still load unchanged. New saves use version 6 for oak logs, leaves, and leafy
+ground, retaining every owned stack and drop. Pending cursor/crafting items
+reopen the inventory on restart. Older builds cannot reopen version 6 saves.
 See [building materials and compatibility](docs/building-materials.md).
 Writes use an exclusive sibling temporary file and checked replacement. There
 is no automatic backup/recovery, periodic autosave, or protection against two
@@ -320,8 +338,8 @@ The [block, building, and item design backlog](docs/content-roadmap.md) expands
 the planned content into terrain materials, wood and masonry sets, shaped
 building pieces, decorations, workstations, tools, weapons, armor, and supplies.
 Those checklists describe future content. Current materials are grass, dirt,
-stone, cobblestone, oak planks, and stone bricks, with a starter leather armor
-set and one 2×2 recipe. Pickaxes, axes, swords, armor damage reduction, and the
+stone, cobblestone, oak planks, stone bricks, oak logs, oak leaves, and leafy
+grass, with a starter leather armor set and two crafting recipes. Pickaxes, axes, swords, armor damage reduction, and the
 remaining progression are not implemented.
 
 ### Phase 1: Core Engine Development
@@ -354,8 +372,8 @@ remaining progression are not implemented.
   - [x] Implement basic biome system **(To be enhanced with a more detailed biome system)**
   - [x] Deterministic terrain with selectable seeds
   - [ ] Add cave generation using 3D noise
-  - [ ] Add trees
-    - [ ] leaves, more leave grass blocks under trees then normal   
+  - [x] Add trees: deterministic oak forests with layered canopies
+    - [x] Oak leaves and more leafy grass near trees than elsewhere
   - [ ] Add more block types and textures, including wood, leaves, coal ore, and iron ore
   - [ ] Add more terrain features and biome types
   - [ ] Add a latitude- and longitude-aware climate and biome system
@@ -414,6 +432,7 @@ remaining progression are not implemented.
     - The historical atlas image and `atlast.py` are unused by the game; see [texture storage](docs/texture-array.md).
   - [x] Add cloud transparency and alpha blending with path-length opacity
   - [ ] Add transparent voxel materials with matching face visibility and render ordering
+    - [x] Render cutout oak leaves and matching shadows, preserving opaque neighbors behind gaps
   - [x] Add sky colors and drifting blocky clouds (implemented on this branch; PR #60)
   - [x] Improve terrain and block lighting with stable matte shading and linear color; see [lighting behavior and checks](docs/terrain-lighting.md)
   - [x] Add dynamic directional terrain shadows
@@ -453,8 +472,8 @@ remaining progression are not implemented.
   - [ ] Add chunk compression to reduce memory footprint
   - [x] Serialize and validate complete finite worlds (uncompressed)
 
-  Follow-up tasks below are unimplemented candidates, not measured speedups.
-  Start with profiling, then small changes before introducing worker threads,
+  Checked tasks below record completed, measured work; unchecked tasks remain
+  candidates. Start with profiling, then small changes before introducing worker threads,
   new mesh layouts, or save formats. Keep the existing greedy mesher, texture
   array, visibility cache, and HUD/sky/cloud improvements as the baseline; see
   [rebuild measurements](docs/mesh-rebuild-performance.md),
@@ -481,11 +500,11 @@ remaining progression are not implemented.
 
   - **Terrain uploads, visibility, and draw submission**:
     - [ ] Benchmark compact chunk-local vertex formats with packed normals/material IDs; preserve world-space variant selection, repeating UVs, winding, and position precision
-    - [ ] Use 16-bit mesh indices where the maximum vertex index fits, retaining a checked 32-bit fallback and worst-case checkerboard tests
+    - [x] Use 16-bit mesh indices where the maximum vertex index fits, retaining a checked 32-bit fallback and worst-case checkerboard tests ([measurements](docs/forest-performance.md))
     - [ ] Compare the current full buffer uploads with bounded capacity reuse, orphaning, and mapped-range streaming; prevent overwriting in-flight GPU data and keep the OpenGL 3.3 path
     - [ ] Reclaim oversized or long-empty chunk GPU buffers under a measured memory budget without causing allocation churn during repeated break/place edits
     - [ ] Audit redundant GL state queries, binds, and uniform updates; introduce explicit pass ownership where it reduces measured cost while preserving HUD, selection, sky, cloud, and wireframe state
-    - [ ] Restrict moving-camera visibility candidates to the render-radius neighborhood and benchmark sorting alternatives; retain the existing unchanged-view cache and test world edges
+    - [x] Restrict moving-camera visibility candidates to the render-radius neighborhood and benchmark sorting alternatives; retain the existing unchanged-view cache and test world edges ([measurements](docs/forest-performance.md))
     - [ ] Bound software-occlusion work according to measured cost versus saved draws; conservatively render uncertain or untested chunks rather than hiding them using stale camera/mesh results
 
   - **Frame pacing, interaction, and overlays**:
@@ -590,7 +609,8 @@ remaining progression are not implemented.
   - [ ] Add screen effects such as damage flashes and underwater visuals
   - [ ] Implement block breaking and placement animations
     - [x] Animate held blocks through distinct breaking strike/recovery poses and successful main/offhand placement swings
-    - [ ] Add block-surface crack/break effects and placement impact effects
+    - [x] Add progressive block-surface cracks with cancellation and removal cleanup
+    - [ ] Add block-break particles and placement impact effects
   - [ ] Create item pickup and drop animations
   - [ ] Add status effect visuals for player buffs and debuffs
   - [ ] Implement environmental effects like fog and dynamic lighting

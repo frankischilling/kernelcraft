@@ -55,7 +55,17 @@ static void testEdits(void) {
     CHECK(getBlock(&(Vec3i){-1, 20, -2})->id == id);
   }
 
-  CHECK(!blockIDValid(7) && !setBlock(&(Vec3i){0, 20, 0}, 7));
+  for (int id = BLOCK_OAK_LOG; id <= BLOCK_LEAFY_GRASS; id++) {
+    resetWorld();
+    CHECK(blockIDValid(id) && blockIsSolid(id));
+    CHECK(setBlock(&(Vec3i){-1, 20, -1}, id));
+    CHECK(getBlock(&(Vec3i){-1, 20, -1})->id == id && dirtyCount() == 3);
+    CHECK(!playerCanOccupy((Vec3){-0.5f, 20, -0.5f}));
+    CHECK(editTarget((Vec3){-0.5f, 20.5f, -3}, (Vec3){0, 0, 1}, (Vec3){-0.5f, 20, -3}, false, id, true));
+    CHECK(getBlock(&(Vec3i){-1, 20, -2})->id == id);
+  }
+
+  CHECK(!blockIDValid(BLOCK_LEAFY_GRASS + 1) && !setBlock(&(Vec3i){0, 20, 0}, BLOCK_LEAFY_GRASS + 1));
   for (int slot = 6; slot < HOTBAR_SLOT_COUNT; slot++)
     CHECK(hotbarBlock(slot) == BLOCK_AIR);
   resetWorld();
@@ -124,7 +134,8 @@ static void testHandBreaking(void) {
   const struct {
     int block;
     double seconds;
-  } cases[] = {{BLOCK_DIRT, 0.5}, {BLOCK_GRASS, 0.75}, {BLOCK_STONE, 1.5}, {BLOCK_COBBLESTONE, 2.0}, {5, 1.0}, {6, 2.0}};
+  } cases[] = {{BLOCK_DIRT, 0.5},         {BLOCK_GRASS, 0.75},  {BLOCK_STONE, 1.5},      {BLOCK_COBBLESTONE, 2.0}, {BLOCK_OAK_PLANKS, 1.0},
+               {BLOCK_STONE_BRICKS, 2.0}, {BLOCK_OAK_LOG, 1.5}, {BLOCK_OAK_LEAVES, 0.2}, {BLOCK_LEAFY_GRASS, 0.75}};
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     for (int rate = 30; rate <= 120; rate *= 2) {

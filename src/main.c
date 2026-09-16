@@ -78,10 +78,11 @@ int main(int argc, char** argv) {
   }
 
   if (options.help) {
-    puts("Usage: minecraft_clone [--world PATH] [--seed N] [--no-save]\n"
+    puts("Usage: minecraft_clone [--world PATH] [--seed N] [--no-save] [--render-distance N]\n"
          "--world PATH  Load or create this file (default: kernelcraft.kcw in the launch directory)\n"
          "--seed N      New-world seed, decimal 0..4294967295 (default: 0)\n"
          "--no-save     Temporary session; cannot be combined with --world\n"
+         "--render-distance N  Horizontal chunk-center radius, 1..16 chunks (default: 12)\n"
          "F5 saves while the mouse is captured; clean exit also saves. Restart reloads the file.");
     return EXIT_SUCCESS;
   }
@@ -188,7 +189,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Cannot load world '%s': %s\n", options.worldPath, error);
   }
 
-  if (!worldReady || !initWorld(shaderProgram)) {
+  if (!worldReady || !setWorldRenderDistance(options.renderDistance) || !initWorld(shaderProgram)) {
     cleanupChunks();
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
@@ -327,14 +328,16 @@ int main(int argc, char** argv) {
       renderPlayerHeldItems(itemRenderer, inputBodyFeet(&input), &playerPose, mainHand, offhand, view, projection, &daylight);
     }
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
-    if (!input.inventoryOpen)
+    if (!input.inventoryOpen) {
       drawSelection(&selection, view, projection);
+      drawBlockBreaking(&input.breaking, &selection, view, projection);
+    }
     renderDroppedItems(itemRenderer, &input.drops, view, projection, &daylight);
     renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
     if (!showBody && !input.inventoryOpen) {
-      if (!mainHand.count)
+      if (!mainHand.count && inventoryItemBlock(offhand.item) == BLOCK_AIR)
         renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
-      if (!renderHeldItems(itemRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
+      if (!renderHeldItems(itemRenderer, &playerRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
         fprintf(stderr, "Cannot render held items: framebuffer allocation or drawing failed\n");
         exitStatus = EXIT_FAILURE;
         break;

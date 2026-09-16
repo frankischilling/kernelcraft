@@ -42,6 +42,8 @@ static void testIdentityAndDefaults(void) {
   Inventory inventory;
   inventoryInit(&inventory);
   CHECK(inventoryValidate(&inventory));
+  CHECK(ITEM_LEATHER_HELMET == 7 && ITEM_LEATHER_CHESTPLATE == 8 && ITEM_LEATHER_LEGGINGS == 9 && ITEM_LEATHER_BOOTS == 10);
+  CHECK(ITEM_OAK_LOG == 11 && ITEM_OAK_LEAVES == 12 && ITEM_ID_LAST == 12);
   for (int slotIndex = 0; slotIndex < 6; slotIndex++) {
     CHECK(inventory.carried[slotIndex].item == (uint16_t)(slotIndex + 1));
     CHECK(inventory.carried[slotIndex].count == INVENTORY_STACK_MAX);
@@ -62,11 +64,18 @@ static void testIdentityAndDefaults(void) {
   CHECK(inventoryItemArmorSlot(ITEM_LEATHER_BOOTS) == INVENTORY_ARMOR_FEET);
   CHECK(inventoryItemArmorPoints(ITEM_LEATHER_HELMET) == 1 && inventoryItemArmorPoints(ITEM_LEATHER_CHESTPLATE) == 3);
   CHECK(inventoryItemArmorPoints(ITEM_LEATHER_LEGGINGS) == 2 && inventoryItemArmorPoints(ITEM_LEATHER_BOOTS) == 1);
-  CHECK(inventoryItemMaxStack(ITEM_STONE) == 999 && inventoryItemMaxStack(ITEM_LEATHER_HELMET) == 1);
+  CHECK(inventoryItemMaxStack(ITEM_STONE) == 999 && inventoryItemMaxStack(ITEM_OAK_LOG) == 999 && inventoryItemMaxStack(ITEM_OAK_LEAVES) == 999);
+  CHECK(inventoryItemMaxStack(ITEM_LEATHER_HELMET) == 1 && !inventoryItemIsEquipment(ITEM_OAK_LOG) && !inventoryItemIsEquipment(ITEM_OAK_LEAVES));
   CHECK(inventoryItemBlock(ITEM_LEATHER_HELMET) == BLOCK_AIR && inventoryBlockItem(BLOCK_AIR) == ITEM_NONE);
+  CHECK(inventoryItemBlock(ITEM_OAK_LOG) == BLOCK_OAK_LOG && inventoryBlockItem(BLOCK_OAK_LOG) == ITEM_OAK_LOG);
+  CHECK(inventoryItemBlock(ITEM_OAK_LEAVES) == BLOCK_OAK_LEAVES && inventoryBlockItem(BLOCK_OAK_LEAVES) == ITEM_OAK_LEAVES);
+  CHECK(inventoryBlockItem(BLOCK_LEAFY_GRASS) == ITEM_GRASS_BLOCK && inventoryItemBlock(ITEM_GRASS_BLOCK) == BLOCK_GRASS);
+  CHECK(strcmp(inventoryItemName(ITEM_OAK_LOG), "Oak Log") == 0 && strcmp(inventoryItemName(ITEM_OAK_LEAVES), "Oak Leaves") == 0);
+  CHECK(inventoryItemColor(ITEM_OAK_LOG) == UINT32_C(0x6B4F2A) && inventoryItemColor(ITEM_OAK_LEAVES) == UINT32_C(0x4F7F3B));
 
   CHECK(inventoryStackValid((ItemStack){0}));
   CHECK(inventoryStackValid((ItemStack){ITEM_DIRT, 999}));
+  CHECK(inventoryStackValid((ItemStack){ITEM_OAK_LOG, 999}) && inventoryStackValid((ItemStack){ITEM_OAK_LEAVES, 999}));
   CHECK(!inventoryStackValid((ItemStack){ITEM_DIRT, 0}));
   CHECK(!inventoryStackValid((ItemStack){ITEM_DIRT, 1000}));
   CHECK(!inventoryStackValid((ItemStack){ITEM_LEATHER_HELMET, 2}));
@@ -115,6 +124,14 @@ static void testAddAndRemove(void) {
   before = inventory;
   CHECK(!inventoryRemoveItem(&inventory, ITEM_DIRT, 2));
   CHECK(memcmp(&inventory, &before, sizeof(inventory)) == 0);
+
+  inventoryClear(&inventory);
+  inventory.carried[0] = (ItemStack){ITEM_OAK_LOG, 998};
+  CHECK(inventoryAdd(&inventory, (ItemStack){ITEM_OAK_LOG, 2}));
+  CHECK(inventory.carried[0].item == ITEM_OAK_LOG && inventory.carried[0].count == 999);
+  CHECK(inventory.carried[1].item == ITEM_OAK_LOG && inventory.carried[1].count == 1);
+  CHECK(inventoryAdd(&inventory, (ItemStack){ITEM_OAK_LEAVES, 3}));
+  CHECK(inventory.carried[2].item == ITEM_OAK_LEAVES && inventory.carried[2].count == 3);
 }
 
 static void testCursorClicks(void) {
@@ -306,15 +323,54 @@ static void testCrafting(void) {
   CHECK(inventory.carried[35].count == 999 && totalUnits(&inventory) == total);
   for (int slotIndex = 0; slotIndex < INVENTORY_CRAFTING_SLOT_COUNT; slotIndex++)
     CHECK(inventory.crafting[slotIndex].count == 1);
+
+  for (int logSlot = 0; logSlot < INVENTORY_CRAFTING_SLOT_COUNT; logSlot++) {
+    inventoryClear(&inventory);
+    inventory.crafting[logSlot] = (ItemStack){ITEM_OAK_LOG, 3};
+    ItemStack result = inventoryCraftResult(&inventory);
+    CHECK(result.item == ITEM_OAK_PLANKS && result.count == 4);
+    for (int slotIndex = 0; slotIndex < INVENTORY_CRAFTING_SLOT_COUNT; slotIndex++)
+      CHECK(slotIndex == logSlot || empty(inventory.crafting[slotIndex]));
+
+    inventory.cursor = (ItemStack){ITEM_OAK_PLANKS, 996};
+    before = inventory;
+    CHECK(!inventoryCraftOnce(&inventory));
+    CHECK(memcmp(&inventory, &before, sizeof(inventory)) == 0);
+    inventory.cursor.count = 995;
+    CHECK(inventoryCraftOnce(&inventory));
+    CHECK(inventory.cursor.item == ITEM_OAK_PLANKS && inventory.cursor.count == 999);
+    CHECK(inventory.crafting[logSlot].item == ITEM_OAK_LOG && inventory.crafting[logSlot].count == 2);
+  }
+
+  inventoryClear(&inventory);
+  inventory.crafting[0] = (ItemStack){ITEM_OAK_LOG, 2};
+  inventory.crafting[3] = (ItemStack){ITEM_DIRT, 1};
+  CHECK(empty(inventoryCraftResult(&inventory)));
+  before = inventory;
+  CHECK(!inventoryCraftOnce(&inventory) && inventoryCraftAll(&inventory) == 0);
+  CHECK(memcmp(&inventory, &before, sizeof(inventory)) == 0);
+
+  inventoryClear(&inventory);
+  inventory.crafting[2] = (ItemStack){ITEM_OAK_LOG, 3};
+  fillCarried(&inventory, ITEM_DIRT, 999);
+  inventory.carried[35] = (ItemStack){ITEM_OAK_PLANKS, 996};
+  before = inventory;
+  CHECK(inventoryCraftAll(&inventory) == 0);
+  CHECK(memcmp(&inventory, &before, sizeof(inventory)) == 0);
+  inventory.carried[35].count = 991;
+  CHECK(inventoryCraftAll(&inventory) == 2);
+  CHECK(inventory.carried[35].item == ITEM_OAK_PLANKS && inventory.carried[35].count == 999);
+  CHECK(inventory.crafting[2].item == ITEM_OAK_LOG && inventory.crafting[2].count == 1);
 }
 
 static void testSerialization(void) {
   Inventory source;
   inventoryClear(&source);
   source.carried[0] = (ItemStack){ITEM_GRASS_BLOCK, 1};
+  source.carried[34] = (ItemStack){ITEM_OAK_LOG, 7};
   source.carried[35] = (ItemStack){ITEM_DIRT, 2};
   source.armor[INVENTORY_ARMOR_HEAD] = (ItemStack){ITEM_LEATHER_HELMET, 1};
-  source.offhand = (ItemStack){ITEM_STONE, 3};
+  source.offhand = (ItemStack){ITEM_OAK_LEAVES, 3};
   source.crafting[3] = (ItemStack){ITEM_COBBLESTONE, 4};
   source.cursor = (ItemStack){ITEM_OAK_PLANKS, 5};
   CHECK(inventoryValidate(&source));
@@ -322,8 +378,9 @@ static void testSerialization(void) {
   ItemStack stacks[INVENTORY_SERIALIZED_STACK_COUNT];
   CHECK(inventoryExportStacks(&source, stacks));
   CHECK(stacks[0].item == ITEM_GRASS_BLOCK && stacks[35].item == ITEM_DIRT);
+  CHECK(stacks[34].item == ITEM_OAK_LOG && stacks[34].count == 7);
   CHECK(stacks[36].item == ITEM_LEATHER_HELMET);
-  CHECK(stacks[40].item == ITEM_STONE);
+  CHECK(stacks[40].item == ITEM_OAK_LEAVES && stacks[40].count == 3);
   CHECK(stacks[44].item == ITEM_COBBLESTONE);
   CHECK(stacks[45].item == ITEM_OAK_PLANKS);
 

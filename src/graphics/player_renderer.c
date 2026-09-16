@@ -27,6 +27,7 @@ typedef struct {
   GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha;
   GLint blendEquationRGB, blendEquationAlpha;
   GLfloat polygonOffsetFactor, polygonOffsetUnits;
+  GLdouble depthRange[2];
   GLboolean depthTest, depthMask, blend, cull, polygonOffsetFill;
 } PlayerRenderState;
 
@@ -97,6 +98,7 @@ static void snapshotRenderState(PlayerRenderState* state) {
   glGetIntegerv(GL_POLYGON_MODE, state->polygonMode);
   glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &state->polygonOffsetFactor);
   glGetFloatv(GL_POLYGON_OFFSET_UNITS, &state->polygonOffsetUnits);
+  glGetDoublev(GL_DEPTH_RANGE, state->depthRange);
   glGetIntegerv(GL_BLEND_SRC_RGB, &state->blendSrcRGB);
   glGetIntegerv(GL_BLEND_DST_RGB, &state->blendDstRGB);
   glGetIntegerv(GL_BLEND_SRC_ALPHA, &state->blendSrcAlpha);
@@ -115,6 +117,7 @@ static void restoreRenderState(const PlayerRenderState* state) {
   glBindVertexArray((GLuint)state->vao);
   glDepthFunc((GLenum)state->depthFunc);
   glDepthMask(state->depthMask);
+  glDepthRange(state->depthRange[0], state->depthRange[1]);
   glCullFace((GLenum)state->cullFace);
   glFrontFace((GLenum)state->frontFace);
   glBlendFuncSeparate((GLenum)state->blendSrcRGB, (GLenum)state->blendDstRGB, (GLenum)state->blendSrcAlpha, (GLenum)state->blendDstAlpha);
@@ -469,6 +472,44 @@ void renderPlayerEquipment(const PlayerRenderer* renderer, Vec3 feet, const Play
       drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){1 * pixel, 5 * pixel, 7 * pixel}, (Vec3){-3.5f * pixel, 3.5f * pixel, 0}, 0.55f * pixel);
       drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){6 * pixel, 1 * pixel, 1 * pixel}, (Vec3){0, 5.5f * pixel, -3.5f * pixel}, 0.55f * pixel);
     }
+  }
+
+  restoreRenderState(&state);
+}
+
+void renderPlayerViewArm(const PlayerRenderer* renderer, PlayerModelPart arm, const Mat4 projection, const Mat4 cameraTransform, const DayNightState* daylight, bool translucent) {
+  if (!renderer || !renderer->program || !renderer->texture || !renderer->vao || !renderer->vbo || !projection || !cameraTransform || !daylight ||
+      (arm != PLAYER_MODEL_RIGHT_ARM && arm != PLAYER_MODEL_LEFT_ARM))
+    return;
+  if (translucent && !renderer->fractionalAlpha)
+    return;
+  PlayerRenderState state;
+  snapshotRenderState(&state);
+  beginPlayerDraw(renderer, daylight);
+
+  PlayerModelPose pose = {.rootScale = 1};
+  for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++)
+    pose.parts[part].scale = (Vec3){1, 1, 1};
+  glUniformMatrix4fv(renderer->viewProjectionLocation, 1, GL_FALSE, projection);
+  glUniform3f(renderer->feetLocation, 0, 0, 0);
+  glUniform1f(renderer->rootYawLocation, 0);
+  glUniform1f(renderer->rootScaleLocation, 1);
+  glUniformMatrix4fv(renderer->viewModelTransformLocation, 1, GL_FALSE, cameraTransform);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
+  glDepthRange(0, 1);
+  glDisable(GL_BLEND);
+  glDisable(GL_POLYGON_OFFSET_FILL);
+  if (!translucent) {
+    drawPart(renderer, arm, &pose, PLAYER_SKIN_BASE, true, 0);
+    drawPart(renderer, arm, &pose, PLAYER_SKIN_OUTER, true, 1);
+  } else {
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+    glDepthMask(GL_FALSE);
+    drawPart(renderer, arm, &pose, PLAYER_SKIN_OUTER, true, 2);
   }
 
   restoreRenderState(&state);

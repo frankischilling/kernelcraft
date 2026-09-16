@@ -74,7 +74,11 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #include "player_render_checks.h"
 #include "inventory_render_checks.h"
 #include "item_render_checks.h"
+#include "leaf_render_checks.h"
+#include "block_crack_checks.h"
 #include "render_profile.h"
+#include "forest_render_checks.h"
+#include "chunk_render_checks.h"
 
 static bool testWireframe(GLuint shader) {
   clearTerrainFixture();
@@ -143,7 +147,7 @@ static GLuint referenceProgram(void) {
                        "linear*=light;\n"
                        "return linear<=0.0031308 ? linear*12.92 : 1.055*pow(linear,1.0/2.4)-0.055;}\n"
                        "void main(){\n"
-                       "vec3 c=texture(texture1,TexCoord).rgb;\n"
+                       "vec4 texel=texture(texture1,TexCoord); if(texel.a<0.5) discard; vec3 c=texel.rgb;\n"
                        "FragColor=vec4(shade(c.r,faceLight.r),shade(c.g,faceLight.g),shade(c.b,faceLight.b),1.0);}\n";
   FILE* file = fopen(path, "wb");
   if (!file)
@@ -157,15 +161,17 @@ static GLuint referenceProgram(void) {
 }
 
 static int repeatedTextureBlock(int pattern, int x, int y, int z) {
-  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_COBBLESTONE, BLOCK_OAK_PLANKS, BLOCK_STONE_BRICKS};
+  const int materials[] = {BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_COBBLESTONE, BLOCK_OAK_PLANKS, BLOCK_STONE_BRICKS, BLOCK_OAK_LOG, BLOCK_OAK_LEAVES, BLOCK_LEAFY_GRASS};
   if (pattern < 3)
     return materials[pattern];
   if (pattern == 4)
     return BLOCK_COBBLESTONE;
   if (pattern == 6 || pattern == 7)
     return materials[pattern - 2];
-  // Keep the older mixed fixtures and add a mix of all six materials.
-  return materials[(x + y + z) % (pattern == 3 ? 3 : pattern == 5 ? 4 : 6)];
+  if (pattern >= 9 && pattern <= 11)
+    return materials[pattern - 3];
+  // Retain every older fixture and exercise trees/leafy ground in another mix.
+  return materials[(x + y + z) % (pattern == 3 ? 3 : pattern == 5 ? 4 : pattern == 12 ? 9 : 6)];
 }
 
 /* Compare the running renderer with independent unit-cube submissions. Six
@@ -186,17 +192,25 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
         setBlock(&(Vec3i){x, y, z}, repeatedTextureBlock(pattern, x, y, z));
   if (!initWorld(shader))
     return false;
-  GLuint textures[] = {loadTexture("assets/textures/stone.png"),       loadTexture("assets/textures/dirt.png"),        loadTexture("assets/textures/grass-top.png"),
-                       loadTexture("assets/textures/grass-side.png"),  loadTexture("assets/textures/dirt-rocks.png"),  loadTexture("assets/textures/grass-top-leaves.png"),
-                       loadTexture("assets/textures/grass-bug.png"),   loadTexture("assets/textures/cobblestone.png"), loadTexture("assets/textures/oak-planks.png"),
-                       loadTexture("assets/textures/stone-bricks.png")};
+  // Cutout gaps reveal recessed faces that can shadow each other. This texture
+  // reference has no shadow map, so compare those patterns under neutral fill;
+  // separate shadow fixtures verify actual alpha-tested shadow depth.
+  bool cutoutPattern = pattern == 10 || pattern == 12;
+  const GLfloat neutralLight[] = {1, 1, 1};
+  if (cutoutPattern)
+    setWorldDayNight(&(DayNightState){.lightDirection = {0, 1, 0}, .skyFill = {1, 1, 1}, .groundFill = {1, 1, 1}});
+  GLuint textures[] = {loadTexture("assets/textures/stone.png"),        loadTexture("assets/textures/dirt.png"),         loadTexture("assets/textures/grass-top.png"),
+                       loadTexture("assets/textures/grass-side.png"),   loadTexture("assets/textures/dirt-rocks.png"),   loadTexture("assets/textures/grass-top-leaves.png"),
+                       loadTexture("assets/textures/grass-bug.png"),    loadTexture("assets/textures/cobblestone.png"),  loadTexture("assets/textures/oak-planks.png"),
+                       loadTexture("assets/textures/stone-bricks.png"), loadTexture("assets/textures/oak-log-side.png"), loadTexture("assets/textures/oak-log-top.png"),
+                       loadTexture("assets/textures/oak-leaves.png")};
   GLuint referenceShader = referenceProgram();
   GLuint vao = 0, vbo = 0;
   size_t bytes = 960 * 540 * 3;
   unsigned char* merged = malloc(bytes);
   unsigned char* reference = malloc(bytes);
   bool success = merged && reference && referenceShader;
-  for (int layer = 0; layer < 10; layer++)
+  for (size_t layer = 0; layer < sizeof(textures) / sizeof(textures[0]); layer++)
     success &= textures[layer] != 0;
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
@@ -217,7 +231,8 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
     mat4_perspective(projection, 70, 960.0f / 540.0f, 0.1f, 1000);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderResult result = renderWorld(&camera, view, projection, false);
-    if (!result.success || ((pattern < 3 || pattern == 4 || pattern == 6 || pattern == 7) && result.submittedQuads != 6) || result.terrainDrawCalls != 1) {
+    if (!result.success || ((pattern < 3 || pattern == 4 || pattern == 6 || pattern == 7 || (pattern >= 9 && pattern <= 11)) && result.submittedQuads != 6) ||
+        result.terrainDrawCalls != 1) {
       success = false;
       break;
     }
@@ -238,7 +253,12 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
       for (int y = 20; y < 23; y++)
         for (int z = 1; z < 4; z++)
           for (int face = 0; face < 6; face++) {
-            glUniform3fv(faceLightLocation, 1, faceLight[face]);
+            int id = repeatedTextureBlock(pattern, x, y, z);
+            Vec3i direction = vec3iFaceMap[face];
+            const Block* neighbor = getBlock(&(Vec3i){x + direction.x, y + direction.y, z + direction.z});
+            if (neighbor && blockIsSolid(neighbor->id) && (neighbor->id != BLOCK_OAK_LEAVES || id == BLOCK_OAK_LEAVES))
+              continue;
+            glUniform3fv(faceLightLocation, 1, cutoutPattern ? neutralLight : faceLight[face]);
             float vertices[48];
             memcpy(vertices, getCubeFaceVertices(face), sizeof(vertices));
             for (int corner = 0; corner < 6; corner++) {
@@ -247,7 +267,6 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
               vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
             }
 
-            int id = repeatedTextureBlock(pattern, x, y, z);
             int material = referenceTerrainMaterial(id, face);
             material = referenceTerrainLayer(material, (Vec3i){x, y, z}, worldSeed());
             glBindTexture(GL_TEXTURE_2D, textures[material]);
@@ -279,7 +298,7 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
   glBindVertexArray(0);
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
-  glDeleteTextures(10, textures);
+  glDeleteTextures((GLsizei)(sizeof(textures) / sizeof(textures[0])), textures);
   glUseProgram(0);
   glDeleteProgram(referenceShader);
   return success;
@@ -697,6 +716,10 @@ int main(int argc, char** argv) {
     return testTerrainLighting(shader) ? 0 : 23;
   if (getenv("KERNELCRAFT_CLOUD_CHECK"))
     return testCloudRendering(shader) ? 0 : 26;
+  if (getenv("KERNELCRAFT_CRACK_CHECK"))
+    return testBlockCracks(shader) ? 0 : 34;
+  if (getenv("KERNELCRAFT_ITEM_CHECK"))
+    return testItemRendering() ? 0 : 30;
 #endif
   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
   for (int scenario = 0; scenario < 4; scenario++) {
@@ -882,6 +905,10 @@ int main(int argc, char** argv) {
   }
 
   puts("Dirty mesh seam, removal, idle upload, framebuffer, and upload failure tests passed");
+  if (!testForestRendering(shader, argc > 1 ? argv[1] : NULL))
+    return 31;
+  if (!testChunkRenderStorageAndDistance(shader))
+    return 32;
   if (!testMovingOcclusion(shader))
     return 24;
   if (!testWireframe(shader))
@@ -896,7 +923,7 @@ int main(int argc, char** argv) {
     return 27;
   if (!testTerrainVariants(shader))
     return 21;
-  for (int pattern = 0; pattern < 9; pattern++)
+  for (int pattern = 0; pattern < 13; pattern++)
     if (!testRepeatedTextures(shader, pattern)) {
       fprintf(stderr, "Merged textures differ from unit-cube rendering\n");
       return 14;
@@ -920,6 +947,10 @@ int main(int argc, char** argv) {
     return 29;
   if (!testItemRendering())
     return 30;
+  if (!testLeafCutout(shader))
+    return 33;
+  if (!testBlockCracks(shader))
+    return 34;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

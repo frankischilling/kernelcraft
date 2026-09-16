@@ -23,11 +23,15 @@ Run Debug and sanitizer builds sequentially in one checkout: `test-sanitize`
 also writes the Debug output directories.
 
 Terrain material IDs map to base texture-array layers 0..3, cobblestone layer 7,
-oak planks layer 8, and stone bricks layer 9. The fragment shader
+oak planks layer 8, stone bricks layer 9, log bark/end grain layers 10/11,
+and cutout oak leaves layer 12. The fragment shader
 selects per-block variants from layers 4..6 using world position and seed.
 Keep that ordering consistent across the mesher, renderer, and shader. New layers must match the existing
 tile dimensions; preserve repeated UVs and extend the independent material
 pixel comparisons when changing face mapping or sampling.
+Leaf alpha is binary: discard holes in both color and shadow passes, preserve
+opaque neighbors behind them, and never use leaf rectangles as solid software
+occluders. Leaves remain solid for collision and drop nothing when broken.
 
 Add tests for observable defects and boundary cases. CPU tests must not create
 an OpenGL context. The application smoke harness substitutes GLFW event/input
@@ -108,3 +112,14 @@ Check the preview's head/feet framing against the helmet/boot column, then resiz
 to portrait. Run item geometry, source-face rendering, held-depth isolation,
 allocation-failure, and live inventory regressions. Use the existing supplied
 PNGs; primitive equipment models do not complete the dedicated-artwork backlog.
+
+Check first-person held blocks at rest and throughout breaking and placement,
+including early/late phases, offhand placement, and a consumed last item. A
+placeable block must show no arm or hand. At rest, roughly half of the projected
+block height should remain below the lower viewport edge in landscape and portrait.
+Non-placeable equipment still uses its skinned arm and sleeve, with fractional
+sleeves blended after opaque geometry in the private held-item target. Surface
+cracks follow gameplay breaking progress
+and must vanish after removal, cancellation, or a target/material change. Inspect
+leaf cracks over transparent texels and repeat in wireframe. The corresponding
+item, cutout/shadow, crack, and live application regressions run under `-Test`.

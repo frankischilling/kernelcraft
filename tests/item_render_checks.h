@@ -75,12 +75,22 @@ static DayNightState itemTestNeutralLight(void) {
 static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) {
   if (!itemTestTarget(target, 256, 256))
     return false;
-  const char* paths[10] = {
-      "assets/textures/stone.png",       "assets/textures/dirt.png",       "assets/textures/grass-top.png",   "assets/textures/grass-side.png", NULL, NULL, NULL,
-      "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
-  unsigned char* images[10] = {0};
+  const char* paths[13] = {"assets/textures/stone.png",
+                           "assets/textures/dirt.png",
+                           "assets/textures/grass-top.png",
+                           "assets/textures/grass-side.png",
+                           NULL,
+                           NULL,
+                           NULL,
+                           "assets/textures/cobblestone.png",
+                           "assets/textures/oak-planks.png",
+                           "assets/textures/stone-bricks.png",
+                           "assets/textures/oak-log-side.png",
+                           "assets/textures/oak-log-top.png",
+                           "assets/textures/oak-leaves.png"};
+  unsigned char* images[13] = {0};
   bool ok = true;
-  for (int layer = 0; layer < 10; layer++) {
+  for (int layer = 0; layer < 13; layer++) {
     if (!paths[layer])
       continue;
     int width, height, channels;
@@ -88,7 +98,9 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
     ok &= images[layer] && width == 16 && height == 16;
   }
   const Vec3 normals[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-  const int layers[6][6] = {{3, 3, 2, 1, 3, 3}, {1, 1, 1, 1, 1, 1}, {0, 0, 0, 0, 0, 0}, {7, 7, 7, 7, 7, 7}, {8, 8, 8, 8, 8, 8}, {9, 9, 9, 9, 9, 9}};
+  const uint16_t items[] = {1, 2, 3, 4, 5, 6, 11, 12};
+  const int layers[8][6] = {{3, 3, 2, 1, 3, 3}, {1, 1, 1, 1, 1, 1}, {0, 0, 0, 0, 0, 0},       {7, 7, 7, 7, 7, 7},
+                            {8, 8, 8, 8, 8, 8}, {9, 9, 9, 9, 9, 9}, {10, 10, 11, 11, 10, 10}, {12, 12, 12, 12, 12, 12}};
   DayNightState light = itemTestNeutralLight();
   Mat4 model, projection;
   mat4_identity(model);
@@ -96,8 +108,9 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
   projection[0] = projection[5] = 2;
   projection[10] = -0.2f;
   unsigned checked = 0;
-  for (uint16_t item = 1; ok && item <= 6; item++)
+  for (size_t itemIndex = 0; ok && itemIndex < sizeof(items) / sizeof(items[0]); itemIndex++)
     for (int face = 0; ok && face < 6; face++) {
+      uint16_t item = items[itemIndex];
       Vec3 normal = normals[face], eye, center = {0}, up = {0, 1, 0};
       vec3_scale(&eye, &normal, 3);
       if (face == 2)
@@ -121,16 +134,22 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
           float u = face < 2 ? p.z + .5f : p.x + .5f;
           float v = face == 2 ? p.z + .5f : face == 3 ? .5f - p.z : .5f - p.y;
           int tx = (int)floorf(u * 16), ty = (int)floorf(v * 16);
-          const unsigned char* expected = images[layers[item - 1][face]] + (ty * 16 + tx) * 4;
+          const unsigned char* expected = images[layers[itemIndex][face]] + (ty * 16 + tx) * 4;
           const unsigned char* actual = pixels + (py * 256 + px) * 4;
-          for (int c = 0; c < 4; c++)
-            ok &= abs((int)actual[c] - expected[c]) <= 1;
+          if (!expected[3]) {
+            // Cutout leaves discard transparent texels. Their source RGB is not
+            // observable after the clear, so only alpha is a meaningful golden.
+            ok &= actual[3] == 0;
+          } else {
+            for (int c = 0; c < 4; c++)
+              ok &= abs((int)actual[c] - expected[c]) <= 1;
+          }
           checked++;
         }
       if (!ok)
         fprintf(stderr, "3D item face image mismatch: item=%u face=%d\n", item, face);
     }
-  for (int layer = 0; layer < 10; layer++)
+  for (int layer = 0; layer < 13; layer++)
     stbi_image_free(images[layer]);
   if (ok)
     printf("3D block faces match %u independent source-image samples\n", checked);
@@ -207,7 +226,110 @@ static bool itemTestDroppedVolume(const ItemRenderer* renderer, ItemTestTarget* 
   return ok;
 }
 
-static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
+static void itemTestFillSkinRect(unsigned char* pixels, int x, int y, int width, int height, const unsigned char color[4]) {
+  for (int row = y; row < y + height; row++)
+    for (int col = x; col < x + width; col++)
+      memcpy(pixels + ((size_t)row * PLAYER_SKIN_SIZE + col) * 4, color, 4);
+}
+
+static bool itemTestWriteHeldSkin(const char* path) {
+  unsigned char pixels[PLAYER_SKIN_SIZE * PLAYER_SKIN_SIZE * 4] = {0};
+  static const int rightBase[PLAYER_MODEL_FACE_COUNT][4] = {{40, 20, 4, 12}, {48, 20, 4, 12}, {44, 16, 4, 4}, {48, 16, 4, 4}, {44, 20, 4, 12}, {52, 20, 4, 12}};
+  static const int rightOuter[PLAYER_MODEL_FACE_COUNT][4] = {{40, 36, 4, 12}, {48, 36, 4, 12}, {44, 32, 4, 4}, {48, 32, 4, 4}, {44, 36, 4, 12}, {52, 36, 4, 12}};
+  static const int leftBase[PLAYER_MODEL_FACE_COUNT][4] = {{32, 52, 4, 12}, {40, 52, 4, 12}, {36, 48, 4, 4}, {40, 48, 4, 4}, {36, 52, 4, 12}, {44, 52, 4, 12}};
+  static const int leftOuter[PLAYER_MODEL_FACE_COUNT][4] = {{48, 52, 4, 12}, {56, 52, 4, 12}, {52, 48, 4, 4}, {56, 48, 4, 4}, {52, 52, 4, 12}, {60, 52, 4, 12}};
+  const unsigned char colors[4][4] = {{241, 30, 189, 255}, {242, 132, 22, 255}, {24, 212, 232, 255}, {40, 80, 240, 255}};
+  for (int face = 0; face < PLAYER_MODEL_FACE_COUNT; face++) {
+    itemTestFillSkinRect(pixels, rightBase[face][0], rightBase[face][1], rightBase[face][2], rightBase[face][3], colors[0]);
+    itemTestFillSkinRect(pixels, rightOuter[face][0], rightOuter[face][1], rightOuter[face][2] / 2, rightOuter[face][3], colors[1]);
+    itemTestFillSkinRect(pixels, leftBase[face][0], leftBase[face][1], leftBase[face][2], leftBase[face][3], colors[2]);
+    itemTestFillSkinRect(pixels, leftOuter[face][0], leftOuter[face][1], leftOuter[face][2] / 2, leftOuter[face][3], colors[3]);
+  }
+
+  unsigned char header[18] = {0};
+  header[2] = 2;
+  header[12] = PLAYER_SKIN_SIZE;
+  header[14] = PLAYER_SKIN_SIZE;
+  header[16] = 32;
+  header[17] = 0x28;
+  FILE* file = fopen(path, "wb");
+  if (!file)
+    return false;
+  bool ok = fwrite(header, 1, sizeof(header), file) == sizeof(header);
+  for (int y = 0; y < PLAYER_SKIN_SIZE && ok; y++)
+    for (int x = 0; x < PLAYER_SKIN_SIZE && ok; x++) {
+      const unsigned char* rgba = pixels + ((size_t)y * PLAYER_SKIN_SIZE + x) * 4;
+      unsigned char bgra[4] = {rgba[2], rgba[1], rgba[0], rgba[3]};
+      ok = fwrite(bgra, 1, sizeof(bgra), file) == sizeof(bgra);
+    }
+  if (fclose(file) != 0)
+    ok = false;
+  return ok;
+}
+
+static bool itemTestHeldArmColor(const unsigned char* pixel, int hand) {
+  static const unsigned char colors[4][3] = {{241, 30, 189}, {242, 132, 22}, {24, 212, 232}, {40, 80, 240}};
+  int first = hand ? 2 : 0;
+  for (int color = first; color < first + 2; color++)
+    if (abs((int)pixel[0] - colors[color][0]) <= 2 && abs((int)pixel[1] - colors[color][1]) <= 2 && abs((int)pixel[2] - colors[color][2]) <= 2)
+      return true;
+  return false;
+}
+
+static bool itemTestHeldArmLayerColor(const unsigned char* pixel, int hand, int outer) {
+  static const unsigned char colors[4][3] = {{241, 30, 189}, {242, 132, 22}, {24, 212, 232}, {40, 80, 240}};
+  const unsigned char* color = colors[hand * 2 + outer];
+  return abs((int)pixel[0] - color[0]) <= 2 && abs((int)pixel[1] - color[1]) <= 2 && abs((int)pixel[2] - color[2]) <= 2;
+}
+
+static unsigned itemTestCountHeldArm(const unsigned char* pixels, int width, int height, int hand) {
+  unsigned count = 0;
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      if ((!hand && x < width / 2) || (hand && x >= width / 2))
+        continue;
+      count += itemTestHeldArmColor(pixels + ((size_t)y * width + x) * 4, hand);
+    }
+  return count;
+}
+
+static unsigned itemTestCountHeldArmLayer(const unsigned char* pixels, int width, int height, int hand, int outer) {
+  unsigned count = 0;
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      if ((!hand && x < width / 2) || (hand && x >= width / 2))
+        continue;
+      count += itemTestHeldArmLayerColor(pixels + ((size_t)y * width + x) * 4, hand, outer);
+    }
+  return count;
+}
+
+static bool itemTestHeldBlockFraming(const float* depth, int width, int height, int hand) {
+  int minX = width, maxX = -1, minY = height, maxY = -1;
+  unsigned visible = 0, bottom = 0;
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      if ((!hand && x < width / 2) || (hand && x >= width / 2))
+        continue;
+      if (depth[(size_t)y * width + x] >= 0.999f)
+        continue;
+      visible++;
+      bottom += y == 0;
+      minX = x < minX ? x : minX;
+      maxX = x > maxX ? x : maxX;
+      minY = y < minY ? y : minY;
+      maxY = y > maxY ? y : maxY;
+    }
+  if (!visible || maxX < minX || maxY < minY)
+    return false;
+  int spanX = maxX - minX + 1, spanY = maxY - minY + 1;
+  bool framed = minY == 0 && bottom >= (unsigned)(spanX / 4) && spanY * 20 >= spanX * 7 && spanY * 20 <= spanX * 17;
+  if (!framed)
+    fprintf(stderr, "Held block framing failed: %dx%d hand=%d visible=%u bounds=%d,%d..%d,%d bottom=%u\n", width, height, hand, visible, minX, minY, maxX, maxY, bottom);
+  return framed;
+}
+
+static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemTestTarget* target) {
   const int sizes[][2] = {{320, 240}, {180, 320}, {960, 540}};
   DayNightState light = itemTestNeutralLight();
   PlayerModelPose pose;
@@ -232,10 +354,34 @@ static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
     itemTestClear(.375);
     itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, before);
     ItemStack primary = {ITEM_GRASS_BLOCK, 4}, secondary = {ITEM_STONE, 3};
-    ok &= renderHeldItems(renderer, primary, secondary, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
     ok &= !memcmp(before, after, bytes);
+    unsigned rightArm = itemTestCountHeldArm(pixels, width, height, 0), leftArm = itemTestCountHeldArm(pixels, width, height, 1);
+    ok &= rightArm == 0 && leftArm == 0;
+    ok &= itemTestCountHeldArmLayer(pixels, width, height, 0, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 0, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(pixels, width, height, 1, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 1, 1) == 0;
+    for (int hand = 0; hand < 2; hand++) {
+      itemTestClear(.375);
+      ItemStack framingMain = hand ? (ItemStack){0} : (ItemStack){ITEM_STONE, 1};
+      ItemStack framingOffhand = hand ? (ItemStack){ITEM_STONE, 1} : (ItemStack){0};
+      ok &= renderHeldItems(renderer, playerRenderer, framingMain, framingOffhand, &pose, (float)width / height, &light);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->heldTarget.framebuffer);
+      itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, target->framebuffer);
+      ok &= itemTestHeldBlockFraming(after, width, height, hand);
+    }
+    // A block-only viewmodel must not leave hidden arm fragments in the private
+    // target, and compositing that target must continue to preserve world depth.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->heldTarget.framebuffer);
+    itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, target->framebuffer);
+    unsigned armDepth = 0;
+    for (size_t pixel = 0; pixel < (size_t)width * height; pixel++)
+      if ((itemTestHeldArmColor(pixels + pixel * 4, 0) || itemTestHeldArmColor(pixels + pixel * 4, 1)) && after[pixel] < 0.999f)
+        armDepth++;
+    ok &= armDepth == 0;
     unsigned left = 0, right = 0;
     for (int y = 0; y < height; y++)
       for (int x = 0; x < width; x++) {
@@ -251,24 +397,39 @@ static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
     GLuint retained = renderer->heldTarget.framebuffer;
     itemTestClear(.375);
     primary.item = ITEM_STONE;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
     unsigned different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
-    ok &= different > 100 && retained == renderer->heldTarget.framebuffer;
+    ok &= different > 100 && retained == renderer->heldTarget.framebuffer && itemTestCountHeldArm(other, width, height, 0) == 0;
+
+    // Walking bob still moves the block even though no first-person arm is drawn.
+    itemTestClear(.375);
+    pose.gaitWeight = 1;
+    pose.gaitPhase = 1.5707963267948966;
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    different = 0;
+    for (size_t i = 0; i < bytes; i += 4)
+      different += memcmp(pixels + i, other + i, 3) != 0;
+    ok &= different > 20 && itemTestCountHeldArm(pixels, width, height, 0) == 0;
+    pose.gaitWeight = 0;
+    pose.gaitPhase = 0;
 
     // Breaking must use a true strike/recovery path. The previous symmetric
     // sin(pi * progress) transform made quarter and three-quarter phases
     // identical, so a held block retraced the exact strike poses backward.
     itemTestClear(.375);
     pose.punch = 0.25f;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    ok &= itemTestCountHeldArm(pixels, width, height, 0) == 0;
     itemTestClear(.375);
     pose.punch = 0.75f;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
@@ -277,21 +438,22 @@ static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
     // Both ends of the normalized cycle are the same resting item pose.
     itemTestClear(.375);
     pose.punch = 0;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     itemTestClear(.375);
     pose.punch = 1;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
     ok &= !memcmp(pixels, other, bytes);
 
-    // Successful placement has its own one-shot hand motion and can animate the
-    // offhand independently when placement falls back to that slot.
+    // Successful placement has its own one-shot held-model motion and can
+    // animate the offhand independently when placement falls back to that slot.
     itemTestClear(.375);
     pose.punch = 0;
     pose.placeMain = 0.5f;
-    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
@@ -299,20 +461,66 @@ static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
     pose.placeMain = 0;
 
     itemTestClear(.375);
-    ok &= renderHeldItems(renderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    ok &= itemTestCountHeldArm(pixels, width, height, 1) == 0;
     itemTestClear(.375);
     pose.placeOffhand = 0.5f;
-    ok &= renderHeldItems(renderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 1) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
     ok &= different > 100;
     pose.placeOffhand = 0;
 
+    // Suppression is per hand: a block has no arm while a non-placeable held
+    // equipment item still uses its own skinned arm and sleeve.
+    ItemStack equipment = {ITEM_LEATHER_BOOTS, 1};
     itemTestClear(.375);
-    ok &= renderHeldItems(renderer, (ItemStack){0}, (ItemStack){0}, &pose, (float)width / height, &light);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, equipment, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0 && itemTestCountHeldArm(other, width, height, 1) > 40;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 0, 0) == 0 && itemTestCountHeldArmLayer(other, width, height, 0, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 1, 0) > 10 && itemTestCountHeldArmLayer(other, width, height, 1, 1) > 5;
+    itemTestClear(.375);
+    ok &= renderHeldItems(renderer, playerRenderer, equipment, secondary, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) > 40 && itemTestCountHeldArm(other, width, height, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 0, 0) > 10 && itemTestCountHeldArmLayer(other, width, height, 0, 1) > 5;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 1, 0) == 0 && itemTestCountHeldArmLayer(other, width, height, 1, 1) == 0;
+
+    // A block must remain arm-free through the complete breaking and placement
+    // cycles in both hands, including the rest endpoints.
+    for (int action = 0; ok && action < 3; action++) {
+      for (int step = 0; ok && step <= 20; step++) {
+        pose.punch = pose.placeMain = pose.placeOffhand = 0;
+        float phase = step / 20.0f;
+        if (action == 0)
+          pose.punch = phase;
+        else if (action == 1)
+          pose.placeMain = phase;
+        else
+          pose.placeOffhand = phase;
+        itemTestClear(.375);
+        ok &= renderHeldItems(renderer, playerRenderer, action == 2 ? (ItemStack){0} : primary, action == 2 ? secondary : (ItemStack){0}, &pose, (float)width / height, &light);
+        itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+        unsigned arm = itemTestCountHeldArm(other, width, height, action == 2);
+        unsigned visible = 0;
+        for (size_t i = 3; i < bytes; i += 4)
+          visible += other[i] != 0;
+        if (arm != 0 || visible <= 100) {
+          fprintf(stderr, "Held block arm-free check failed: %dx%d action=%d phase=%.2f arm=%u visible=%u\n", width, height, action, phase, arm, visible);
+          ok = false;
+        }
+      }
+      printf("Held block arm-free sweep: %dx%d action=%d\n", width, height, action);
+    }
+    pose.punch = pose.placeMain = pose.placeOffhand = 0;
+
+    itemTestClear(.375);
+    ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
     for (size_t i = 3; i < bytes; i += 4)
       ok &= other[i] == 0;
@@ -346,7 +554,7 @@ static bool itemFailedObjectsReleased(void) {
          !glIsRenderbuffer(itemFailedDepth);
 }
 
-static bool itemTestAllocationFailure(ItemRenderer* renderer) {
+static bool itemTestAllocationFailure(ItemRenderer* renderer, const PlayerRenderer* playerRenderer) {
   ItemRenderer failed = {0};
   InventoryCheckGLState before, after;
   inventoryCheckCaptureState(&before);
@@ -370,18 +578,20 @@ static bool itemTestAllocationFailure(ItemRenderer* renderer) {
   playerModelPose(&pose, &(PlayerPoseInput){.grounded = true});
   DayNightState light = itemTestNeutralLight();
   __glewCheckFramebufferStatus = itemFailFramebuffer;
-  bool drawn = renderHeldItems(renderer, (ItemStack){ITEM_STONE, 1}, (ItemStack){0}, &pose, (float)(retained.width - 1) / (retained.height - 1), &light);
+  bool drawn = renderHeldItems(renderer, playerRenderer, (ItemStack){ITEM_STONE, 1}, (ItemStack){0}, &pose, (float)(retained.width - 1) / (retained.height - 1), &light);
   __glewCheckFramebufferStatus = itemRealFramebufferStatus;
   inventoryCheckCaptureState(&after);
   ok &= !drawn && itemFailedObjectsReleased() && inventoryCheckStateEqual(&before, &after);
   ok &= renderer->heldTarget.framebuffer == retained.framebuffer && renderer->heldTarget.color == retained.color && renderer->heldTarget.depth == retained.depth &&
         renderer->heldTarget.width == retained.width && renderer->heldTarget.height == retained.height;
   ok &= glIsFramebuffer(retained.framebuffer) && glIsTexture(retained.color) && glIsRenderbuffer(retained.depth);
-  ok &= renderHeldItems(renderer, (ItemStack){ITEM_STONE, 1}, (ItemStack){0}, &pose, (float)(retained.width - 1) / (retained.height - 1), &light);
+  ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){ITEM_STONE, 1}, (ItemStack){0}, &pose, (float)(retained.width - 1) / (retained.height - 1), &light);
   if (!ok)
     fprintf(stderr, "Item initialization/held-target allocation rollback or recovery failed\n");
   return ok;
 }
+
+#include "held_arm_transparency_checks.h"
 
 static bool testItemRendering(void) {
   InventoryCheckGLState original;
@@ -394,7 +604,12 @@ static bool testItemRendering(void) {
   glPushAttrib(GL_ALL_ATTRIB_BITS);
   ItemTestTarget target = {0};
   ItemRenderer* renderer = HUDItems();
-  bool ok = itemTestFaces(renderer, &target) && itemTestIcons(renderer) && itemTestDroppedVolume(renderer, &target) && itemTestHeld(renderer, &target);
+  const char* heldSkinPath = "test-held-arms.tga";
+  PlayerRenderer heldPlayer = {0};
+  bool ok = itemTestWriteHeldSkin(heldSkinPath) && initPlayerRenderer(&heldPlayer, heldSkinPath);
+  ok &= itemTestFaces(renderer, &target) && itemTestIcons(renderer) && itemTestDroppedVolume(renderer, &target) && itemTestHeld(renderer, &heldPlayer, &target);
+  if (ok)
+    ok = itemTestArmTransparency(renderer, &heldPlayer, &target);
   if (ok) {
     glViewport(3, 5, 240, 220);
     glScissor(11, 13, 17, 19);
@@ -413,11 +628,13 @@ static bool testItemRendering(void) {
     PlayerModelPose pose;
     playerModelPose(&pose, &(PlayerPoseInput){.grounded = true});
     DayNightState light = itemTestNeutralLight();
-    ok &= renderHeldItems(renderer, (ItemStack){ITEM_LEATHER_BOOTS, 1}, (ItemStack){0}, &pose, 240.0f / 220, &light);
+    ok &= renderHeldItems(renderer, &heldPlayer, (ItemStack){ITEM_LEATHER_BOOTS, 1}, (ItemStack){0}, &pose, 240.0f / 220, &light);
     inventoryCheckCaptureState(&actual);
     ok &= inventoryCheckStateEqual(&expected, &actual);
-    ok &= itemTestAllocationFailure(renderer);
+    ok &= itemTestAllocationFailure(renderer, &heldPlayer);
   }
+  cleanupPlayerRenderer(&heldPlayer);
+  remove(heldSkinPath);
   itemTestDestroyTarget(&target);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)original.drawFramebuffer);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)original.readFramebuffer);

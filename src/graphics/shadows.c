@@ -20,6 +20,7 @@ bool initShadowMap(ShadowMap* map, Vec3 center, float radius) {
   if (!map->program)
     return false;
   map->transformLocation = glGetUniformLocation(map->program, "shadowTransform");
+  map->cutoutLocation = glGetUniformLocation(map->program, "cutoutEnabled");
   glGenTextures(1, &map->depth);
   glBindTexture(GL_TEXTURE_2D, map->depth);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, map->size, map->size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
@@ -36,7 +37,7 @@ bool initShadowMap(ShadowMap* map, Vec3 center, float radius) {
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, map->depth, 0);
   glDrawBuffer(GL_NONE);
   glReadBuffer(GL_NONE);
-  bool ok = map->depth && map->framebuffer && map->transformLocation >= 0 && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  bool ok = map->depth && map->framebuffer && map->transformLocation >= 0 && map->cutoutLocation >= 0 && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
   glBindTexture(GL_TEXTURE_2D, texture);
@@ -81,7 +82,7 @@ bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGe
   if (map->valid && !edited && direction.x == map->direction.x && direction.y == map->direction.y && direction.z == map->direction.z)
     return true;
   shadowTransform(map, direction);
-  GLint draw, read, viewport[4], program, vao, depthFunc, polygon[2];
+  GLint draw, read, viewport[4], program, vao, depthFunc, polygon[2], activeTexture, arrayTexture, sampler;
   GLboolean depthMask;
   GLdouble clearDepth;
   const GLenum capabilities[] = {GL_DEPTH_TEST, GL_BLEND, GL_CULL_FACE, GL_SCISSOR_TEST, GL_POLYGON_OFFSET_FILL, GL_RASTERIZER_DISCARD};
@@ -97,6 +98,11 @@ bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGe
   glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
   glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
   glGetIntegerv(GL_POLYGON_MODE, polygon);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &arrayTexture);
+  glGetIntegerv(GL_SAMPLER_BINDING, &sampler);
+  glBindSampler(0, 0);
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
   glGetDoublev(GL_DEPTH_CLEAR_VALUE, &clearDepth);
   glBindFramebuffer(GL_FRAMEBUFFER, map->framebuffer);
@@ -109,17 +115,28 @@ bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGe
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   glUseProgram(map->program);
   glUniformMatrix4fv(map->transformLocation, 1, GL_FALSE, map->transform);
+  GLuint lastMaterials = 0;
+  glUniform1i(map->cutoutLocation, GL_FALSE);
   for (size_t i = 0; i < count; i++) {
     if (!geometry[i].indices)
       continue;
+    if (geometry[i].materials != lastMaterials) {
+      lastMaterials = geometry[i].materials;
+      glBindTexture(GL_TEXTURE_2D_ARRAY, lastMaterials);
+      glUniform1i(map->cutoutLocation, lastMaterials != 0);
+    }
     glBindVertexArray(geometry[i].vao);
-    glDrawElements(GL_TRIANGLES, geometry[i].indices, GL_UNSIGNED_INT, NULL);
+    GLenum indexType = geometry[i].indexType == GL_UNSIGNED_SHORT ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    glDrawElements(GL_TRIANGLES, geometry[i].indices, indexType, NULL);
     (*drawCalls)++;
   }
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
   glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
   glUseProgram(program);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, (GLuint)arrayTexture);
+  glBindSampler(0, (GLuint)sampler);
+  glActiveTexture((GLenum)activeTexture);
   glBindVertexArray(vao);
   glDepthFunc(depthFunc);
   glDepthMask(depthMask);

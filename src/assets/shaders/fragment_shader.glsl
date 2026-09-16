@@ -61,8 +61,8 @@ float sunlightVisibility(vec3 normal) {
 }
 
 float terrainLayer(vec3 normal) {
-    if (Material == 0.0 || Material >= 7.0)
-        return Material; // Stone and building materials have no alternate tile.
+    if (Material < 1.0 || Material > 3.0)
+        return Material; // Explicit leafy ground, wood, leaves, and masonry keep their tile.
     // Move just inside the face to identify its owning voxel on either sign
     // of each axis. World coordinates keep variants stable across merged quads,
     // chunk seams, edits, and saved-world reloads.
@@ -104,6 +104,9 @@ void main() {
     // RGBA8 tiles contain sRGB colors. Shade in linear light, then encode for
     // the existing display framebuffer. HUD and selection keep their own path;
     // GL_FRAMEBUFFER_SRGB stays disabled so output is encoded exactly once.
-    vec3 albedo = srgbToLinear(texture(texture1, vec3(TexCoord, terrainLayer(norm))).rgb);
+    vec4 texel = texture(texture1, vec3(TexCoord, terrainLayer(norm)));
+    if (Material == 12.0 && texel.a < 0.5)
+        discard;
+    vec3 albedo = srgbToLinear(texel.rgb);
     FragColor = vec4(linearToSrgb(albedo * (ambient + diffuse)), 1.0);
 }

@@ -5,8 +5,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Layers 4..6 remain reserved for shader-selected dirt and grass variants.
-enum Material { MATERIAL_STONE, MATERIAL_DIRT, MATERIAL_GRASS_TOP, MATERIAL_GRASS_SIDE, MATERIAL_COBBLESTONE = 7, MATERIAL_OAK_PLANKS, MATERIAL_STONE_BRICKS, MATERIAL_COUNT };
+// Existing layer numbers are stable. Leafy ground uses the supplied variant directly.
+enum Material {
+  MATERIAL_STONE,
+  MATERIAL_DIRT,
+  MATERIAL_GRASS_TOP,
+  MATERIAL_GRASS_SIDE,
+  MATERIAL_DIRT_ROCKS,
+  MATERIAL_GRASS_TOP_LEAVES,
+  MATERIAL_GRASS_BUG,
+  MATERIAL_COBBLESTONE,
+  MATERIAL_OAK_PLANKS,
+  MATERIAL_STONE_BRICKS,
+  MATERIAL_OAK_LOG_SIDE,
+  MATERIAL_OAK_LOG_TOP,
+  MATERIAL_OAK_LEAVES,
+  MATERIAL_COUNT
+};
 
 typedef struct {
   Vec3 position;

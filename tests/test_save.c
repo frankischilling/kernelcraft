@@ -193,10 +193,24 @@ static unsigned char* legacyCopy(const unsigned char* current, size_t currentSiz
   CHECK(legacy);
   memcpy(legacy, current, *legacySize);
   put32(legacy + 8, version);
+  put32(legacy + 12, 1);
   put32(legacy + 60, selected);
   put32(legacy + 64, 0);
   fixChecksum(legacy, *legacySize);
   return legacy;
+}
+
+static void stripForestBlocks(uint32_t seed, uint32_t generatorVersion) {
+  uint8_t* blocks = malloc(WORLD_BLOCK_COUNT);
+  CHECK(blocks && copyWorldBlocks(blocks, WORLD_BLOCK_COUNT));
+  for (size_t i = 0; i < WORLD_BLOCK_COUNT; i++) {
+    if (blocks[i] == BLOCK_OAK_LOG || blocks[i] == BLOCK_OAK_LEAVES)
+      blocks[i] = BLOCK_AIR;
+    else if (blocks[i] == BLOCK_LEAFY_GRASS)
+      blocks[i] = BLOCK_GRASS;
+  }
+  CHECK(replaceWorldBlocksVersioned(seed, generatorVersion, blocks, WORLD_BLOCK_COUNT));
+  free(blocks);
 }
 
 static size_t stackOffset(size_t index) {
@@ -234,11 +248,12 @@ static void sameSavedPlayer(const SavedPlayer* a, const SavedPlayer* b) {
 static void rejected(const char* path, const unsigned char* bytes, size_t size, uint64_t hash) {
   writeFile(path, bytes, size);
   SavedPlayer output = {.feet = {7, 8, 9}, .yaw = 12, .pitch = 13, .selectedSlot = 1}, previous = output;
+  uint32_t seedBefore = worldSeed(), generatorBefore = worldGeneratorVersion();
   char error[256];
   CHECK(loadWorld(path, &output, error, sizeof(error)) != SAVE_OK);
   CHECK(error[0]);
   sameSavedPlayer(&output, &previous);
-  CHECK(worldSeed() == 42 && fingerprint() == hash);
+  CHECK(worldSeed() == seedBefore && worldGeneratorVersion() == generatorBefore && fingerprint() == hash);
   sameFile(path, bytes, size);
 }
 
@@ -268,6 +283,7 @@ int main(void) {
   CHECK(snprintf(blocked, sizeof(blocked), "%s/blocked", directory) > 0);
   CHECK(snprintf(nested, sizeof(nested), "%s/previous.kcw", blocked) > 0);
   CHECK(initChunksSeeded(42));
+  CHECK(worldGeneratorVersion() == WORLD_GENERATOR_VERSION);
   SavedPlayer player = {.feet = {4.6f, 1, 4.5f}, .yaw = 357.5f, .pitch = -35, .selectedSlot = 2};
   inventoryInit(&player.inventory);
   player.inventory.carried[20] = (ItemStack){ITEM_DIRT, 23};
@@ -292,12 +308,44 @@ int main(void) {
   CHECK(setBlock(&(Vec3i){0, 40, -1}, BLOCK_GRASS));
   CHECK(setBlock(&(Vec3i){-128, 63, 127}, BLOCK_STONE));
   CHECK(playerCanOccupy(player.feet));
+
+  // Version 6 carries the expanded terrain and stable appended item IDs without
+  // changing the serialized layout used by version 5 inventory/drop payloads.
+  CHECK(setBlock(&(Vec3i){10, 40, 10}, BLOCK_OAK_LOG));
+  CHECK(setBlock(&(Vec3i){11, 40, 10}, BLOCK_OAK_LEAVES));
+  CHECK(setBlock(&(Vec3i){12, 40, 10}, BLOCK_LEAFY_GRASS));
+  SavedPlayer treePlayer = player;
+  treePlayer.inventory.carried[21] = (ItemStack){ITEM_OAK_LOG, 7};
+  treePlayer.inventory.carried[22] = (ItemStack){ITEM_OAK_LEAVES, 9};
+  treePlayer.drops.items[12] = (DroppedItem){.stack = {ITEM_OAK_LOG, 4}, .position = {20.5f, 40.5f, 20.5f}, .active = true};
+  CHECK(inventoryValidate(&treePlayer.inventory) && droppedItemsValid(&treePlayer.drops));
+  uint64_t treeHash = fingerprint();
+  CHECK(saveWorld(path, &treePlayer, error, sizeof(error)) == SAVE_OK);
+  size_t treeSize;
+  unsigned char* treeSave = readFile(path, &treeSize);
+  CHECK(treeSize == 72 + WORLD_BLOCK_COUNT + 384 + 3 * 20 && get32(treeSave + 8) == 6 && get32(treeSave + 12) == WORLD_GENERATOR_VERSION);
+  CHECK(get32(treeSave + stackOffset(21)) == ITEM_OAK_LOG && get32(treeSave + stackOffset(21) + 4) == 7);
+  CHECK(get32(treeSave + stackOffset(22)) == ITEM_OAK_LEAVES && get32(treeSave + stackOffset(22) + 4) == 9);
+  CHECK(get32(treeSave + dropOffset(2) + 12) == ITEM_OAK_LOG && get32(treeSave + dropOffset(2) + 16) == 4);
+  CHECK(initChunksSeeded(7));
+  SavedPlayer treeLoaded = {0};
+  CHECK(loadWorld(path, &treeLoaded, error, sizeof(error)) == SAVE_OK);
+  CHECK(worldSeed() == 42 && worldGeneratorVersion() == WORLD_GENERATOR_VERSION && fingerprint() == treeHash);
+  CHECK(getBlock(&(Vec3i){10, 40, 10})->id == BLOCK_OAK_LOG && getBlock(&(Vec3i){11, 40, 10})->id == BLOCK_OAK_LEAVES && getBlock(&(Vec3i){12, 40, 10})->id == BLOCK_LEAFY_GRASS);
+  sameInventory(&treeLoaded.inventory, &treePlayer.inventory);
+  CHECK(treeLoaded.drops.items[2].active && treeLoaded.drops.items[2].stack.item == ITEM_OAK_LOG && treeLoaded.drops.items[2].stack.count == 4);
+  free(treeSave);
+
+  // Keep the long-standing legacy fixtures byte-for-byte compatible with their
+  // historical block ranges while retaining generator 2 as the live version.
+  stripForestBlocks(42, WORLD_GENERATOR_VERSION);
+  CHECK(worldGeneratorVersion() == WORLD_GENERATOR_VERSION);
   uint64_t hash = fingerprint();
   CHECK(saveWorld(path, &player, error, sizeof(error)) == SAVE_OK);
   size_t size;
   unsigned char* original = readFile(path, &size);
   CHECK(size == 72 + WORLD_BLOCK_COUNT + 384 + 2 * 20 && memcmp(original, "KCRFTSV\0", 8) == 0);
-  CHECK(original[8] == 5 && original[60] == 3 && get32(original + 64) == 424);
+  CHECK(get32(original + 8) == 6 && get32(original + 12) == WORLD_GENERATOR_VERSION && original[60] == 3 && get32(original + 64) == 424);
   CHECK(get32(original + 72 + WORLD_BLOCK_COUNT) == INVENTORY_CARRIED_SLOT_COUNT);
   CHECK(get32(original + 72 + WORLD_BLOCK_COUNT + 12) == 2);
   CHECK(get32(original + stackOffset(45)) == ITEM_COBBLESTONE && get32(original + stackOffset(45) + 4) == 19);
@@ -308,13 +356,13 @@ int main(void) {
     CHECK(loadWorld(path, &unchanged, error, sizeof(error)) == SAVE_NO_MEMORY);
     CHECK(failAllocation == 0 && error[0]);
     sameSavedPlayer(&unchanged, &player);
-    CHECK(worldSeed() == 42 && fingerprint() == hash);
+    CHECK(worldSeed() == 42 && worldGeneratorVersion() == WORLD_GENERATOR_VERSION && fingerprint() == hash);
   }
 
   CHECK(initChunksSeeded(7));
   SavedPlayer loaded = {0};
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
-  CHECK(worldSeed() == 42 && fingerprint() == hash && playerCanOccupy(loaded.feet));
+  CHECK(worldSeed() == 42 && worldGeneratorVersion() == WORLD_GENERATOR_VERSION && fingerprint() == hash && playerCanOccupy(loaded.feet));
   CHECK(!memcmp(&player.feet, &loaded.feet, sizeof(player.feet)) && player.yaw == loaded.yaw && player.pitch == loaded.pitch && player.selectedSlot == loaded.selectedSlot);
   sameInventory(&player.inventory, &loaded.inventory);
   CHECK(loaded.drops.items[0].active && loaded.drops.items[0].stack.item == ITEM_STONE && loaded.drops.items[0].stack.count == 12);
@@ -340,7 +388,7 @@ int main(void) {
     writeFile(path, legacy, legacySize);
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(loaded.selectedSlot == material - 1 && loaded.yaw == player.yaw && loaded.pitch == player.pitch);
-    CHECK(!memcmp(&loaded.feet, &player.feet, sizeof(player.feet)) && fingerprint() == hash);
+    CHECK(!memcmp(&loaded.feet, &player.feet, sizeof(player.feet)) && worldGeneratorVersion() == 1 && fingerprint() == hash);
     sameInventory(&loaded.inventory, &legacyDefaults);
     CHECK(!loaded.drops.items[0].active && droppedItemsValid(&loaded.drops));
     free(legacy);
@@ -355,14 +403,49 @@ int main(void) {
     legacy = legacyCopy(original, size, 2, (uint32_t)slot, &legacySize);
     writeFile(path, legacy, legacySize);
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
-    CHECK(loaded.selectedSlot == slot - 1 && fingerprint() == hash);
+    CHECK(loaded.selectedSlot == slot - 1 && worldGeneratorVersion() == 1 && fingerprint() == hash);
     sameInventory(&loaded.inventory, &legacyDefaults);
     CHECK(!loaded.drops.items[0].active);
     free(legacy);
   }
 
+  // Version 5 used the same extension layout, but only generator 1, blocks
+  // through stone bricks, and item IDs through the leather armor set existed.
+  unsigned char* versionFive = malloc(size);
+  CHECK(versionFive);
+  memcpy(versionFive, original, size);
+  put32(versionFive + 8, 5);
+  put32(versionFive + 12, 1);
+  fixChecksum(versionFive, size);
+  writeFile(path, versionFive, size);
+  CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+  CHECK(worldGeneratorVersion() == 1 && fingerprint() == hash);
+  sameInventory(&loaded.inventory, &player.inventory);
+  CHECK(loaded.drops.items[0].active && loaded.drops.items[1].active && !loaded.drops.items[2].active);
+
+  CHECK(saveWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+  size_t upgradedSize;
+  unsigned char* upgraded = readFile(path, &upgradedSize);
+  CHECK(upgradedSize == size && get32(upgraded + 8) == 6 && get32(upgraded + 12) == 1);
+  free(upgraded);
+
+  memcpy(bad, versionFive, size);
+  put32(bad + stackOffset(0), ITEM_OAK_LOG);
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+  memcpy(bad, versionFive, size);
+  bad[72] = BLOCK_OAK_LOG;
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+  memcpy(bad, versionFive, size);
+  put32(bad + 12, WORLD_GENERATOR_VERSION);
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+  free(versionFive);
+
   writeFile(path, original, size);
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+  CHECK(worldGeneratorVersion() == WORLD_GENERATOR_VERSION);
   for (int slot = 0; slot < 9; slot++) {
     SavedPlayer selection = loaded;
     selection.selectedSlot = slot;
@@ -383,7 +466,7 @@ int main(void) {
   CHECK(saveWorld(path, &cobblePlayer, error, sizeof(error)) == SAVE_OK);
   size_t cobbleSize;
   unsigned char* cobbleSave = readFile(path, &cobbleSize);
-  CHECK(cobbleSize == size && cobbleSave[8] == 5 && cobbleSave[60] == 4);
+  CHECK(cobbleSize == size && get32(cobbleSave + 8) == 6 && get32(cobbleSave + 12) == WORLD_GENERATOR_VERSION && cobbleSave[60] == 4);
   unsigned char* cobbleLegacy = legacyCopy(cobbleSave, cobbleSize, 3, 4, &legacySize);
   writeFile(path, cobbleLegacy, legacySize);
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
@@ -406,7 +489,7 @@ int main(void) {
     CHECK(saveWorld(path, &builder, error, sizeof(error)) == SAVE_OK);
     size_t buildingSize;
     unsigned char* buildingSave = readFile(path, &buildingSize);
-    CHECK(buildingSize == size && buildingSave[8] == 5 && buildingSave[60] == id);
+    CHECK(buildingSize == size && get32(buildingSave + 8) == 6 && get32(buildingSave + 12) == 1 && buildingSave[60] == id);
     CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
@@ -416,6 +499,18 @@ int main(void) {
     CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
     sameInventory(&loaded.inventory, &legacyDefaults);
     free(buildingLegacy);
+
+    unsigned char* buildingVersionFive = malloc(buildingSize);
+    CHECK(buildingVersionFive);
+    memcpy(buildingVersionFive, buildingSave, buildingSize);
+    put32(buildingVersionFive + 8, 5);
+    put32(buildingVersionFive + 12, 1);
+    fixChecksum(buildingVersionFive, buildingSize);
+    writeFile(path, buildingVersionFive, buildingSize);
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(worldGeneratorVersion() == 1 && getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
+    sameInventory(&loaded.inventory, &builder.inventory);
+    free(buildingVersionFive);
     for (int version = 1; version <= 3; version++) {
       buildingLegacy = legacyCopy(buildingSave, buildingSize, (uint32_t)version, 3, &legacySize);
       rejected(path, buildingLegacy, legacySize, buildingHash);
@@ -430,8 +525,11 @@ int main(void) {
   const struct {
     size_t offset;
     uint32_t value;
-  } cases[] = {{0, 0},           {8, 6},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
-               {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
+  } cases[] = {{0, 0},           {8, 7},           {12, 0},          {12, WORLD_GENERATOR_VERSION + 1},
+               {20, 512},        {24, 0},          {28, 32},         {32, 255},
+               {36, UINT32_MAX}, {40, 0x7f7fffff}, {44, 0x7fc00000}, {44, 0},
+               {52, 0x43b40000}, {56, 0x42b40000}, {60, 0},          {60, 10},
+               {60, UINT32_MAX}, {64, 1},          {72, 255}};
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memcpy(bad, original, size);

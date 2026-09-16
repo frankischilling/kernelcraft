@@ -278,9 +278,10 @@ try {
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand')
         $smokeFlags += '-Wl,--wrap=renderHeldItems'
+        $smokeFlags += '-Wl,--wrap=drawBlockBreaking'
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_smoke.c'))) $smokeTest ($smokeFlags + $libraries)
         $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
-        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand', '-Wl,--wrap=renderHeldItems') })
+        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand', '-Wl,--wrap=renderHeldItems', '-Wl,--wrap=drawBlockBreaking') })
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_persistence.c'))) $persistenceTest ($persistenceFlags + $libraries)
         $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $inventoryTest, $droppedItemsTest, $itemModelTest, $optionsTest, $shaderTest, $smokeTest)
     }

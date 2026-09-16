@@ -106,7 +106,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   glfwSetKeyCallback(window, key);
   GLFWmousebuttonfun mouse = glfwSetMouseButtonCallback(window, NULL);
   glfwSetMouseButtonCallback(window, mouse);
-  CHECK(key && mouse && worldSeed() == 42);
+  CHECK(key && mouse && worldSeed() == 42 && worldGeneratorVersion() == 2);
   if (frame == 0)
     CHECK(!input->wireframe);
   if (frame == 0 && saving()) {
@@ -159,6 +159,20 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       CHECK(id(cell) == material);
     }
 
+    const int treeBlocks[] = {7, 8};
+    const uint16_t treeItems[] = {11, 12};
+    for (int tree = 0; tree < 2; tree++) {
+      Vec3i cell = {8 + tree, 41, 3};
+      CHECK(setBlock(&(Vec3i){cell.x, 41, 4}, BLOCK_GRASS));
+      CHECK(setBlock(&cell, BLOCK_AIR));
+      input->camera->position.x = cell.x + 0.5f;
+      input->inventory.carried[6 + tree] = (ItemStack){treeItems[tree], 4};
+      key(window, GLFW_KEY_7 + tree, 0, GLFW_PRESS, 0);
+      mouse(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+      CHECK(id(cell) == treeBlocks[tree] && input->inventory.carried[6 + tree].count == 3);
+    }
+    CHECK(setBlock(&(Vec3i){8, 39, 3}, 9));
+    key(window, GLFW_KEY_6, 0, GLFW_PRESS, 0);
     input->camera->position = playerEyePosition(&input->player);
     CHECK(getChunk(&(Vec2i){7, 8})->dirty && getChunk(&(Vec2i){8, 8})->dirty);
     if (crouchScenario()) {
@@ -176,6 +190,9 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   } else if (frame == 0) {
     CHECK(id(removed) == BLOCK_AIR && id(placed) == BLOCK_STONE && id(exitEdit) == BLOCK_DIRT && id(cobblestone) == BLOCK_COBBLESTONE);
     CHECK(id(building[0]) == 5 && id(building[1]) == 6);
+    CHECK(id((Vec3i){8, 41, 3}) == 7 && id((Vec3i){9, 41, 3}) == 8 && id((Vec3i){8, 39, 3}) == 9);
+    CHECK(input->inventory.carried[6].item == 11 && input->inventory.carried[6].count == 3);
+    CHECK(input->inventory.carried[7].item == 12 && input->inventory.carried[7].count == 3);
     Vec3 expectedFeet = feet;
     if (crouchScenario()) {
       expectedFeet.y = 42;
@@ -241,7 +258,8 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
       long fileBytes = ftell(file);
       CHECK(fileBytes > 0);
       unsigned char version[4], selection[4], extension[4], dropCount[4];
-      CHECK(fseek(file, 8, SEEK_SET) == 0 && fread(version, 1, 4, file) == 4 && read32(version) == 5);
+      CHECK(fseek(file, 8, SEEK_SET) == 0 && fread(version, 1, 4, file) == 4 && read32(version) == 6);
+      CHECK(fseek(file, 12, SEEK_SET) == 0 && fread(version, 1, 4, file) == 4 && read32(version) == 2);
       CHECK(fseek(file, 60, SEEK_SET) == 0 && fread(selection, 1, 4, file) == 4);
       CHECK(selection[0] == 6 && !selection[1] && !selection[2] && !selection[3]);
       CHECK(fseek(file, 64, SEEK_SET) == 0 && fread(extension, 1, 4, file) == 4);

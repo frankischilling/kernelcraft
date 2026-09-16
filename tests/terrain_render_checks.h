@@ -12,6 +12,12 @@ static int referenceTerrainLayer(int material, Vec3i block, uint32_t seed) {
 }
 
 static int referenceTerrainMaterial(int id, int face) {
+  if (id == 7)
+    return face == TOP || face == BOTTOM ? 11 : 10;
+  if (id == 8)
+    return 12;
+  if (id == 9 && face == TOP)
+    return 5;
   return id == 5 ? 8 : id == 6 ? 9 : id == BLOCK_COBBLESTONE ? 7 : id == BLOCK_STONE ? 0 : id == BLOCK_DIRT || face == BOTTOM ? 1 : face == TOP ? 2 : 3;
 }
 
@@ -26,7 +32,7 @@ static void clearTerrainFixture(void) {
 static bool testTerrainVariants(GLuint shader) {
   const uint32_t seeds[] = {0, UINT32_MAX, 0};
   uint64_t fingerprints[3] = {0};
-  size_t totals[10] = {0}, variants[10] = {0};
+  size_t totals[13] = {0}, variants[13] = {0};
   unsigned char* pixels = malloc(960 * 540 * 3);
   unsigned char* rebuilt = malloc(960 * 540 * 3);
   bool success = pixels && rebuilt;
@@ -37,7 +43,7 @@ static bool testTerrainVariants(GLuint shader) {
     }
 
     uint64_t fingerprint = UINT64_C(14695981039346656037);
-    for (int id = BLOCK_GRASS; success && id <= BLOCK_STONE_BRICKS; id++)
+    for (int id = BLOCK_GRASS; success && id <= BLOCK_LEAFY_GRASS; id++)
       for (int face = 0; success && face < 6; face++) {
         clearTerrainFixture();
         Vec3 n = vec3FaceMap[face], u = n.x ? (Vec3){0, 0, 1} : (Vec3){1, 0, 0}, v;
@@ -52,15 +58,15 @@ static bool testTerrainVariants(GLuint shader) {
 
         GLint layers = 0;
         glGetTexLevelParameteriv(GL_TEXTURE_2D_ARRAY, 0, GL_TEXTURE_DEPTH, &layers);
-        if (layers != 10) {
-          fprintf(stderr, "Expected ten terrain texture layers, got %d\n", layers);
+        if (layers != 13) {
+          fprintf(stderr, "Expected thirteen terrain texture layers, got %d\n", layers);
           success = false;
           break;
         }
 
         // Replace only the in-memory fixture tiles with distinct RGB bit masks.
         // The real shader, array binding, greedy meshes, and culling still run.
-        unsigned char colors[10 * 4];
+        unsigned char colors[13 * 4];
         for (int layer = 0; layer < 7; layer++) {
           for (int channel = 0; channel < 3; channel++)
             colors[layer * 4 + channel] = ((layer + 1) & (1 << channel)) ? 255 : 0;
@@ -73,9 +79,9 @@ static bool testTerrainVariants(GLuint shader) {
         colors[29] = 64;
         colors[30] = 0;
         colors[31] = 255;
-        const unsigned char buildingColors[] = {0, 255, 64, 255, 64, 0, 255, 255};
+        const unsigned char buildingColors[] = {0, 255, 64, 255, 64, 0, 255, 255, 64, 255, 0, 255, 0, 64, 255, 255, 255, 0, 64, 255};
         memcpy(colors + 32, buildingColors, sizeof(buildingColors));
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 1, 1, 10, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 1, 1, 13, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors);
         Vec3 center = {-0.5f + 0.5f * (n.x - u.x - v.x), 24.5f + 0.5f * (n.y - u.y - v.y), 0.5f + 0.5f * (n.z - u.z - v.z)};
         Camera camera = {.position = {center.x + 26 * n.x, center.y + 26 * n.y, center.z + 26 * n.z}, .front = {-n.x, -n.y, -n.z}, .up = v};
         Mat4 view, projection, combined;
@@ -109,6 +115,12 @@ static bool testTerrainVariants(GLuint shader) {
               actual = 8;
             if (rgb[0] > 5 && rgb[2] > 2 * rgb[0] && rgb[1] == 0)
               actual = 9;
+            if (rgb[0] > 5 && rgb[1] > 2 * rgb[0] && rgb[2] == 0)
+              actual = 10;
+            if (rgb[1] > 5 && rgb[2] > 2 * rgb[1] && rgb[0] == 0)
+              actual = 11;
+            if (rgb[2] > 5 && rgb[0] > 2 * rgb[2] && rgb[1] == 0)
+              actual = 12;
             int material = referenceTerrainMaterial(id, face);
             int expected = referenceTerrainLayer(material, block, seeds[seed]);
             if (actual != expected) {
@@ -148,6 +160,10 @@ static bool testTerrainVariants(GLuint shader) {
     printf("Terrain building material %d: %zu/%zu variant tiles\n", material, variants[material], totals[material]);
     success &= totals[material] == 3 * 6 * 32 * 32 && variants[material] == 0;
   }
+  success &= totals[5] == 3 * 32 * 32 && variants[5] == 0;
+  success &= totals[10] == 3 * 4 * 32 * 32 && variants[10] == 0;
+  success &= totals[11] == 3 * 2 * 32 * 32 && variants[11] == 0;
+  success &= totals[12] == 3 * 6 * 32 * 32 && variants[12] == 0;
 
   success &= fingerprints[0] == fingerprints[2] && fingerprints[0] != fingerprints[1];
   free(pixels);
@@ -155,7 +171,7 @@ static bool testTerrainVariants(GLuint shader) {
   return success;
 }
 
-static bool testFarTerrain(GLuint shader) {
+static bool testFarTerrainSix(GLuint shader) {
   clearTerrainFixture();
   if (!initWorld(shader))
     return false;
@@ -194,4 +210,10 @@ static bool testFarTerrain(GLuint shader) {
 
   puts("Terrain render radius: 64/80 blocks visible, 112 blocks culled in both directions");
   return glGetError() == GL_NO_ERROR;
+}
+
+static bool testFarTerrain(GLuint shader) {
+  int previous = getWorldRenderDistance();
+  bool success = setWorldRenderDistance(6) && testFarTerrainSix(shader);
+  return setWorldRenderDistance(previous) && success;
 }

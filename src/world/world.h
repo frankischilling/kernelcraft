@@ -14,7 +14,7 @@
 #include "cube.h"
 #include <stddef.h>
 
-#define WORLD_GENERATOR_VERSION 1
+#define WORLD_GENERATOR_VERSION 2
 
 #define DIRT_LAYERS 3 // Number of dirt layers below the surface
 
@@ -32,14 +32,18 @@ const char* getCurrentBiomeText(float x, float z);
 bool initChunks(void);
 bool initChunksSeeded(uint32_t seed);
 uint32_t worldSeed(void);
+uint32_t worldGeneratorVersion(void);
 // Fills a chunk at its signed chunk position, independently of the live world.
 void generateTerrainChunk(Chunk* chunk, uint32_t seed);
+// Explicit generator versions keep stored legacy worlds reproducible.
+void generateTerrainChunkVersioned(Chunk* chunk, uint32_t seed, uint32_t version);
 void cleanupChunks(void);
 #define WORLD_BLOCK_COUNT ((size_t)WORLD_SIZE * WORLD_SIZE * CHUNK_HEIGHT)
 // Packed IDs: chunk X/Z then local X/Y/Z, one byte each. Exact fixed size only.
 bool copyWorldBlocks(uint8_t* blocks, size_t count);
 // Allocate and validate before publishing. Failure preserves the live world.
 bool replaceWorldBlocks(uint32_t seed, const uint8_t* blocks, size_t count);
+bool replaceWorldBlocksVersioned(uint32_t seed, uint32_t version, const uint8_t* blocks, size_t count);
 
 // Chunk indices are array coordinates [0, CHUNKS_PER_AXIS), not signed world coordinates.
 // Direct chunk access is for generation, meshing, and fixtures; gameplay edits use setBlock.

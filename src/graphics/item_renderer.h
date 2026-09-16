@@ -6,6 +6,7 @@
 #include "../world/item_model.h"
 #include "../world/player_model.h"
 #include "../world/day_night.h"
+#include "player_renderer.h"
 
 enum { ITEM_ICON_SIZE = 128 };
 
@@ -39,8 +40,11 @@ void renderDroppedItems(const ItemRenderer* renderer, const DroppedItems* drops,
 void renderPlayerHeldItems(const ItemRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, ItemStack mainHand, ItemStack offhand, const Mat4 view, const Mat4 projection,
                            const DayNightState* daylight);
 
-// First-person items share a reusable private depth target. The composite never
-// reads or changes world depth. False reports a failed target allocation/resize.
-bool renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect, const DayNightState* daylight);
+// First-person blocks render alone. Other held items can include their skinned
+// arm and sleeve in the reusable private depth target. The composite never reads
+// or changes world depth. False reports a failed target allocation/resize or an
+// unusable player renderer.
+bool renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect,
+                     const DayNightState* daylight);
 
 #endif

@@ -904,8 +904,13 @@ static void placementFrame(GLFWwindow* window) {
 }
 
 static void wireframeFrame(GLFWwindow* window) {
+  static int savedRenderDistance;
   InputState* input = glfwGetWindowUserPointer(window);
   if (frame == 70) {
+    // Keep this wall-only geometry comparison independent of distant forests,
+    // whose occlusion is deliberately bypassed in wireframe mode.
+    savedRenderDistance = getWorldRenderDistance();
+    CHECK(setWorldRenderDistance(2));
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
     CHECK(!input->wireframe);
     input->flying = true;
@@ -924,6 +929,8 @@ static void wireframeFrame(GLFWwindow* window) {
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_REPEAT, 0);
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_RELEASE, 0);
   }
+  if (frame == 74)
+    CHECK(setWorldRenderDistance(savedRenderDistance));
 }
 
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
@@ -940,6 +947,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 #include "player_input_checks.h"
 #include "player_live_checks.h"
 #include "inventory_input_checks.h"
+#include "block_crack_live_checks.h"
 
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
@@ -1017,7 +1025,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     movementFrame(window);
   if (frame >= 55 && frame <= 70)
     breakingFrame(window);
-  if (frame >= 70 && frame < 74)
+  if (frame >= 70 && frame <= 74)
     wireframeFrame(window);
   if (frame >= 74 && frame < 84)
     chatFrame(window);
@@ -1224,7 +1232,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
     // This selected face interior is away from mesh diagonals and the outline.
     // The gold tint must still fill it when the terrain itself is unfilled.
     unsigned char tint[3];
-    glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, tint);
+    memcpy(tint, tintBeforeCracks, sizeof(tint));
     CHECK(input->wireframe);
     const float gold[] = {255, 216.75f, 51};
     for (int channel = 0; channel < 3; channel++)
@@ -1447,6 +1455,7 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
 
   if (frame >= 0) {
     CHECK(swaps == 121 && waits == 3);
+    CHECK(liveCrackFrames == 3);
     puts("Application inventory/player preview, live simulation, equipment, crafting, portrait resize and pause checks passed");
     puts("Application player skin, camera views, movement poses, timed held-item punches, placement swings, bare hand, 3D held items and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");

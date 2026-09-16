@@ -15,6 +15,8 @@
 typedef struct {
   GLuint vao, vbo, ebo;
   size_t indexCount;
+  size_t indexBytes;
+  GLenum indexType;
   Vec3 center, dimensions;
   int surfaceBlocks;
   MeshOccluders occluders;
@@ -23,13 +25,14 @@ typedef struct {
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
+static GLuint leafTexture;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
 static ShadowCache shadows;
 static Vec3 shadowLight = {0.45f, 0.8f, 0.35f};
 static GLint shadowTransformLocation[2], shadowScaleLocation, shadowBlendLocation;
 
-enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4, RENDER_RADIUS_CHUNKS = 6 };
+enum { GRID_VERTICES = (CHUNKS_PER_AXIS + 1) * 4 };
 
 typedef struct {
   RenderChunk* chunk;
@@ -44,6 +47,20 @@ static Mat4 cachedTransform;
 static Vec3 cachedPosition;
 static GLint cachedViewport[4];
 static bool visibilityValid, cachedWireframe;
+static int renderDistance = WORLD_RENDER_DISTANCE_DEFAULT;
+static size_t retainedIndexBytes;
+static ShadowGeometry shadowGeometry[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+static size_t shadowGeometryCount;
+
+static void refreshShadowGeometry(void) {
+  shadowGeometryCount = 0;
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      RenderChunk* chunk = &renderChunks[x][z];
+      if (chunk->indexCount)
+        shadowGeometry[shadowGeometryCount++] = (ShadowGeometry){chunk->vao, (GLsizei)chunk->indexCount, chunk->indexType, textureArray};
+    }
+}
 
 static void initGrid(void) {
   float vertices[GRID_VERTICES * 3];
@@ -65,12 +82,43 @@ static void initGrid(void) {
   glEnableVertexAttribArray(0);
 }
 
-static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
+static GLenum compactIndexType(ChunkMesh* mesh, size_t* bytes) {
+  uint32_t maxIndex = 0;
+  for (size_t i = 0; i < mesh->indexCount; i++)
+    if (mesh->indices[i] > maxIndex)
+      maxIndex = mesh->indices[i];
+
+  if (maxIndex > UINT16_MAX) {
+    *bytes = mesh->indexCount * sizeof(uint32_t);
+    return GL_UNSIGNED_INT;
+  }
+
+  // Visibility and occluder metadata have already consumed the uint32_t mesh.
+  // Compact forward into the same allocation with memcpy so C aliasing rules do
+  // not depend on treating the uint32_t array as a uint16_t array.
+  for (size_t i = 0; i < mesh->indexCount; i++) {
+    uint16_t index = (uint16_t)mesh->indices[i];
+    memcpy((unsigned char*)mesh->indices + i * sizeof(index), &index, sizeof(index));
+  }
+
+  *bytes = mesh->indexCount * sizeof(uint16_t);
+  return GL_UNSIGNED_SHORT;
+}
+
+static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh, size_t* uploadedIndexBytes) {
   MeshVisibility visibility;
   if (!buildMeshVisibility(mesh, &visibility)) {
     freeChunkMesh(mesh);
     return false;
   }
+
+  MeshOccluders occluders;
+  buildMeshOccluders(mesh, &occluders);
+
+  size_t indexBytes = 0;
+  GLenum indexType = GL_UNSIGNED_INT;
+  if (mesh->indexCount)
+    indexType = compactIndexType(mesh, &indexBytes);
 
   if (mesh->indexCount) {
     if (!render->vao) {
@@ -83,7 +131,7 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
     glBindBuffer(GL_ARRAY_BUFFER, render->vbo);
     glBufferData(GL_ARRAY_BUFFER, mesh->vertexCount * sizeof(MeshVertex), mesh->vertices, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexCount * sizeof(uint32_t), mesh->indices, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBytes, mesh->indices, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, position));
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, uv));
@@ -105,7 +153,15 @@ static bool uploadChunk(Chunk* chunk, RenderChunk* render, ChunkMesh* mesh) {
   vec3_scale(&render->center, &render->center, 0.5f);
   vec3_subtract(&render->dimensions, &mesh->max, &mesh->min);
   render->indexCount = mesh->indexCount;
-  buildMeshOccluders(mesh, &render->occluders);
+  render->occluders = occluders;
+  if (mesh->indexCount) {
+    retainedIndexBytes -= render->indexBytes;
+    retainedIndexBytes += indexBytes;
+    render->indexBytes = indexBytes;
+    render->indexType = indexType;
+    if (uploadedIndexBytes)
+      *uploadedIndexBytes += indexBytes;
+  }
   freeMeshVisibility(&render->visibility);
   render->visibility = visibility;
   freeChunkMesh(mesh);
@@ -123,7 +179,7 @@ static bool updateDirtyChunks(RenderResult* result) {
       if (!chunk->dirty)
         continue;
       ChunkMesh mesh;
-      if (!buildChunkMesh(chunk, &mesh) || !uploadChunk(chunk, &renderChunks[x][z], &mesh)) {
+      if (!buildChunkMesh(chunk, &mesh) || !uploadChunk(chunk, &renderChunks[x][z], &mesh, &result->indexBytesUploaded)) {
         fprintf(stderr, "Failed to rebuild chunk (%d, %d)\n", chunk->position.a, chunk->position.b);
         return false;
       }
@@ -138,6 +194,20 @@ static bool updateDirtyChunks(RenderResult* result) {
 }
 
 static GLint lightDirectionLocation, lightColorLocation, skyFillLocation, groundFillLocation;
+
+bool setWorldRenderDistance(int chunks) {
+  if (chunks < WORLD_RENDER_DISTANCE_MIN || chunks > WORLD_RENDER_DISTANCE_MAX)
+    return false;
+  if (chunks != renderDistance) {
+    renderDistance = chunks;
+    visibilityValid = false;
+  }
+  return true;
+}
+
+int getWorldRenderDistance(void) {
+  return renderDistance;
+}
 
 void setWorldDayNight(const DayNightState* state) {
   shadowLight = state->lightDirection;
@@ -155,14 +225,22 @@ bool initWorld(GLuint shaderProgram) {
   cleanupWorld();
   program = shaderProgram;
   // Base material layers 0..3 match MeshVertex.material; GLSL selects variants
-  // 4..6 per voxel. Building materials occupy layers 7..9 on every face.
-  const char* paths[] = {"assets/textures/stone.png",       "assets/textures/dirt.png",        "assets/textures/grass-top.png",
-                         "assets/textures/grass-side.png",  "assets/textures/dirt-rocks.png",  "assets/textures/grass-top-leaves.png",
-                         "assets/textures/grass-bug.png",   "assets/textures/cobblestone.png", "assets/textures/oak-planks.png",
-                         "assets/textures/stone-bricks.png"};
+  // 4..6 per voxel. Building materials occupy layers 7..9; oak logs/leaves use
+  // the appended layers 10..12 without changing existing material IDs.
+  const char* paths[] = {"assets/textures/stone.png",        "assets/textures/dirt.png",         "assets/textures/grass-top.png",
+                         "assets/textures/grass-side.png",   "assets/textures/dirt-rocks.png",   "assets/textures/grass-top-leaves.png",
+                         "assets/textures/grass-bug.png",    "assets/textures/cobblestone.png",  "assets/textures/oak-planks.png",
+                         "assets/textures/stone-bricks.png", "assets/textures/oak-log-side.png", "assets/textures/oak-log-top.png",
+                         "assets/textures/oak-leaves.png"};
   glActiveTexture(GL_TEXTURE0);
   textureArray = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!textureArray)
+    goto failure;
+  GLint previousTexture;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
+  leafTexture = loadTexture("assets/textures/oak-leaves.png");
+  glBindTexture(GL_TEXTURE_2D, (GLuint)previousTexture);
+  if (!leafTexture || glGetError() != GL_NO_ERROR)
     goto failure;
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
@@ -200,10 +278,12 @@ bool initWorld(GLuint shaderProgram) {
       if (!chunk || !buildChunkMesh(chunk, &mesh))
         goto failure;
       // initWorld may be called again after replacing the CPU world.
-      if (!uploadChunk(chunk, &renderChunks[x][z], &mesh))
+      if (!uploadChunk(chunk, &renderChunks[x][z], &mesh, NULL))
         goto failure;
     }
   }
+
+  refreshShadowGeometry();
 
   initGrid();
   glBindVertexArray(0);
@@ -218,13 +298,49 @@ failure:
   return false;
 }
 
-static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 projection, const Mat4 viewProjection, bool wireframe, bool rebuilt) {
+static bool candidateAxisBounds(float position, int* first, int* last) {
+  const float chunkSpan = CHUNK_SIZE * CUBE_SIZE;
+  const float halfWorld = WORLD_SIZE * CUBE_SIZE * 0.5f;
+  const float radius = chunkSpan * renderDistance;
+  if (isinf(position) || (isfinite(position) && (position < -halfWorld - radius || position > halfWorld + radius)))
+    return false;
+  if (isnan(position)) {
+    *first = 0;
+    *last = CHUNKS_PER_AXIS - 1;
+    return true;
+  }
+
+  int center = (int)floorf(position / chunkSpan) + CHUNKS_PER_AXIS / 2;
+  *first = center - renderDistance;
+  *last = center + renderDistance;
+  if (*first < 0)
+    *first = 0;
+  if (*last >= CHUNKS_PER_AXIS)
+    *last = CHUNKS_PER_AXIS - 1;
+  return *first <= *last;
+}
+
+static void sortCandidates(void) {
+  for (int i = 1; i < candidateCount; i++) {
+    ChunkCandidate candidate = candidates[i];
+    int slot = i;
+    while (slot > 0 && candidates[slot - 1].distanceSquared > candidate.distanceSquared) {
+      candidates[slot] = candidates[slot - 1];
+      slot--;
+    }
+    candidates[slot] = candidate;
+  }
+}
+
+static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 projection, const Mat4 viewProjection, bool wireframe, bool rebuilt, RenderResult* result) {
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
   if (visibilityValid && !rebuilt && wireframe == cachedWireframe && !memcmp(cachedTransform, viewProjection, sizeof(Mat4)) &&
       !memcmp(cachedViewport, viewport, sizeof(viewport)) && camera->position.x == cachedPosition.x && camera->position.y == cachedPosition.y &&
-      camera->position.z == cachedPosition.z)
+      camera->position.z == cachedPosition.z) {
+    result->visibilityCandidates = candidateCount;
     return;
+  }
   memcpy(cachedTransform, viewProjection, sizeof(Mat4));
   memcpy(cachedViewport, viewport, sizeof(viewport));
   cachedPosition = camera->position;
@@ -233,9 +349,13 @@ static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 
   candidateCount = hiddenCount = 0;
   Frustum frustum;
   frustum_update(&frustum, projection, view);
-  const float radius = CHUNK_SIZE * CUBE_SIZE * RENDER_RADIUS_CHUNKS;
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+  const float radius = CHUNK_SIZE * CUBE_SIZE * renderDistance;
+  int firstX, lastX, firstZ, lastZ;
+  if (!candidateAxisBounds(camera->position.x, &firstX, &lastX) || !candidateAxisBounds(camera->position.z, &firstZ, &lastZ))
+    return;
+  for (int x = firstX; x <= lastX; x++) {
+    for (int z = firstZ; z <= lastZ; z++) {
+      result->visibilityChunksScanned++;
       RenderChunk* chunk = &renderChunks[x][z];
       if (!chunk->surfaceBlocks)
         continue;
@@ -254,15 +374,12 @@ static void prepareVisibility(const Camera* camera, const Mat4 view, const Mat4 
       float dy = fmaxf(0, fabsf(offset.y) - chunk->dimensions.y * 0.5f);
       dz = fmaxf(0, fabsf(offset.z) - chunk->dimensions.z * 0.5f);
       float distance = dx * dx + dy * dy + dz * dz;
-      int index = candidateCount++;
-      while (index > 0 && candidates[index - 1].distanceSquared > distance) {
-        candidates[index] = candidates[index - 1];
-        index--;
-      }
-
-      candidates[index] = (ChunkCandidate){chunk, distance, false};
+      candidates[candidateCount++] = (ChunkCandidate){chunk, distance, false};
     }
   }
+
+  sortCandidates();
+  result->visibilityCandidates = candidateCount;
 
   if (wireframe || candidateCount < 2)
     return;
@@ -291,22 +408,17 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   RenderResult result = {0};
   if (!program || !updateDirtyChunks(&result))
     return result;
-  ShadowGeometry geometry[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
-  size_t count = 0;
-  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
-    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
-      RenderChunk* chunk = &renderChunks[x][z];
-      if (chunk->indexCount)
-        geometry[count++] = (ShadowGeometry){chunk->vao, (GLsizei)chunk->indexCount};
-    }
-  if (!updateShadowCache(&shadows, shadowLight, result.chunksRebuilt != 0, geometry, count, &result.shadowDrawCalls))
+  if (result.chunksRebuilt)
+    refreshShadowGeometry();
+  if (!updateShadowCache(&shadows, shadowLight, result.chunksRebuilt != 0, shadowGeometry, shadowGeometryCount, &result.shadowDrawCalls))
     return result;
   result.success = true;
   Mat4 viewProjection;
   mat4_multiply(viewProjection, projection, view);
-  prepareVisibility(camera, view, projection, viewProjection, wireframe, result.chunksRebuilt != 0);
+  prepareVisibility(camera, view, projection, viewProjection, wireframe, result.chunksRebuilt != 0, &result);
   result.chunksConsidered = CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
   result.chunksOccluded = hiddenCount;
+  result.indexBytesRetained = retainedIndexBytes;
 
   glUseProgram(program);
   glUniformMatrix4fv(viewProjectionLocation, 1, GL_FALSE, viewProjection);
@@ -343,7 +455,7 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
     result.terrainDrawCalls++;
     result.submittedQuads += chunk->indexCount / 6;
     result.submittedTriangles += chunk->indexCount / 3;
-    glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, GL_UNSIGNED_INT, NULL);
+    glDrawElements(GL_TRIANGLES, (GLsizei)chunk->indexCount, chunk->indexType, NULL);
   }
 
   glBindVertexArray(0);
@@ -355,6 +467,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   }
   glActiveTexture(GL_TEXTURE0);
   return result;
+}
+
+GLuint worldLeafTexture(void) {
+  return leafTexture;
 }
 
 void cleanupWorld(void) {
@@ -374,8 +490,12 @@ void cleanupWorld(void) {
   glDeleteBuffers(1, &gridVBO);
   gridVAO = gridVBO = 0;
   glDeleteTextures(1, &textureArray);
+  glDeleteTextures(1, &leafTexture);
+  leafTexture = 0;
   textureArray = 0;
   program = 0;
   visibilityValid = false;
   candidateCount = hiddenCount = 0;
+  shadowGeometryCount = 0;
+  retainedIndexBytes = 0;
 }

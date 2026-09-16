@@ -11,10 +11,26 @@ the crosshair fills until the block disappears. Right mouse places once per pres
 | Cobblestone | 2 seconds |
 | Oak planks | 1 second |
 | Stone bricks | 2 seconds |
+| Oak log | 1.5 seconds |
+| Oak leaves | 0.2 seconds |
+| Leafy grass | 0.75 seconds |
 
 Walking, crouching, running, and debug flight use these same rates. Every current
-hotbar slot uses the hand rate, including empty slots. Suitable tools and crack
-textures remain planned.
+hotbar slot uses the hand rate, including empty slots. Suitable tools remain
+planned. Leaves drop nothing when broken; other materials retain their item drops.
+
+Branching surface cracks grow in coverage, width, and darkness as progress
+advances. They use a fixed procedural pattern attached to the target's exposed
+faces, so changing the viewed face does not reset damage. The leaf image masks
+cracks over transparent leaf pixels. Cracks disappear on cancellation, changed
+target/material, loss of reach, or removal. The same effect remains visible in
+wireframe; it writes no world depth and creates no mesh rebuild or buffer upload.
+
+![Progressive cracks during a held break](breaking-cracks.png)
+
+This native application capture uses F4 wireframe to show the crack pattern on
+the targeted block and the moving held stone. Placeable blocks draw without a
+first-person arm or hand.
 
 Releasing left mouse discards progress. Losing reach, looking away, aiming at a
 different cell, or observing a different material in the cell also restarts from
@@ -41,7 +57,7 @@ The game loop updates breaking after movement, using the current eye and DDA
 selection, before saving and rendering. A completed break calls `setBlock`, so
 the existing bounds validation and dirty-neighbor propagation apply. Rendering
 rebuilds only dirty chunks; partial progress never rebuilds a terrain mesh. The
-visible hand swing has its own elapsed presentation time while left mouse remains
+held-block swing has its own elapsed presentation time while left mouse remains
 held. Gameplay progress still resets immediately when a block is removed, while
 the held item can finish its current strike/recovery cycle without snapping to
 the resting pose on the removal frame. Release, pause, hotbar changes, and the
@@ -67,6 +83,9 @@ versions. Use `--no-save` or an explicit temporary `--world` path for checks.
   cancellation, empty-slot breaking, held progress across the actual frame loop,
   HUD pixels, completed edits, a non-rest held-item pose on the removal frame,
   and clean neighbor meshes after rendering.
+- `tests/block_crack_checks.h` and `tests/block_crack_live_checks.h`: growth
+  across six faces and live breaking frames, cutout masking, foreground
+  occlusion, stale-target cleanup, and preserved depth and caller GL state.
 - `tests/test_hud.c`: partial bar pixels, visibility while captured, responsive
   landscape/portrait layouts, crosshair and hotbar preservation, and GL state.
 - `tests/app_persistence.c`: a timed callback edit followed by F5, normal-exit

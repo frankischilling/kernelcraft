@@ -1,5 +1,11 @@
 # Terrain variants and render distance
 
+The original increment below introduced cosmetic variants and a six-chunk
+view. The current default is twelve chunks, configurable with
+`--render-distance 1..16`. Generator 2 also adds persistent leafy ground near
+oak trees. See [oak forests](oak-forests.md) and
+[current renderer measurements](forest-performance.md).
+
 Base: `165fd4f`, after the outline fix in PR #29 was merged. There were no open
 PRs at the start of this increment. Work is on `feat/terrain-variants-distance`,
 addressing [issue #30](https://github.com/frankischilling/kernelcraft/issues/30).

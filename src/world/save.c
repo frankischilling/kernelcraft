@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-#define SAVE_VERSION 5
+#define SAVE_VERSION 6
 #define HEADER_BYTES 72
 #define EXTENSION_HEADER_BYTES 16
 #define STACK_BYTES 8
@@ -29,8 +29,8 @@
 #define EXTENSION_MAX_BYTES (EXTENSION_FIXED_BYTES + DROPPED_ITEM_CAPACITY * DROP_BYTES)
 _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 && FLT_MAX_EXP == 128, "Save format requires IEEE binary32 floats");
 _Static_assert(INVENTORY_CARRIED_SLOT_COUNT == 36 && INVENTORY_ARMOR_SLOT_COUNT == 4 && INVENTORY_CRAFTING_SLOT_COUNT == 4 && INVENTORY_SERIALIZED_STACK_COUNT == 46,
-               "Save version 5 inventory layout changed");
-_Static_assert(DROPPED_ITEM_CAPACITY == 128, "Save version 5 dropped-item capacity changed");
+               "Save version 6 inventory layout changed");
+_Static_assert(DROPPED_ITEM_CAPACITY == 128, "Save version 6 dropped-item capacity changed");
 
 static SaveResult result(SaveResult code, char* error, size_t capacity, const char* message) {
   if (error && capacity)
@@ -135,7 +135,7 @@ static bool encodeExtension(const SavedPlayer* player, uint8_t* extension, size_
   return offset <= EXTENSION_MAX_BYTES;
 }
 
-static bool decodeExtension(const uint8_t* extension, size_t extensionBytes, Inventory* inventory, DroppedItems* drops) {
+static bool decodeExtension(const uint8_t* extension, size_t extensionBytes, uint16_t lastItem, Inventory* inventory, DroppedItems* drops) {
   if (extensionBytes < EXTENSION_FIXED_BYTES || get32(extension) != INVENTORY_CARRIED_SLOT_COUNT || get32(extension + 4) != INVENTORY_ARMOR_SLOT_COUNT ||
       get32(extension + 8) != INVENTORY_CRAFTING_SLOT_COUNT)
     return false;
@@ -146,7 +146,7 @@ static bool decodeExtension(const uint8_t* extension, size_t extensionBytes, Inv
   ItemStack stacks[INVENTORY_SERIALIZED_STACK_COUNT];
   size_t offset = EXTENSION_HEADER_BYTES;
   for (size_t i = 0; i < INVENTORY_SERIALIZED_STACK_COUNT; i++, offset += STACK_BYTES)
-    if (!getStack(extension + offset, &stacks[i]))
+    if (!getStack(extension + offset, &stacks[i]) || stacks[i].item > lastItem)
       return false;
   if (!inventoryImportStacks(inventory, stacks))
     return false;
@@ -155,7 +155,7 @@ static bool decodeExtension(const uint8_t* extension, size_t extensionBytes, Inv
   for (uint32_t i = 0; i < dropCount; i++) {
     DroppedItem* drop = &drops->items[i];
     drop->position = (Vec3){getFloat(extension + offset), getFloat(extension + offset + 4), getFloat(extension + offset + 8)};
-    if (!getStack(extension + offset + 12, &drop->stack))
+    if (!getStack(extension + offset + 12, &drop->stack) || drop->stack.item > lastItem)
       return false;
     drop->pickupDelay = 0.5f;
     drop->active = true;
@@ -235,7 +235,7 @@ SaveResult saveWorld(const char* path, const SavedPlayer* player, char* error, s
   uint8_t header[HEADER_BYTES] = {0};
   memcpy(header, "KCRFTSV\0", 8);
   put32(header + 8, SAVE_VERSION);
-  put32(header + 12, WORLD_GENERATOR_VERSION);
+  put32(header + 12, worldGeneratorVersion());
   put32(header + 16, worldSeed());
   put32(header + 20, WORLD_SIZE);
   put32(header + 24, CHUNK_HEIGHT);
@@ -301,7 +301,8 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
   }
 
   uint32_t version = get32(header + 8);
-  if ((version < 1 || version > SAVE_VERSION) || get32(header + 12) != WORLD_GENERATOR_VERSION) {
+  uint32_t generatorVersion = get32(header + 12);
+  if (version < 1 || version > SAVE_VERSION || generatorVersion < 1 || generatorVersion > WORLD_GENERATOR_VERSION || (version < 6 && generatorVersion != 1)) {
     fclose(file);
     return result(SAVE_UNSUPPORTED, error, capacity, "Unsupported save or generator version");
   }
@@ -312,7 +313,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
     return result(SAVE_INVALID, error, capacity, "Invalid save dimensions or counts");
   }
   uint32_t extensionBytes = get32(header + 64);
-  if ((version < 5 && extensionBytes != 0) || (version == 5 && (extensionBytes < EXTENSION_FIXED_BYTES || extensionBytes > EXTENSION_MAX_BYTES))) {
+  if ((version < 5 && extensionBytes != 0) || (version >= 5 && (extensionBytes < EXTENSION_FIXED_BYTES || extensionBytes > EXTENSION_MAX_BYTES))) {
     fclose(file);
     return result(SAVE_INVALID, error, capacity, "Invalid save extension size");
   }
@@ -336,7 +337,7 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
   }
 
   bool valid = get32(header + 68) == checksum(header, blocks, extension, extensionBytes);
-  int lastBlock = version < 3 ? BLOCK_STONE : version == 3 ? BLOCK_COBBLESTONE : BLOCK_STONE_BRICKS;
+  int lastBlock = version < 3 ? BLOCK_STONE : version == 3 ? BLOCK_COBBLESTONE : version < 6 ? BLOCK_STONE_BRICKS : BLOCK_LEAFY_GRASS;
   for (size_t i = 0; valid && i < WORLD_BLOCK_COUNT; i++)
     valid = blockIDValid(blocks[i]) && blocks[i] <= lastBlock;
   uint32_t selected = get32(header + 60);
@@ -349,15 +350,17 @@ SaveResult loadWorld(const char* path, SavedPlayer* player, char* error, size_t 
   if (version < 5) {
     inventoryInit(&loaded.inventory);
     loaded.drops = (DroppedItems){0};
-  } else if (!decodeExtension(extension, extensionBytes, &loaded.inventory, &loaded.drops)) {
-    valid = false;
+  } else {
+    uint16_t lastItem = version < 6 ? ITEM_LEATHER_BOOTS : ITEM_ID_LAST;
+    if (!decodeExtension(extension, extensionBytes, lastItem, &loaded.inventory, &loaded.drops))
+      valid = false;
   }
   if (!valid || !validPlayer(&loaded, blocks)) {
     free(blocks);
     return result(SAVE_INVALID, error, capacity, "Save checksum, block IDs, player, inventory, or dropped-item state is invalid");
   }
 
-  bool installed = replaceWorldBlocks(get32(header + 16), blocks, WORLD_BLOCK_COUNT);
+  bool installed = replaceWorldBlocksVersioned(get32(header + 16), generatorVersion, blocks, WORLD_BLOCK_COUNT);
   free(blocks);
   if (!installed)
     return result(SAVE_NO_MEMORY, error, capacity, "Not enough memory to install world; current world retained");

@@ -16,6 +16,12 @@ double blockHandBreakSeconds(int block) {
     return 2.0;
   case BLOCK_OAK_PLANKS:
     return 1.0;
+  case BLOCK_OAK_LOG:
+    return 1.5;
+  case BLOCK_OAK_LEAVES:
+    return 0.2;
+  case BLOCK_LEAFY_GRASS:
+    return 0.75;
   default:
     return 0;
   }

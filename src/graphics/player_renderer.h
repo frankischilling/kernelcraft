@@ -59,6 +59,15 @@ void renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerMo
 void renderPlayerEquipment(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const PlayerEquipmentVisuals* equipment, const Mat4 view, const Mat4 projection,
                            const DayNightState* daylight);
 
+// Draw one skinned arm into the caller's currently bound camera-space target.
+// The supplied transform places the unposed arm cuboid; base skin and sleeve use
+// the arm's own atlas regions. Private-target depth is tested and written so a
+// held item rendered in the same target can occlude/intersect the arm naturally.
+// The helper preserves the GL state it changes and never clears or composites.
+// Call with translucent=false for opaque depth, then true after all foreground
+// opaque geometry for fractional sleeve alpha.
+void renderPlayerViewArm(const PlayerRenderer* renderer, PlayerModelPart arm, const Mat4 projection, const Mat4 cameraTransform, const DayNightState* daylight, bool translucent);
+
 // Draw the skin's right arm as a camera-space first-person view model. This pass
 // never reads or writes the world depth buffer, leaving selection/raycast depth
 // and later HUD rendering independent of the hand.
