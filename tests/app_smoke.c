@@ -536,6 +536,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
       mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
       processBlockBreaking(window, input, 0.1);
       CHECK(input->breakHeld && blockBreakingProgress(&input->breaking) > 0);
+      CHECK(playerModelPunch(&input->breaking) > 0);
       if (reason == 0)
         mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
       if (reason == 1)
@@ -555,6 +556,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
         keyCallback(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
       processBlockBreaking(window, input, 10);
       CHECK(!input->breakHeld && !input->breaking.active && getBlock(&target)->id == BLOCK_DIRT);
+      CHECK(playerModelPunch(&input->breaking) == 0);
       focused = GLFW_TRUE;
       iconified = zeroFramebuffer = false;
       if (cursorMode != GLFW_CURSOR_DISABLED)
@@ -902,11 +904,14 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 }
 
 #include "chat_input_checks.h"
+#include "player_input_checks.h"
+#include "player_live_checks.h"
 
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
     testCameraCue();
     testInput(window);
+    testPlayerViewInput(window);
     testWireframeInput(window);
     testIconifiedInput(window);
     testSavedInput(window);
@@ -1013,7 +1018,9 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     updateCameraVectors(input->camera);
     CHECK(!input->chat.open && input->clock.tick == 15000);
   }
-  return frame >= 93;
+  if (frame >= 93 && frame < 102)
+    playerViewFrame(window);
+  return frame >= 102;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1125,7 +1132,7 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
     glReadPixels(592, 312, 96, 96, GL_RGB, GL_UNSIGNED_BYTE, skyWall);
   if (frame == 84)
     glReadPixels(0, 360, 1280, 360, GL_RGB, GL_UNSIGNED_BYTE, cloudSky);
-  if (frame >= 85) {
+  if (frame >= 85 && frame < 93) {
     CHECK((int)state->moonPhase == frame - 85 && state->night == 1);
     unsigned char center[3];
     glReadPixels(640, 360, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, center);
@@ -1146,6 +1153,7 @@ void __wrap_renderSky(const SkyRenderer* sky, const Camera* camera, float aspect
 
 void __wrap_HUDDraw(GLuint program, DebugData* data) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
+  checkPlayerRenderedFrame(input);
   CHECK(data->showDebug == input->showDebug);
   CHECK(data->wireframe == input->wireframe);
   CHECK(data->crouched == input->player.crouched && data->running == input->player.running);
@@ -1365,7 +1373,8 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 91 && waits == 2);
+    CHECK(swaps == 100 && waits == 2);
+    puts("Application player skin, camera views, movement poses, timed punches, foreground hand and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");
     puts("Application cloud layer pixels checked through the live game loop");
     puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");

@@ -9,6 +9,7 @@
 #include "graphics/selection.h"
 #include "graphics/sky.h"
 #include "graphics/clouds.h"
+#include "graphics/player_renderer.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/options.h"
@@ -195,7 +196,9 @@ int main(int argc, char** argv) {
 
   SkyRenderer sky = {0};
   CloudRenderer clouds = {0};
-  if (!initSky(&sky) || !initClouds(&clouds) || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+  PlayerRenderer playerRenderer = {0};
+  if (!initSky(&sky) || !initClouds(&clouds) || !initPlayerRenderer(&playerRenderer, "assets/player/skin.png") || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+    cleanupPlayerRenderer(&playerRenderer);
     cleanupClouds(&clouds);
     cleanupSky(&sky);
     cleanupWorld();
@@ -209,6 +212,7 @@ int main(int argc, char** argv) {
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
+    cleanupPlayerRenderer(&playerRenderer);
     cleanupClouds(&clouds);
     cleanupSky(&sky);
     HUDCleanup();
@@ -274,23 +278,32 @@ int main(int argc, char** argv) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, width, height);
+    float aspect = (float)width / height;
+    Camera displayCamera = camera;
+    bool showBody = input.view != CAMERA_FIRST_PERSON && makeThirdPersonCamera(&displayCamera, &camera, input.view == CAMERA_THIRD_PERSON_FRONT, aspect);
+    PlayerModelPose playerPose;
+    inputPlayerPose(&input, &playerPose);
     Mat4 view, projection;
     Vec3 target;
-    vec3_add(&target, &camera.position, &camera.front);
-    mat4_lookAt(view, &camera.position, &target, &camera.up);
-    mat4_perspective(projection, camera.fov, (float)width / height, 0.1f, 1000.0f);
+    vec3_add(&target, &displayCamera.position, &displayCamera.front);
+    mat4_lookAt(view, &displayCamera.position, &target, &displayCamera.up);
+    mat4_perspective(projection, displayCamera.fov, aspect, 0.1f, 1000.0f);
     setWorldDayNight(&daylight);
-    RenderResult result = renderWorld(&camera, view, projection, input.wireframe);
+    RenderResult result = renderWorld(&displayCamera, view, projection, input.wireframe);
 
     if (!result.success) {
       exitStatus = EXIT_FAILURE;
       break;
     }
 
-    renderSky(&sky, &camera, (float)width / height, &daylight);
+    renderSky(&sky, &displayCamera, aspect, &daylight);
+    if (showBody)
+      renderPlayerModel(&playerRenderer, inputBodyFeet(&input), &playerPose, view, projection, &daylight);
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
     drawSelection(&selection, view, projection);
-    renderClouds(&clouds, &camera, (float)width / height, projection, &daylight);
+    renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
+    if (!showBody)
+      renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
     DebugData data = {.camera = &camera,
                       .fps = fps,
                       .visibleBlocks = result.surfaceBlocks,
@@ -318,6 +331,7 @@ int main(int argc, char** argv) {
   if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
     exitStatus = EXIT_FAILURE;
   HUDCleanup();
+  cleanupPlayerRenderer(&playerRenderer);
   cleanupClouds(&clouds);
   cleanupSky(&sky);
   cleanupWorld();

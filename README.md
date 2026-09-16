@@ -26,6 +26,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - **graphics/**: Contains rendering-related code.
     - **world_renderer.c**: Rebuilds dirty chunk meshes and draws each visible chunk with shared texture-array materials.
     - **camera.c**: Manages camera movement and orientation.
+    - **player_renderer.c**: Draws the skinned player body and first-person arm through a separate texture and shader.
     - **hud.c**: Draws gameplay status, a responsive hotbar, and F3 diagnostics.
     - **shader.c**: Handles shader loading and compilation.
     - **frustum.c**: Implements frustum culling for optimization.
@@ -39,6 +40,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
     - **mesh.c**: Builds indexed greedy rectangles from compatible exposed block faces.
       [Measured rebuild improvements](docs/mesh-rebuild-performance.md) retain rectangle records to avoid a second greedy sweep.
     - **player.c**: Fixed-step movement, voxel collision, jumping, and safe spawning.
+    - **player_model.c**: Skin UV layout, articulated body parts, movement poses, and timed hand animation.
     - **save.c**: Validated, versioned chunk and player snapshots with safe file replacement.
   - **utils/**: Contains utility functions and input handling.
     - **inputs.c**: Handles keyboard and mouse input processing.
@@ -56,6 +58,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Frustum culling for optimization.
   - Conservative chunk occlusion from the current camera, including during movement. F3 shows hidden chunks; F4 wireframe bypasses occlusion.
   - A compact HUD with optional F3 diagnostics for FPS, world position, and rendering statistics. [Cached text rendering](docs/hud-performance.md) reduces the overlay's frame-time cost.
+  - A six-part skinned player with optional outer layers, first-person hand, walking/running/crouching/airborne poses, and timed block-breaking punches. F6 cycles first-person, rear third-person, and front third-person views. See [player skins](docs/player-skins.md).
 
 - **World Generation**:
   - Procedural terrain generation using Perlin noise and selectable 32-bit seeds.
@@ -168,6 +171,12 @@ bar, and target overlay retain their normal appearance. F4 also works with the
 cursor released, ignores key repeats and inactive windows, and keeps the chosen
 mode through pauses and flight changes. Every launch starts with solid terrain.
 See [wireframe controls and checks](docs/wireframe.md).
+
+F6 cycles first-person, rear third-person, and front third-person views. Nearby
+terrain shortens the third-person camera distance; tight spaces fall back to
+first person. Movement, aiming, and edits still use the player's original eye
+position. Camera mode lasts for the current session. The supplied skin, optional
+outer layers, body poses, and first-person arm are described in [player skins](docs/player-skins.md).
 
 Press Enter (or keypad Enter) to open chat, type a message or command, and
 press Enter again to send. Backspace edits the line; Escape cancels it.
@@ -404,9 +413,10 @@ and stone. Pickaxes, axes, swords, and the other listed items are not implemente
   - [ ] Create particle system for effects
   - [ ] Implement weather effects (rain, snow)
   - [ ] Create water shader with reflections and refractions
-  - [ ] Add support for different camera modes (first person, third person)
-  - [ ] Add a textured first-person hand with movement and action animations
-  - [ ] Add a textured third-person player model and skin textures, with hand and body animations
+  - [x] Add support for different camera modes (first person, third person)
+  - [x] Add a textured first-person hand with movement and timed block-breaking animations
+  - [x] Add a textured third-person player model and skin textures, with hand and body animations
+    - F6 cycles first/rear/front views; [skin layout and rendering](docs/player-skins.md) document the six separate parts and optional outer layers.
   - [ ] Add environmental player skin effects: wet skin after swimming, sweat in heat, mud from dirt, and sore or bruised hands after punching blocks for materials
   - [ ] Add support for CRT screen effects, curvature, scanlines, chromatic aberration, and vignette
 

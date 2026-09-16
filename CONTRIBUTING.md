@@ -89,3 +89,13 @@ chosen view should survive pauses without resuming movement. F4 ignores key
 repeats and inactive windows. Save with wireframe enabled and restart: terrain
 should start filled while world edits and the selected slot are restored.
 See [wireframe checks](docs/wireframe.md) for automated coverage and limits.
+
+For player skins, preserve the [64×64 RGBA layout](art/README.md#player-skin)
+and keep its art/runtime copies identical. Run the CPU model tests and hidden
+player-rendering checks when changing UVs, joints, skin loading, or animation.
+During interactive review, cycle F6 through both third-person views, approach
+walls, and return to first person. Check separate limb textures, outer-layer
+transparency, walking/running/crouching/jumping poses, and held-breaking punches.
+Repeat in portrait and landscape sizes, with F4 and chat, and across focus loss.
+The hand must leave the aim/progress region clear. Report automated capture
+results separately from interactive observations; see [player rendering](docs/player-skins.md).

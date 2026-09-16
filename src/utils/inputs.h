@@ -11,6 +11,7 @@
 
 #include "../graphics/camera.h"
 #include "../world/player.h"
+#include "../world/player_model.h"
 #include "../world/edit.h"
 #include "../world/save.h"
 #include "../world/chat.h"
@@ -24,6 +25,8 @@ typedef struct {
   Player player;
   PlayerRunInput runInput;
   BlockBreaking breaking;
+  PlayerModelAnimation animation;
+  CameraView view;
   bool breakHeld;
   bool flying;
   bool jumpRequested;
@@ -38,6 +41,9 @@ bool initInputs(InputState* input, Camera* camera);
 // The caller supplies state already validated by loadWorld.
 bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved);
 bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
+// Feet and visual pose share the same exact flight offset used by saving.
+Vec3 inputBodyFeet(const InputState* input);
+void inputPlayerPose(const InputState* input, PlayerModelPose* pose);
 // Discard simulation backlog, queued jumps, run/tap state, and cached mouse position.
 // Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);

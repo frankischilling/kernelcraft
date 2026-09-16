@@ -42,3 +42,49 @@ bloom around them. The supplied images do not need glow painted into them.
 Moon glow and direct moonlight scale with the phase. The new moon keeps its
 supplied dark surface and emits no glow or direct light. These are discrete
 daily sprites; astronomical lunar geometry remains in the README TODO list.
+
+## Player skin
+
+`skin.png` is the player skin. Keep it byte-identical to
+`src/assets/player/skin.png`, which both builds package at `assets/player/skin.png`.
+Export exactly 64 by 64 pixels with four RGBA channels. The classic arm width is
+four pixels. Left and right arms and legs have independent regions; a 64-by-32
+legacy skin or three-pixel slim-arm layout is not supported.
+
+Coordinates start at the PNG's top-left: X increases right and Y increases down.
+The runtime uses these coordinates directly, without flipping or resizing the
+image. The skin has its own nearest-filtered 2D texture and no mipmaps. It is
+independent of the terrain texture array and its layer numbers.
+
+Each cuboid unwrap begins at `(u, v)`, using pixel dimensions `(w, h, d)`:
+
+| Face | Rectangle `(x, y, width, height)` |
+| --- | --- |
+| Right | `(u, v + d, d, h)` |
+| Left | `(u + d + w, v + d, d, h)` |
+| Top | `(u + d, v, w, d)` |
+| Bottom | `(u + d + w, v, w, d)` |
+| Front | `(u + d, v + d, w, h)` |
+| Back | `(u + 2d + w, v + d, w, h)` |
+
+A rectangle covers X through X + width - 1 and Y through Y + height - 1.
+Right and left refer to the wearer's sides. On each vertical face, the first row
+is the top; the first column is the left edge when looking directly at that face
+from outside. The top face's first row touches the back; the bottom face's first
+row touches the front. Both horizontal faces start their columns on the wearer's
+right side.
+
+| Body part | Dimensions `(w, h, d)` | Base origin `(u, v)` | Outer origin `(u, v)` |
+| --- | --- | --- | --- |
+| Head | `(8, 8, 8)` | `(0, 0)` | `(32, 0)` |
+| Torso | `(8, 12, 4)` | `(16, 16)` | `(16, 32)` |
+| Right arm | `(4, 12, 4)` | `(40, 16)` | `(40, 32)` |
+| Left arm | `(4, 12, 4)` | `(32, 48)` | `(48, 48)` |
+| Right leg | `(4, 12, 4)` | `(0, 16)` | `(0, 32)` |
+| Left leg | `(4, 12, 4)` | `(16, 48)` | `(0, 48)` |
+
+Keep base face pixels opaque. Leave unused cells transparent. Outer layers may
+be completely transparent, partially painted, or translucent. Transparent
+outer pixels reveal the base and do not write depth; opaque outer pixels use a
+slightly wider shell. The first-person hand reuses the right arm and sleeve
+regions. See [player rendering](../docs/player-skins.md) for poses and checks.

@@ -31,6 +31,7 @@ bool initInputs(InputState* input, Camera* camera) {
   if (!playerFindSpawn(&input->player, camera->position))
     return false;
   camera->position = playerEyePosition(&input->player);
+  resetPlayerModelAnimation(&input->animation, input->player.position);
   selectedSlot = 0;
   return true;
 }
@@ -45,6 +46,7 @@ bool initSavedInputs(InputState* input, Camera* camera, const SavedPlayer* saved
   camera->yaw = saved->yaw;
   camera->pitch = saved->pitch;
   updateCameraVectors(camera);
+  resetPlayerModelAnimation(&input->animation, input->player.position);
   selectedSlot = saved->selectedSlot;
   return true;
 }
@@ -54,6 +56,7 @@ static void resetInputTiming(InputState* input) {
     return;
   playerResetTiming(&input->player);
   playerResetRunInput(&input->runInput);
+  resetPlayerModelAnimation(&input->animation, input->player.position);
   input->camera->fov = CAMERA_BASE_FOV;
   input->jumpRequested = false;
   input->simulationSteps = 0;
@@ -97,7 +100,7 @@ int selectedHotbarSlot(void) {
   return selectedSlot;
 }
 
-static Vec3 inputBodyFeet(const InputState* input) {
+Vec3 inputBodyFeet(const InputState* input) {
   if (!input->flying)
     return input->player.position;
   Vec3 feet = input->camera->position;
@@ -106,6 +109,19 @@ static Vec3 inputBodyFeet(const InputState* input) {
   // offset directly can round below the floor even without any camera motion.
   feet.y = (float)(input->player.position.y + ((double)feet.y - initialEye.y));
   return feet;
+}
+
+void inputPlayerPose(const InputState* input, PlayerModelPose* pose) {
+  PlayerPoseInput visual = {.yaw = input->camera->yaw,
+                            .pitch = input->camera->pitch,
+                            .gaitPhase = input->animation.gaitPhase,
+                            .gaitWeight = input->animation.gaitWeight,
+                            .punch = input->breakHeld ? playerModelPunch(&input->breaking) : 0,
+                            .crouched = input->player.crouched,
+                            .running = input->player.running,
+                            .grounded = input->player.grounded,
+                            .flying = input->flying};
+  playerModelPose(pose, &visual);
 }
 
 bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
@@ -185,6 +201,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
   if (input && key == GLFW_KEY_F4 && acceptsWindowInput(window)) {
     input->wireframe = !input->wireframe;
+    return;
+  }
+
+  if (input && key == GLFW_KEY_F6 && acceptsWindowInput(window)) {
+    input->view = (CameraView)((input->view + 1) % CAMERA_VIEW_COUNT);
     return;
   }
 
@@ -280,6 +301,10 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     input->jumpRequested = false;
     camera->position = playerEyePosition(&input->player);
     updateCameraFov(camera, input->player.running, deltaTime);
+    // A frame without a physics tick has no new displacement sample. Sampling
+    // only credited ticks keeps gait amplitude consistent at high frame rates.
+    if (input->simulationSteps > 0)
+      advancePlayerModelAnimation(&input->animation, &input->player, false, true, input->simulationSteps * PLAYER_STEP_SECONDS);
     return;
   }
 
@@ -322,6 +347,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
     vec3_scale(&temp, &right, velocity);
     vec3_subtract(&camera->position, &camera->position, &temp);
   }
+  advancePlayerModelAnimation(&input->animation, &input->player, true, true, deltaTime);
 }
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos) {

@@ -25,10 +25,15 @@ typedef struct {
   float fov;
 } Camera;
 
+typedef enum { CAMERA_FIRST_PERSON, CAMERA_THIRD_PERSON_BACK, CAMERA_THIRD_PERSON_FRONT, CAMERA_VIEW_COUNT } CameraView;
+
 // Function declarations
 void initCamera(Camera* camera);
 void updateCameraVectors(Camera* camera);
 // Smooth the running cue by elapsed time, with at most 0.1 seconds per frame.
 void updateCameraFov(Camera* camera, bool running, double seconds);
+// Derive a display camera without moving the authoritative eye/aim. Returns
+// false (and the original camera) when nearby terrain leaves no room for a body.
+bool makeThirdPersonCamera(Camera* result, const Camera* eye, bool frontView, float aspect);
 
 #endif
