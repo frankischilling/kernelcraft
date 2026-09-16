@@ -9,7 +9,7 @@ items appear on the third-person player.
 
 The arrangement and mouse interactions follow the classic Java inventory.
 KernelCraft retains its documented **999-item stack limit**, existing hand
-breaking rates, and six building materials. Equipment has a stack limit of one.
+breaking rates, and eight placeable block items. Equipment has a stack limit of one.
 This does not add Minecraft's complete item catalog, recipe book, combat,
 durability, or 3×3 crafting table.
 
@@ -51,7 +51,8 @@ after capture is discarded.
 New worlds, and migrations from saves without an inventory, start with 999 of
 each existing material in hotbar slots 1–6: grass, dirt, stone, cobblestone,
 oak planks, and stone bricks. The first four storage slots contain a leather
-cap, tunic, pants, and boots. Existing v5 inventories are loaded exactly;
+cap, tunic, pants, and boots. Logs and leaves are obtained from oak trees.
+Existing v5/v6 inventories are loaded exactly;
 their contents are never refilled on restart.
 
 Place one stone in each crafting square to make **four stone bricks**. Each
@@ -60,6 +61,10 @@ consumes one stone from each square only when all four bricks fit on the cursor.
 Shift-clicking consumes only complete recipes whose output fits in carried
 storage. Equipment cannot enter incompatible armor slots, and recipe results
 cannot be overwritten with cursor items.
+
+One oak log in any single crafting square, with the other three empty, makes
+**four oak planks**. Clicking consumes one log only when all four planks fit.
+Shift-clicking repeats complete recipes that fit, using the same 999-item limit.
 
 The leather set uses colored geometry and icons while dedicated armor artwork
 remains on the content backlog. It follows the existing body joints; the cap
@@ -81,7 +86,8 @@ the hand that supplied the block. The renderer keeps the consumed item visible
 through the swing when placement used the last item in that stack. Rejected
 placements do not start the animation.
 
-Completed hand breaking creates one item of the removed material. Dropped
+Completed hand breaking creates one item of the removed material; leafy grass
+gives an ordinary grass block. Logs and leaves each drop their own item. Dropped
 blocks use textured 3D cubes; equipment uses shaped colored models with visible
 thickness. Gravity and voxel contact run at 120 Hz, with at most eight steps per
 frame. Nearby items are collected after a short delay, merging into carried
@@ -112,7 +118,7 @@ The preview uses a neutral standing pose and fixed studio lighting. Crouching,
 falling, and changes in world light do not shrink or darken it. Its orthographic
 view preserves body proportions while the pointer turns the body and head.
 
-`world/item_model.c` defines bounded CPU geometry for the six block items and
+`world/item_model.c` defines bounded CPU geometry for the eight block items and
 four leather pieces. Block faces use the existing terrain base images, including
 grass top, side, and dirt underside. Position-dependent terrain variants remain
 cosmetic and do not create extra item types. `graphics/item_renderer.c` uploads
@@ -123,11 +129,12 @@ Equipment models use simple colored shells while dedicated artwork remains
 pending. First-person items use a reusable private color/depth target and a
 transparent composite, preserving world depth even beside a wall.
 
-Save version 5 stores all 46 owned stacks, including cursor and crafting
+Save version 6 stores all 46 owned stacks, including cursor and crafting
 inputs, plus active world drops. The result is recomputed after loading.
 Closing the application with pending cursor/crafting items preserves them;
-the next launch reopens the inventory. Versions 1–4 still load, while older
-executables cannot read v5 saves. See [the exact format](world-persistence.md).
+the next launch reopens the inventory. Versions 1–5 still load. Version 6 adds
+log/leaf item IDs without renumbering leather equipment; older executables
+cannot read v6 saves. See [the exact format](world-persistence.md).
 
 ## Regression coverage
 
@@ -143,7 +150,7 @@ armor, held blocks/equipment, empty-hand fallback, portrait resize, and
 minimize/restore. Separate processes verify pending inventory ownership on
 restart. Geometry tests check outward faces, UV coordinates, volume, equipment
 openings, and stable texture-layer mappings. Graphical checks compare all six
-faces of all six block items against the source PNGs, and check icon placement,
+faces of all eight block items against the source PNGs, and check icon placement,
 preview height, caller GL state, world-depth isolation, allocation failure
 recovery, held-item visibility, distinct breaking strike/recovery silhouettes,
 and main/offhand placement motion. Input checks verify placement animation starts

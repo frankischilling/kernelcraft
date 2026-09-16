@@ -11,6 +11,9 @@ the crosshair fills until the block disappears. Right mouse places once per pres
 | Cobblestone | 2 seconds |
 | Oak planks | 1 second |
 | Stone bricks | 2 seconds |
+| Oak log | 1.5 seconds |
+| Oak leaves | 0.2 seconds |
+| Leafy grass | 0.75 seconds |
 
 Walking, crouching, running, and debug flight use these same rates. Every current
 hotbar slot uses the hand rate, including empty slots. Suitable tools and crack

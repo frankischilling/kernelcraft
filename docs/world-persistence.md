@@ -8,8 +8,9 @@ payload order, and replacement behavior are unchanged. The
 [cobblestone increment](cobblestone-texture.md) writes version 3 to add block ID 4.
 Versions 1 and 2 still load but reject payloads containing this newer ID.
 Version 3 saves require the updated build to reopen. Version 4 adds block IDs 5
-and 6. The current writer emits version 5, which preserves the version 4 world
-payload and adds inventory plus dropped-item state after it.
+and 6. Version 5 adds inventory plus dropped-item state. The current writer
+emits version 6 for oak logs, leaves, and leafy grass, retaining the v5 layout
+and all previous IDs. Versions 1–5 remain readable.
 
 Base: `6171a9a2769d7ce36eba1c3fd2e37c6cf644d707`, merged main after PR #12.
 The only open PR was #12; it was reviewed, freshly tested with
@@ -20,25 +21,27 @@ access were rechecked, the checkout was clean, and issue #9 remains applicable.
 ## Design
 
 Keep C11, OpenGL 3.3 compatibility, finite 256 x 64 x 256 terrain, existing
-biomes/materials, and seed 0's original terrain. Nonzero 32-bit seeds shuffle a
+biomes/materials, and seed 0's original terrain heights. Generator 2 decorates
+that heightmap with oak forests; generator-1 snapshots remain unchanged.
+Nonzero 32-bit seeds shuffle a
 local Perlin permutation using defined unsigned arithmetic. Chunk generation
 receives its seed explicitly and does not depend on generation order or rand().
 Do not claim cross-platform bitwise terrain equality beyond observed checks.
 
 Store full chunks: about 4 MiB per world, bounded and simple to validate. This
-preserves edits independently of future procedural changes. Version 5 remains a
+preserves edits independently of future procedural changes. Version 6 remains a
 little-endian format with a 72-byte header followed by the fixed-size world block
 payload and a bounded extension. No C structs or pointers are serialized.
 
-### Current version 5 layout
+### Current version 6 layout
 
 The 72-byte header is:
 
 | Offset | Bytes | Field |
 | ---: | ---: | --- |
 | 0 | 8 | Magic `KCRFTSV\0` |
-| 8 | 4 | Save format version (`5`) |
-| 12 | 4 | World generator version |
+| 8 | 4 | Save format version (`6`) |
+| 12 | 4 | World generator version (`1` legacy or `2` forest) |
 | 16 | 4 | World seed |
 | 20 | 4 | World width (`256`) |
 | 24 | 4 | World height (`64`) |
@@ -51,16 +54,22 @@ The 72-byte header is:
 | 52 | 4 | Yaw, IEEE binary32 |
 | 56 | 4 | Pitch, IEEE binary32 |
 | 60 | 4 | Selected hotbar slot, one-based (`1..9`) |
-| 64 | 4 | Version 5 extension byte count |
+| 64 | 4 | Inventory/drop extension byte count (same layout as v5) |
 | 68 | 4 | 32-bit FNV-1a checksum |
 
 The world payload begins at byte 72 and contains `4194304` one-byte block IDs.
 Chunk coordinates are implicit in fixed array order X/Z, then local X/Y/Z.
-Version 5 accepts air (`0`) plus the six current non-air block IDs. Version 1 and
+Version 6 accepts IDs 0–9: the existing air and six materials, oak log `7`, oak
+leaves `8`, and leafy grass `9`. Version 5 accepts IDs 0–6. Version 1 and
 2 payloads may contain air plus IDs 1–3, version 3 may additionally contain ID 4,
 and version 4 uses the same air-plus-six-block world payload accepted by version 5.
 
-The version 5 extension starts immediately after the world payload. Its first 16
+Versions 1–5 require generator version 1. Version 6 accepts generator 1 or 2
+and preserves the stored version when resaving. Generation is not rerun during
+load, so an old world does not acquire trees or different ground. New worlds
+use generator 2. The live biome label follows the stored generator.
+
+The version 6 extension starts immediately after the world payload. Its first 16
 bytes are four little-endian `uint32_t` values: carried-slot count `36`, armor-slot
 count `4`, crafting-input count `4`, and active dropped-item count `0..128`. They
 are followed by exactly 46 stack records in this order:
@@ -74,7 +83,8 @@ are followed by exactly 46 stack records in this order:
 Each stack record is eight bytes: little-endian `uint32_t item` followed by
 little-endian `uint32_t count`. Item IDs are persistent identifiers: `0` is empty,
 IDs 1–6 are the six block items, and IDs 7–10 are the leather helmet, chestplate,
-leggings, and boots. New item IDs must be appended rather than renumbering existing
+leggings, and boots. Version 6 appends oak log `11` and oak leaves `12`; the
+version-5 loader rejects these newer IDs. New item IDs must be appended rather than renumbering existing
 ones. Empty stacks are exactly `(0, 0)`. Ordinary items may hold 1–999 items;
 equipment is nonstackable and therefore has count 1. Armor records also have to
 match their armor slot. The derived crafting result is not serialized.
@@ -90,7 +100,7 @@ are not serialized. Loading compacts saved drops into the first active pool
 entries, sets velocity to zero and pickup delay to 0.5 seconds, and resets both
 clocks to zero.
 
-The version 5 checksum is 32-bit FNV-1a over header bytes 0–67, then every world
+The version 5/6 checksum is 32-bit FNV-1a over header bytes 0–67, then every world
 payload byte, then every extension byte. The checksum field at bytes 68–71 is not
 included. Versions 1–4 retain their original checksum scope of header bytes 0–67
 plus the world payload and require the field at offset 64 to be zero. The checksum
@@ -100,7 +110,7 @@ Before publishing a load, validate the version, generator, dimensions/counts,
 extension length/schema, checksum, block IDs, selected slot, player position and
 body clearance, every inventory stack and armor placement, every dropped stack
 and position, exact payload length, and EOF. Version 1 restricts the selected slot
-to the original first three positions; versions 2–5 accept all nine. Versions
+to the original first three positions; versions 2–6 accept all nine. Versions
 1–4 have no inventory/drop extension: they load the current starter inventory
 (999 of each of the six block items in hotbar slots 0–5 and the four leather
 pieces in carried slots 9–12) and an empty dropped-item pool.
@@ -274,11 +284,7 @@ snapshots, without compression, periodic autosave, backups, or multi-session
 conflict handling. Corrupt saves stop startup; users can choose a different path
 to start a new world without overwriting them.
 
-Next: evaluate greedy meshing against the exposed-face baseline. Merge only
-compatible material/orientation/lighting faces and preserve repeated texture
-UVs; use the same seed, camera views, resolution, configuration, and renderer
-for before/after mesh sizes and frame times. Keep that change separate from
-persistence. In parallel with normal development, interactive playtesting can
-assess movement feel and desktop focus/resize behavior. Streaming, caves,
-trees, gameplay progression, Fire Bugs, Goblins, and the Cupid Sponge remain
-later work. The full roadmap is not complete.
+Greedy meshing and generator-2 oak forests are now implemented. Interactive
+playtesting can assess movement feel and desktop focus/resize behavior.
+Streaming, caves, additional tree families, gameplay progression, Fire Bugs,
+Goblins, and the Cupid Sponge remain later work. The full roadmap is not complete.

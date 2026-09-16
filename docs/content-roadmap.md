@@ -1,9 +1,11 @@
 # Block, building, and item design backlog
 
 Unchecked entries below are planned content and design tasks. Grass, dirt,
-stone, cobblestone, oak planks, and stone bricks are implemented materials.
+stone, cobblestone, oak planks, stone bricks, oak logs, oak leaves, and leafy
+grass are implemented materials.
 The [player inventory](inventory.md) adds a starter leather armor set and a
-four-stone to four-stone-bricks 2×2 recipe. Combat, tools, durability, and the
+four-stone to four-stone-bricks 2×2 recipe; one oak log also makes four planks.
+Combat, tools, durability, and the
 remaining progression are still planned. Keep the existing voxel foundation and develop the colorful,
 explorable Cube World-inspired direction through coherent content sets.
 
@@ -29,10 +31,13 @@ explorable Cube World-inspired direction through coherent content sets.
 ## Trees and plants
 
 - [ ] Oak, birch, pine, willow, and acacia tree sets with recognizable silhouettes.
+  - [x] [Oak forests](oak-forests.md) with deterministic trunks, canopies, and nearby leafy grass.
 - [ ] Logs with bark sides, end grain, and placement orientation.
+  - [x] Upright oak logs with bark sides/end grain, harvesting, placement, and crafting.
 - [x] Oak planks: solid building block, initially in hotbar slot 5.
 - [ ] Stripped logs, bark blocks, and planks for the remaining wood families.
 - [ ] Leaves with defined cutout rendering, transparency sorting needs, and decay rules.
+  - [x] Opaque oak leaf cubes using the supplied artwork; cutout rendering and decay remain planned.
 - [ ] Saplings, roots, branches, and stumps, including growth and harvest behavior.
 - [ ] Tall grass, ferns, reeds, cattails, and dry shrubs.
 - [ ] Flowers in several shapes and colors; include garden planting and dye uses.
@@ -118,7 +123,7 @@ explorable Cube World-inspired direction through coherent content sets.
 - [ ] Draw a small palette and silhouette sheet before producing a large family of assets.
 - [ ] Keep terrain tiles at the existing 16-by-16 size unless a texture-system change includes a new size and compatibility policy.
 - [ ] Design seamless faces, end grain/orientation, top/side/underside mapping, and occasional variants.
-- [x] Render cached 3D inventory icons for the six block materials and starter leather equipment.
+- [x] Render cached 3D inventory icons for the eight block items and starter leather equipment.
 - [x] Share those item models across first-person hands, third-person attachments, and world drops.
 - [ ] Design inventory/held/dropped models for future content sets and supply dedicated equipment artwork.
 - [ ] Add swing, mining, use, equip, and break animations as their gameplay systems become available.

@@ -1,0 +1,79 @@
+{
+  "date": "2026-09-16",
+  "baseline_commit": "b0ffc6a",
+  "candidate": "0cd9384 (feat/oak-forest-chunks implementation)",
+  "final_sort": "stable insertion; merge alternative supplied in merge-sort.patch",
+  "system": "Windows-11-10.0.22621-SP0",
+  "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+  "compiler": "GCC 13.2.0 (Rev2, Built by MSYS2 project), native Release",
+  "renderer": "Intel(R) UHD Graphics",
+  "opengl": "4.6.0 - Build 32.0.101.7077",
+  "resolution": [
+    1280,
+    720
+  ],
+  "field_of_view_degrees": 70,
+  "seed": 0,
+  "trials": 3,
+  "scenarios_per_trial": 10,
+  "warmup_frames_per_scenario": 120,
+  "measured_frames_per_scenario": 600,
+  "mode": "pipelined, swap interval zero, normal atmosphere and HUD",
+  "trial_order_legacy": [
+    [
+      "before",
+      "merge",
+      "insertion"
+    ],
+    [
+      "merge",
+      "insertion",
+      "before"
+    ],
+    [
+      "insertion",
+      "before",
+      "merge"
+    ]
+  ],
+  "trial_order_forest": [
+    [
+      "forest-r6",
+      "forest-r12",
+      "forest-r12-merge"
+    ],
+    [
+      "forest-r12",
+      "forest-r12-merge",
+      "forest-r6"
+    ],
+    [
+      "forest-r12-merge",
+      "forest-r6",
+      "forest-r12"
+    ]
+  ],
+  "source_hash_encoding": "UTF-8 with normalized LF line endings",
+  "source_sha256": {
+    "src/graphics/world_renderer.c": "0236e85d79c06f3b2cbeed8573d8fdc7d2319d5c5cbef2c991ad6e8e30dc4e44",
+    "src/world/world.c": "82b6d07082ff1177384bf159885253e446b887a1c184a3cb9e3d0b3361b01c03",
+    "tests/render_profile.h": "c6ffc0d0dfcde60343638f289a9849fc8e07cabc7e0bd18c8e4d3b744b954f22",
+    "obj/merge-world-renderer.c": "e45b19b5b7e0c858c13f891680e7fa63e9958989e6d79bd2b6201be226643874"
+  },
+  "executable_sha256": {
+    "obj/baseline-r6/benchmark.exe": "f61af026553c5b18744c470e837a58bbbea777a4cd15eded539b6750eaa504a7",
+    "obj/merge-profile/benchmark.exe": "4e9dae9f3354a5c9defb89845314c2fd0794bf09e65dab9e74152d4836fc5857",
+    "obj/insertion-profile/benchmark.exe": "a8fd58ae50abce94afe7074ddd5a21887fc7d0cf7d3c4057c89f0b359aca4512"
+  },
+  "art_sha256": {
+    "oak-log-side.png": "609c562f9f0e505f3a7f92ad4539c9e9d4d7156ca2d2ed57317c2bc24463a6c5",
+    "oak-log-top.png": "ef1b1d133f2692c22dd7ae142a7e924b5abd7fc5380425418f9eed861570895c",
+    "oak-leaves.png": "e6a79f460d6295820e3b600d0ce84932ba7ffdec5f23bab9ac185dc4502644d9"
+  },
+  "raw_data_sha256": "4a709b45193ae8aedef4349d6acd49dc5bc9f70196893633a22e4e709c9f0a0f",
+  "limitations": [
+    "Single host; not input-to-display latency or physical-input feel.",
+    "Legacy candidate generation_ms includes explicit snapshot staging; do not compare it with baseline generation_ms.",
+    "Timing comparisons are whole-renderer measurements, not isolated sort timings."
+  ]
+}
