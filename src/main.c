@@ -10,6 +10,8 @@
 #include "graphics/sky.h"
 #include "graphics/clouds.h"
 #include "graphics/player_renderer.h"
+#include "graphics/inventory_ui.h"
+#include "graphics/item_renderer.h"
 #include "math/math.h"
 #include "utils/inputs.h"
 #include "utils/options.h"
@@ -197,7 +199,11 @@ int main(int argc, char** argv) {
   SkyRenderer sky = {0};
   CloudRenderer clouds = {0};
   PlayerRenderer playerRenderer = {0};
-  if (!initSky(&sky) || !initClouds(&clouds) || !initPlayerRenderer(&playerRenderer, "assets/player/skin.png") || !HUDInit(BUILD_NAME, BUILD_VERSION)) {
+  InventoryUI inventoryUI = {0};
+  if (!initSky(&sky) || !initClouds(&clouds) || !initPlayerRenderer(&playerRenderer, "assets/player/skin.png") || !HUDInit(BUILD_NAME, BUILD_VERSION) ||
+      !inventoryUIInit(&inventoryUI)) {
+    inventoryUICleanup(&inventoryUI);
+    HUDCleanup();
     cleanupPlayerRenderer(&playerRenderer);
     cleanupClouds(&clouds);
     cleanupSky(&sky);
@@ -208,10 +214,13 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
+  GLuint blockIcons[INVENTORY_UI_BLOCK_TEXTURE_COUNT];
+  HUDItemTextures(blockIcons);
 
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
     fprintf(stderr, "Failed to find a clear player spawn\n");
+    inventoryUICleanup(&inventoryUI);
     cleanupPlayerRenderer(&playerRenderer);
     cleanupClouds(&clouds);
     cleanupSky(&sky);
@@ -231,7 +240,8 @@ int main(int argc, char** argv) {
   glfwSetKeyCallback(window, keyCallback);
   glfwSetCharCallback(window, characterCallback);
   glfwSetMouseButtonCallback(window, mouseButtonCallback);
-  setCursorCaptured(window, true);
+  glfwSetScrollCallback(window, scrollCallback);
+  setCursorCaptured(window, !input.inventoryOpen);
   printf("World seed: %u\n", (unsigned)worldSeed());
   if (!options.noSave)
     printf("World file: %s\n", options.worldPath);
@@ -265,11 +275,12 @@ int main(int argc, char** argv) {
     }
 
     processInput(window, &input, deltaTime);
-    bool active = !input.chat.open && glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    bool active = !input.chat.open && !input.inventoryOpen && glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
     advanceDayNight(&input.clock, deltaTime, active);
     advanceClouds(&clouds, deltaTime, active);
     DayNightState daylight = sampleDayNight(dayNightPhase(&input.clock));
     processBlockBreaking(window, &input, deltaTime);
+    droppedItemsAdvance(&input.drops, &input.inventory, inputBodyFeet(&input), deltaTime, active);
     if (input.saveRequested) {
       input.saveRequested = false;
       if (!options.noSave)
@@ -305,18 +316,26 @@ int main(int argc, char** argv) {
     }
 
     renderSky(&sky, &displayCamera, aspect, &daylight);
-    if (showBody)
+    if (showBody) {
       renderPlayerModel(&playerRenderer, inputBodyFeet(&input), &playerPose, view, projection, &daylight);
+      PlayerEquipmentVisuals equipment = {.helmet = input.inventory.armor[INVENTORY_ARMOR_HEAD].count != 0,
+                                          .chestplate = input.inventory.armor[INVENTORY_ARMOR_CHEST].count != 0,
+                                          .leggings = input.inventory.armor[INVENTORY_ARMOR_LEGS].count != 0,
+                                          .boots = input.inventory.armor[INVENTORY_ARMOR_FEET].count != 0};
+      renderPlayerEquipment(&playerRenderer, inputBodyFeet(&input), &playerPose, &equipment, view, projection, &daylight);
+    }
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
-    drawSelection(&selection, view, projection);
+    if (!input.inventoryOpen)
+      drawSelection(&selection, view, projection);
+    renderDroppedItems(&input.drops, view, projection, blockIcons);
     renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
-    if (!showBody)
+    if (!showBody && !input.inventoryOpen)
       renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
     DebugData data = {.camera = &camera,
                       .fps = fps,
                       .visibleBlocks = result.surfaceBlocks,
                       .selection = selection,
-                      .selectedSlot = selectedHotbarSlot(),
+                      .selectedSlot = selectedHotbarSlot(&input),
                       .breakingProgress = blockBreakingProgress(&input.breaking),
                       .captured = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED,
                       .flying = input.flying,
@@ -330,7 +349,15 @@ int main(int argc, char** argv) {
                       .wireframe = input.wireframe,
                       .stats = &result};
     data.chat = &input.chat;
+    data.inventory = &input.inventory;
+    data.inventoryOpen = input.inventoryOpen;
+    data.inventoryNotice = input.inventoryNotice;
     HUDDraw(shaderProgram, &data);
+    if (input.inventoryOpen) {
+      int mouseX = -1, mouseY = -1;
+      inventoryPointer(window, &input, &mouseX, &mouseY);
+      inventoryUIDraw(&inventoryUI, &input.inventory, &playerRenderer, &playerPose, &daylight, blockIcons, width, height, mouseX, mouseY);
+    }
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -338,6 +365,7 @@ int main(int argc, char** argv) {
 
   if (exitStatus == EXIT_SUCCESS && !options.noSave && !saveSession(&options))
     exitStatus = EXIT_FAILURE;
+  inventoryUICleanup(&inventoryUI);
   HUDCleanup();
   cleanupPlayerRenderer(&playerRenderer);
   cleanupClouds(&clouds);

@@ -30,7 +30,7 @@
       exit(EXIT_FAILURE);                                                                                                                                                          \
     }                                                                                                                                                                              \
   } while (0)
-static int failIO, failAllocation;
+static int failIO, failAllocation, failWriteCall;
 void* __real_calloc(size_t count, size_t size);
 
 void* __wrap_calloc(size_t count, size_t size) {
@@ -97,8 +97,9 @@ int __wrap_fsync(int descriptor) {
 size_t __real_fwrite(const void* data, size_t size, size_t count, FILE* file);
 
 size_t __wrap_fwrite(const void* data, size_t size, size_t count, FILE* file) {
-  if (failIO == 1) {
-    failIO = 0;
+  if ((failWriteCall && --failWriteCall == 0) || failIO == 1) {
+    if (failIO == 1)
+      failIO = 0;
     (void)__real_fwrite(data, 1, size * count > 16 ? 16 : 0, file);
     errno = ENOSPC;
     return 0;
@@ -166,6 +167,10 @@ static void put32(unsigned char* p, uint32_t v) {
     p[i] = (unsigned char)(v >> (i * 8));
 }
 
+static uint32_t get32(const unsigned char* p) {
+  return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+
 static void fixChecksum(unsigned char* bytes, size_t size) {
   uint32_t hash = UINT32_C(2166136261);
   for (size_t i = 0; i < size; i++)
@@ -181,12 +186,58 @@ static void sameFile(const char* path, const unsigned char* expected, size_t siz
   free(data);
 }
 
+static unsigned char* legacyCopy(const unsigned char* current, size_t currentSize, uint32_t version, uint32_t selected, size_t* legacySize) {
+  *legacySize = 72 + WORLD_BLOCK_COUNT;
+  CHECK(currentSize >= *legacySize);
+  unsigned char* legacy = malloc(*legacySize);
+  CHECK(legacy);
+  memcpy(legacy, current, *legacySize);
+  put32(legacy + 8, version);
+  put32(legacy + 60, selected);
+  put32(legacy + 64, 0);
+  fixChecksum(legacy, *legacySize);
+  return legacy;
+}
+
+static size_t stackOffset(size_t index) {
+  return 72 + WORLD_BLOCK_COUNT + 16 + index * 8;
+}
+
+static size_t dropOffset(size_t index) {
+  return 72 + WORLD_BLOCK_COUNT + 16 + INVENTORY_SERIALIZED_STACK_COUNT * 8 + index * 20;
+}
+
+static void sameInventory(const Inventory* a, const Inventory* b) {
+  ItemStack left[INVENTORY_SERIALIZED_STACK_COUNT], right[INVENTORY_SERIALIZED_STACK_COUNT];
+  CHECK(inventoryExportStacks(a, left) && inventoryExportStacks(b, right));
+  for (size_t i = 0; i < INVENTORY_SERIALIZED_STACK_COUNT; i++)
+    CHECK(left[i].item == right[i].item && left[i].count == right[i].count);
+}
+
+static void sameDrops(const DroppedItems* a, const DroppedItems* b) {
+  CHECK(a->accumulator == b->accumulator && a->animationSeconds == b->animationSeconds);
+  for (size_t i = 0; i < DROPPED_ITEM_CAPACITY; i++) {
+    const DroppedItem* left = &a->items[i];
+    const DroppedItem* right = &b->items[i];
+    CHECK(left->stack.item == right->stack.item && left->stack.count == right->stack.count && left->position.x == right->position.x && left->position.y == right->position.y &&
+          left->position.z == right->position.z && left->velocity.x == right->velocity.x && left->velocity.y == right->velocity.y && left->velocity.z == right->velocity.z &&
+          left->pickupDelay == right->pickupDelay && left->active == right->active);
+  }
+}
+
+static void sameSavedPlayer(const SavedPlayer* a, const SavedPlayer* b) {
+  CHECK(a->feet.x == b->feet.x && a->feet.y == b->feet.y && a->feet.z == b->feet.z && a->yaw == b->yaw && a->pitch == b->pitch && a->selectedSlot == b->selectedSlot);
+  sameInventory(&a->inventory, &b->inventory);
+  sameDrops(&a->drops, &b->drops);
+}
+
 static void rejected(const char* path, const unsigned char* bytes, size_t size, uint64_t hash) {
   writeFile(path, bytes, size);
   SavedPlayer output = {.feet = {7, 8, 9}, .yaw = 12, .pitch = 13, .selectedSlot = 1}, previous = output;
   char error[256];
   CHECK(loadWorld(path, &output, error, sizeof(error)) != SAVE_OK);
-  CHECK(error[0] && memcmp(&output, &previous, sizeof(output)) == 0);
+  CHECK(error[0]);
+  sameSavedPlayer(&output, &previous);
   CHECK(worldSeed() == 42 && fingerprint() == hash);
   sameFile(path, bytes, size);
 }
@@ -218,6 +269,21 @@ int main(void) {
   CHECK(snprintf(nested, sizeof(nested), "%s/previous.kcw", blocked) > 0);
   CHECK(initChunksSeeded(42));
   SavedPlayer player = {.feet = {4.6f, 1, 4.5f}, .yaw = 357.5f, .pitch = -35, .selectedSlot = 2};
+  inventoryInit(&player.inventory);
+  player.inventory.carried[20] = (ItemStack){ITEM_DIRT, 23};
+  player.inventory.armor[INVENTORY_ARMOR_HEAD] = (ItemStack){ITEM_LEATHER_HELMET, 1};
+  player.inventory.armor[INVENTORY_ARMOR_CHEST] = (ItemStack){ITEM_LEATHER_CHESTPLATE, 1};
+  player.inventory.armor[INVENTORY_ARMOR_LEGS] = (ItemStack){ITEM_LEATHER_LEGGINGS, 1};
+  player.inventory.armor[INVENTORY_ARMOR_FEET] = (ItemStack){ITEM_LEATHER_BOOTS, 1};
+  player.inventory.offhand = (ItemStack){ITEM_STONE_BRICKS, 11};
+  player.inventory.crafting[0] = (ItemStack){ITEM_STONE, 2};
+  player.inventory.crafting[1] = (ItemStack){ITEM_DIRT, 5};
+  player.inventory.crafting[2] = (ItemStack){ITEM_OAK_PLANKS, 7};
+  player.inventory.crafting[3] = (ItemStack){ITEM_COBBLESTONE, 3};
+  player.inventory.cursor = (ItemStack){ITEM_COBBLESTONE, 19};
+  player.drops.items[0] = (DroppedItem){.stack = {ITEM_STONE, 12}, .position = {1.25f, 20.5f, -2.75f}, .velocity = {1, 2, 3}, .pickupDelay = 3, .active = true};
+  player.drops.items[7] = (DroppedItem){.stack = {ITEM_LEATHER_BOOTS, 1}, .position = {-127.5f, 63.5f, 127.5f}, .velocity = {-1, 0, 1}, .pickupDelay = 1, .active = true};
+  CHECK(inventoryValidate(&player.inventory) && droppedItemsValid(&player.drops));
   CHECK(loadWorld(path, &player, error, sizeof(error)) == SAVE_NOT_FOUND);
   CHECK(setBlock(&(Vec3i){4, 0, 4}, BLOCK_STONE));
   for (int y = 1; y <= 3; y++)
@@ -230,14 +296,18 @@ int main(void) {
   CHECK(saveWorld(path, &player, error, sizeof(error)) == SAVE_OK);
   size_t size;
   unsigned char* original = readFile(path, &size);
-  CHECK(size == 72 + 256 * 64 * 256 && memcmp(original, "KCRFTSV\0", 8) == 0);
-  CHECK(original[8] == 4 && original[60] == 3);
+  CHECK(size == 72 + WORLD_BLOCK_COUNT + 384 + 2 * 20 && memcmp(original, "KCRFTSV\0", 8) == 0);
+  CHECK(original[8] == 5 && original[60] == 3 && get32(original + 64) == 424);
+  CHECK(get32(original + 72 + WORLD_BLOCK_COUNT) == INVENTORY_CARRIED_SLOT_COUNT);
+  CHECK(get32(original + 72 + WORLD_BLOCK_COUNT + 12) == 2);
+  CHECK(get32(original + stackOffset(45)) == ITEM_COBBLESTONE && get32(original + stackOffset(45) + 4) == 19);
   const int allocationFailures[] = {1, 17, 256};
   for (size_t i = 0; i < sizeof(allocationFailures) / sizeof(allocationFailures[0]); i++) {
     SavedPlayer unchanged = player;
     failAllocation = allocationFailures[i];
     CHECK(loadWorld(path, &unchanged, error, sizeof(error)) == SAVE_NO_MEMORY);
-    CHECK(failAllocation == 0 && error[0] && memcmp(&unchanged, &player, sizeof(player)) == 0);
+    CHECK(failAllocation == 0 && error[0]);
+    sameSavedPlayer(&unchanged, &player);
     CHECK(worldSeed() == 42 && fingerprint() == hash);
   }
 
@@ -245,7 +315,14 @@ int main(void) {
   SavedPlayer loaded = {0};
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
   CHECK(worldSeed() == 42 && fingerprint() == hash && playerCanOccupy(loaded.feet));
-  CHECK(memcmp(&player, &loaded, sizeof(player)) == 0);
+  CHECK(!memcmp(&player.feet, &loaded.feet, sizeof(player.feet)) && player.yaw == loaded.yaw && player.pitch == loaded.pitch && player.selectedSlot == loaded.selectedSlot);
+  sameInventory(&player.inventory, &loaded.inventory);
+  CHECK(loaded.drops.items[0].active && loaded.drops.items[0].stack.item == ITEM_STONE && loaded.drops.items[0].stack.count == 12);
+  CHECK(!memcmp(&loaded.drops.items[0].position, &player.drops.items[0].position, sizeof(Vec3)) && loaded.drops.items[0].velocity.x == 0 && loaded.drops.items[0].velocity.y == 0 &&
+        loaded.drops.items[0].velocity.z == 0 && loaded.drops.items[0].pickupDelay == 0.5f);
+  CHECK(loaded.drops.items[1].active && loaded.drops.items[1].stack.item == ITEM_LEATHER_BOOTS && loaded.drops.items[1].stack.count == 1);
+  CHECK(!memcmp(&loaded.drops.items[1].position, &player.drops.items[7].position, sizeof(Vec3)) && !loaded.drops.items[2].active);
+  CHECK(loaded.drops.accumulator == 0 && loaded.drops.animationSeconds == 0 && droppedItemsValid(&loaded.drops));
   for (int x = 0; x < 16; x++)
     for (int z = 0; z < 16; z++)
       CHECK(getChunk(&(Vec2i){x, z})->dirty);
@@ -254,38 +331,48 @@ int main(void) {
 
   unsigned char* bad = malloc(size + 1);
   CHECK(bad);
+  Inventory legacyDefaults;
+  inventoryInit(&legacyDefaults);
   // The previous format's material IDs map to the same first three slots.
   for (int material = 1; material <= 3; material++) {
-    memcpy(bad, original, size);
-    put32(bad + 8, 1);
-    put32(bad + 60, (uint32_t)material);
-    fixChecksum(bad, size);
-    writeFile(path, bad, size);
+    size_t legacySize;
+    unsigned char* legacy = legacyCopy(original, size, 1, (uint32_t)material, &legacySize);
+    writeFile(path, legacy, legacySize);
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(loaded.selectedSlot == material - 1 && loaded.yaw == player.yaw && loaded.pitch == player.pitch);
     CHECK(!memcmp(&loaded.feet, &player.feet, sizeof(player.feet)) && fingerprint() == hash);
+    sameInventory(&loaded.inventory, &legacyDefaults);
+    CHECK(!loaded.drops.items[0].active && droppedItemsValid(&loaded.drops));
+    free(legacy);
   }
 
-  put32(bad + 60, 4);
-  fixChecksum(bad, size);
-  rejected(path, bad, size, hash);
+  size_t legacySize;
+  unsigned char* legacy = legacyCopy(original, size, 1, 4, &legacySize);
+  rejected(path, legacy, legacySize, hash);
+  free(legacy);
   // Version 2 supports all nine selected slots, but only the original blocks.
   for (int slot = 1; slot <= 9; slot++) {
-    memcpy(bad, original, size);
-    put32(bad + 8, 2);
-    put32(bad + 60, (uint32_t)slot);
-    fixChecksum(bad, size);
-    writeFile(path, bad, size);
+    legacy = legacyCopy(original, size, 2, (uint32_t)slot, &legacySize);
+    writeFile(path, legacy, legacySize);
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(loaded.selectedSlot == slot - 1 && fingerprint() == hash);
+    sameInventory(&loaded.inventory, &legacyDefaults);
+    CHECK(!loaded.drops.items[0].active);
+    free(legacy);
   }
 
+  writeFile(path, original, size);
+  CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
   for (int slot = 0; slot < 9; slot++) {
-    SavedPlayer selection = player;
+    SavedPlayer selection = loaded;
     selection.selectedSlot = slot;
     CHECK(saveWorld(path, &selection, error, sizeof(error)) == SAVE_OK);
-    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
-    CHECK(!memcmp(&loaded, &selection, sizeof(loaded)) && fingerprint() == hash);
+    SavedPlayer selected = {0};
+    CHECK(loadWorld(path, &selected, error, sizeof(error)) == SAVE_OK);
+    CHECK(selected.selectedSlot == slot && !memcmp(&selected.feet, &selection.feet, sizeof(selection.feet)) && selected.yaw == selection.yaw && selected.pitch == selection.pitch &&
+          fingerprint() == hash);
+    sameInventory(&selected.inventory, &selection.inventory);
+    CHECK(selected.drops.items[0].active && selected.drops.items[1].active && !selected.drops.items[2].active);
   }
 
   // Cobblestone retains its own persisted ID, including at a negative seam.
@@ -296,18 +383,18 @@ int main(void) {
   CHECK(saveWorld(path, &cobblePlayer, error, sizeof(error)) == SAVE_OK);
   size_t cobbleSize;
   unsigned char* cobbleSave = readFile(path, &cobbleSize);
-  CHECK(cobbleSize == size && cobbleSave[8] == 4 && cobbleSave[60] == 4);
-  put32(cobbleSave + 8, 3);
-  fixChecksum(cobbleSave, cobbleSize);
-  writeFile(path, cobbleSave, cobbleSize);
+  CHECK(cobbleSize == size && cobbleSave[8] == 5 && cobbleSave[60] == 4);
+  unsigned char* cobbleLegacy = legacyCopy(cobbleSave, cobbleSize, 3, 4, &legacySize);
+  writeFile(path, cobbleLegacy, legacySize);
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
   CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
   CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == BLOCK_COBBLESTONE && loaded.selectedSlot == 3 && fingerprint() == cobbleHash);
+  sameInventory(&loaded.inventory, &legacyDefaults);
+  free(cobbleLegacy);
   for (int version = 1; version <= 2; version++) {
-    put32(cobbleSave + 8, (uint32_t)version);
-    put32(cobbleSave + 60, 3);
-    fixChecksum(cobbleSave, cobbleSize);
-    rejected(path, cobbleSave, cobbleSize, cobbleHash);
+    cobbleLegacy = legacyCopy(cobbleSave, cobbleSize, (uint32_t)version, 3, &legacySize);
+    rejected(path, cobbleLegacy, legacySize, cobbleHash);
+    free(cobbleLegacy);
   }
 
   free(cobbleSave);
@@ -319,15 +406,20 @@ int main(void) {
     CHECK(saveWorld(path, &builder, error, sizeof(error)) == SAVE_OK);
     size_t buildingSize;
     unsigned char* buildingSave = readFile(path, &buildingSize);
-    CHECK(buildingSize == size && buildingSave[8] == 4 && buildingSave[60] == id);
+    CHECK(buildingSize == size && buildingSave[8] == 5 && buildingSave[60] == id);
     CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_AIR));
     CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
     CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
+    unsigned char* buildingLegacy = legacyCopy(buildingSave, buildingSize, 4, (uint32_t)id, &legacySize);
+    writeFile(path, buildingLegacy, legacySize);
+    CHECK(loadWorld(path, &loaded, error, sizeof(error)) == SAVE_OK);
+    CHECK(getBlock(&(Vec3i){-1, 40, -1})->id == id && loaded.selectedSlot == id - 1 && fingerprint() == buildingHash);
+    sameInventory(&loaded.inventory, &legacyDefaults);
+    free(buildingLegacy);
     for (int version = 1; version <= 3; version++) {
-      put32(buildingSave + 8, (uint32_t)version);
-      put32(buildingSave + 60, 3);
-      fixChecksum(buildingSave, buildingSize);
-      rejected(path, buildingSave, buildingSize, buildingHash);
+      buildingLegacy = legacyCopy(buildingSave, buildingSize, (uint32_t)version, 3, &legacySize);
+      rejected(path, buildingLegacy, legacySize, buildingHash);
+      free(buildingLegacy);
     }
 
     free(buildingSave);
@@ -338,7 +430,7 @@ int main(void) {
   const struct {
     size_t offset;
     uint32_t value;
-  } cases[] = {{0, 0},           {8, 5},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
+  } cases[] = {{0, 0},           {8, 6},  {12, 2},          {20, 512},        {24, 0}, {28, 32}, {32, 255},        {36, UINT32_MAX}, {40, 0x7f7fffff},
                {44, 0x7fc00000}, {44, 0}, {52, 0x43b40000}, {56, 0x42b40000}, {60, 0}, {60, 10}, {60, UINT32_MAX}, {64, 1},          {72, 255}};
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
@@ -348,10 +440,53 @@ int main(void) {
     rejected(path, bad, size, hash);
   }
 
+  const size_t extension = 72 + WORLD_BLOCK_COUNT;
+
+  const struct {
+    size_t offset;
+    uint32_t value;
+  } extensionCases[] = {{extension, 35},
+                        {extension + 4, 5},
+                        {extension + 8, 3},
+                        {extension + 12, DROPPED_ITEM_CAPACITY + 1},
+                        {stackOffset(0), ITEM_ID_LAST + 1},
+                        {stackOffset(0) + 4, INVENTORY_STACK_MAX + 1},
+                        {stackOffset(36), ITEM_LEATHER_BOOTS},
+                        {stackOffset(36) + 4, 2},
+                        {stackOffset(45), UINT16_MAX + 1u},
+                        {dropOffset(0), UINT32_C(0x7fc00000)},
+                        {dropOffset(0) + 4, UINT32_C(0x42800000)},
+                        {dropOffset(0) + 12, ITEM_ID_LAST + 1},
+                        {dropOffset(0) + 16, INVENTORY_STACK_MAX + 1}};
+
+  for (size_t i = 0; i < sizeof(extensionCases) / sizeof(extensionCases[0]); i++) {
+    memcpy(bad, original, size);
+    put32(bad + extensionCases[i].offset, extensionCases[i].value);
+    fixChecksum(bad, size);
+    rejected(path, bad, size, hash);
+  }
+
+  memcpy(bad, original, size);
+  put32(bad + stackOffset(0), ITEM_NONE); // Empty item with the original nonzero count.
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+  memcpy(bad, original, size);
+  put32(bad + stackOffset(0) + 4, 0); // Nonempty item with an empty count.
+  fixChecksum(bad, size);
+  rejected(path, bad, size, hash);
+
+  const uint32_t extensionSizes[] = {383, 384 + DROPPED_ITEM_CAPACITY * 20 + 1, get32(original + 64) - 1, get32(original + 64) + 1};
+  for (size_t i = 0; i < sizeof(extensionSizes) / sizeof(extensionSizes[0]); i++) {
+    memcpy(bad, original, size);
+    put32(bad + 64, extensionSizes[i]);
+    fixChecksum(bad, size);
+    rejected(path, bad, size, hash);
+  }
+
   memcpy(bad, original, size);
   bad[68] ^= 1;
   rejected(path, bad, size, hash);
-  const size_t lengths[] = {0, 7, 71, 72, 4194375};
+  const size_t lengths[] = {0, 7, 71, 72, 72 + WORLD_BLOCK_COUNT - 1, 72 + WORLD_BLOCK_COUNT, 72 + WORLD_BLOCK_COUNT + 383, size - 1};
   for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); i++)
     rejected(path, original, lengths[i], hash);
   memcpy(bad, original, size);
@@ -369,13 +504,37 @@ int main(void) {
     sameFile(path, original, size);
   }
 
+  invalid = player;
+  invalid.inventory.carried[0].count = INVENTORY_STACK_MAX + 1;
+  CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
+  sameFile(path, original, size);
+  invalid = player;
+  invalid.inventory.armor[INVENTORY_ARMOR_HEAD] = (ItemStack){ITEM_LEATHER_BOOTS, 1};
+  CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
+  sameFile(path, original, size);
+  invalid = player;
+  invalid.drops.items[0].position.y = NAN;
+  CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
+  sameFile(path, original, size);
+
+  unsigned char* oldSave = legacyCopy(original, size, 4, 3, &legacySize);
+  writeFile(path, oldSave, legacySize);
+  invalid = player;
+  invalid.inventory.cursor.count = INVENTORY_STACK_MAX + 1;
+  CHECK(saveWorld(path, &invalid, error, sizeof(error)) == SAVE_INVALID);
+  sameFile(path, oldSave, legacySize);
   CHECK(setBlock(&(Vec3i){-1, 40, -1}, BLOCK_STONE));
   for (int failure = 1; failure <= 5; failure++) {
     failIO = failure;
     CHECK(saveWorld(path, &player, error, sizeof(error)) == SAVE_IO_ERROR);
     CHECK(failIO == 0 && error[0]);
-    sameFile(path, original, size);
+    sameFile(path, oldSave, legacySize);
   }
+  failWriteCall = 3;
+  CHECK(saveWorld(path, &player, error, sizeof(error)) == SAVE_IO_ERROR);
+  CHECK(failWriteCall == 0 && error[0]);
+  sameFile(path, oldSave, legacySize);
+  free(oldSave);
 
   CHECK(makeDirectory(blocked) == 0);
   writeFile(nested, original, size);

@@ -156,7 +156,8 @@ static bool validUniforms(const PlayerRenderer* renderer) {
                              renderer->partSizeLocation,           renderer->partPivotLocation,      renderer->partCenterLocation,     renderer->partTranslationLocation,
                              renderer->partRotationLocation,       renderer->partScaleLocation,      renderer->shellInflationLocation, renderer->viewModelLocation,
                              renderer->viewModelTransformLocation, renderer->lightDirectionLocation, renderer->lightColorLocation,     renderer->skyColorLocation,
-                             renderer->groundColorLocation,        renderer->outerLayerLocation,     renderer->outerPassLocation,      renderer->skinLocation};
+                             renderer->groundColorLocation,        renderer->outerLayerLocation,     renderer->outerPassLocation,      renderer->skinLocation,
+                             renderer->solidColorEnabledLocation,  renderer->solidColorLocation};
   for (size_t i = 0; i < sizeof(locations) / sizeof(*locations); i++)
     if (locations[i] < 0)
       return false;
@@ -255,6 +256,8 @@ bool initPlayerRenderer(PlayerRenderer* renderer, const char* skinPath) {
   PLAYER_UNIFORM(outerLayerLocation, "outerLayer");
   PLAYER_UNIFORM(outerPassLocation, "outerPass");
   PLAYER_UNIFORM(skinLocation, "skin");
+  PLAYER_UNIFORM(solidColorEnabledLocation, "solidColorEnabled");
+  PLAYER_UNIFORM(solidColorLocation, "solidColor");
 #undef PLAYER_UNIFORM
   glUniform1i(renderer->skinLocation, 0);
   renderer->fractionalAlpha = false;
@@ -341,7 +344,20 @@ static void beginPlayerDraw(const PlayerRenderer* renderer, const DayNightState*
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glUniform1i(renderer->solidColorEnabledLocation, GL_FALSE);
   setLighting(renderer, daylight);
+}
+
+static void drawEquipmentPart(const PlayerRenderer* renderer, PlayerModelPart parent, const PlayerModelPose* pose, Vec3 size, Vec3 center, float inflation) {
+  setPart(renderer, parent, pose, PLAYER_SKIN_BASE, false, 0);
+  glUniform3f(renderer->partSizeLocation, size.x, size.y, size.z);
+  glUniform3f(renderer->partCenterLocation, center.x, center.y, center.z);
+  glUniform1f(renderer->shellInflationLocation, inflation);
+  glDrawArrays(GL_TRIANGLES, cubeFirstVertex(PLAYER_MODEL_HEAD, PLAYER_SKIN_BASE), VERTICES_PER_CUBE);
+}
+
+static void setEquipmentColor(const PlayerRenderer* renderer, float r, float g, float b) {
+  glUniform4f(renderer->solidColorLocation, r, g, b, 1.0f);
 }
 
 void renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const Mat4 view, const Mat4 projection, const DayNightState* daylight) {
@@ -381,6 +397,79 @@ void renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerMo
   }
 
   glDepthMask(GL_FALSE);
+
+  restoreRenderState(&state);
+}
+
+void renderPlayerEquipment(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const PlayerEquipmentVisuals* equipment, const Mat4 view, const Mat4 projection,
+                           const DayNightState* daylight) {
+  if (!rendererReady(renderer, pose, daylight) || !equipment || (!equipment->helmet && !equipment->chestplate && !equipment->leggings && !equipment->boots))
+    return;
+
+  PlayerRenderState state;
+  snapshotRenderState(&state);
+  beginPlayerDraw(renderer, daylight);
+
+  Mat4 viewProjection;
+  mat4_multiply(viewProjection, projection, view);
+  glUniformMatrix4fv(renderer->viewProjectionLocation, 1, GL_FALSE, viewProjection);
+  glUniform3f(renderer->feetLocation, feet.x, feet.y, feet.z);
+  glUniform1f(renderer->rootYawLocation, pose->rootYaw);
+  glUniform1f(renderer->rootScaleLocation, pose->rootScale);
+  glUniform1i(renderer->solidColorEnabledLocation, GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND);
+
+  const float pixel = PLAYER_HEIGHT / 32.0f;
+  if (equipment->leggings) {
+    setEquipmentColor(renderer, 0.38f, 0.22f, 0.12f);
+    for (int part = PLAYER_MODEL_RIGHT_LEG; part <= PLAYER_MODEL_LEFT_LEG; part++) {
+      const PlayerPartSpec* spec = playerModelPartSpec((PlayerModelPart)part);
+      if (spec)
+        drawEquipmentPart(renderer, (PlayerModelPart)part, pose, spec->size, spec->centerOffset, 0.40f * pixel);
+    }
+  }
+
+  if (equipment->boots) {
+    setEquipmentColor(renderer, 0.30f, 0.17f, 0.09f);
+    for (int part = PLAYER_MODEL_RIGHT_LEG; part <= PLAYER_MODEL_LEFT_LEG; part++) {
+      const PlayerPartSpec* spec = playerModelPartSpec((PlayerModelPart)part);
+      if (!spec)
+        continue;
+      Vec3 size = {spec->size.x, 5.0f * pixel, spec->size.z};
+      Vec3 center = {spec->centerOffset.x, -9.5f * pixel, spec->centerOffset.z};
+      drawEquipmentPart(renderer, (PlayerModelPart)part, pose, size, center, 0.65f * pixel);
+    }
+  }
+
+  if (equipment->chestplate) {
+    setEquipmentColor(renderer, 0.46f, 0.28f, 0.15f);
+    const PlayerPartSpec* torso = playerModelPartSpec(PLAYER_MODEL_TORSO);
+    if (torso)
+      drawEquipmentPart(renderer, PLAYER_MODEL_TORSO, pose, torso->size, torso->centerOffset, 0.55f * pixel);
+    for (int part = PLAYER_MODEL_RIGHT_ARM; part <= PLAYER_MODEL_LEFT_ARM; part++) {
+      const PlayerPartSpec* spec = playerModelPartSpec((PlayerModelPart)part);
+      if (spec)
+        drawEquipmentPart(renderer, (PlayerModelPart)part, pose, spec->size, spec->centerOffset, 0.45f * pixel);
+    }
+  }
+
+  if (equipment->helmet) {
+    setEquipmentColor(renderer, 0.42f, 0.25f, 0.13f);
+    const PlayerPartSpec* head = playerModelPartSpec(PLAYER_MODEL_HEAD);
+    if (head) {
+      // Keep the skin's face visible. A shallow crown plus back/side bands and a
+      // narrow brow read as a leather cap without replacing the head texture.
+      drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){8 * pixel, 2 * pixel, 8 * pixel}, (Vec3){0, 7 * pixel, 0}, 0.65f * pixel);
+      drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){8 * pixel, 5 * pixel, 1 * pixel}, (Vec3){0, 3.5f * pixel, 3.5f * pixel}, 0.55f * pixel);
+      drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){1 * pixel, 5 * pixel, 7 * pixel}, (Vec3){3.5f * pixel, 3.5f * pixel, 0}, 0.55f * pixel);
+      drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){1 * pixel, 5 * pixel, 7 * pixel}, (Vec3){-3.5f * pixel, 3.5f * pixel, 0}, 0.55f * pixel);
+      drawEquipmentPart(renderer, PLAYER_MODEL_HEAD, pose, (Vec3){6 * pixel, 1 * pixel, 1 * pixel}, (Vec3){0, 5.5f * pixel, -3.5f * pixel}, 0.55f * pixel);
+    }
+  }
 
   restoreRenderState(&state);
 }

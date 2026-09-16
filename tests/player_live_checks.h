@@ -3,6 +3,7 @@
 #include <string.h>
 
 static int playerRenderedFrame = -1;
+static int inventoryPreviewFrame = -1;
 static unsigned liveBodyFrames;
 static uint64_t punchSilhouettes[3];
 
@@ -72,6 +73,20 @@ static unsigned changedPlayerPixels(const unsigned char* before, const unsigned 
 void __real_renderPlayerModel(const PlayerRenderer*, Vec3, const PlayerModelPose*, const Mat4, const Mat4, const DayNightState*);
 
 void __wrap_renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, const Mat4 view, const Mat4 projection, const DayNightState* daylight) {
+  if (frame >= 102) {
+    GLint framebuffer;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+    if (framebuffer) {
+      CHECK(inventoryPreviewFrame != frame);
+      inventoryPreviewFrame = frame;
+      CHECK(feet.x == 0 && feet.y == 0 && feet.z == 0);
+    } else {
+      CHECK(playerRenderedFrame != frame);
+      playerRenderedFrame = frame;
+    }
+    __real_renderPlayerModel(renderer, feet, pose, view, projection, daylight);
+    return;
+  }
   CHECK(frame >= 93 && frame <= 98 && playerRenderedFrame != frame);
   playerRenderedFrame = frame;
   liveBodyFrames++;

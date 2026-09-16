@@ -11,6 +11,8 @@ uniform vec3 groundColor;
 uniform bool outerLayer;
 uniform int outerPass;
 uniform bool viewModel;
+uniform bool solidColorEnabled;
+uniform vec4 solidColor;
 
 out vec4 FragColor;
 
@@ -26,12 +28,12 @@ vec3 linearToSrgb(vec3 color) {
 }
 
 void main() {
-    vec4 texel = texture(skin, TexCoord);
+    vec4 texel = solidColorEnabled ? solidColor : texture(skin, TexCoord);
     if (texel.a <= 0.001)
         discard;
-    if (outerLayer && outerPass == 1 && texel.a < 0.999)
+    if (!solidColorEnabled && outerLayer && outerPass == 1 && texel.a < 0.999)
         discard;
-    if (outerLayer && outerPass == 2 && texel.a >= 0.999)
+    if (!solidColorEnabled && outerLayer && outerPass == 2 && texel.a >= 0.999)
         discard;
 
     vec3 normal = normalize(Normal);
@@ -39,5 +41,5 @@ void main() {
     vec3 ambient = mix(groundColor, skyColor, normal.y * 0.5 + 0.5);
     vec3 diffuse = max(dot(normal, direction), 0.0) * lightColor;
     vec3 shaded = srgbToLinear(texel.rgb) * (ambient + diffuse);
-    FragColor = vec4(linearToSrgb(shaded), outerLayer && outerPass == 2 ? texel.a : 1.0);
+    FragColor = vec4(linearToSrgb(shaded), texel.a);
 }

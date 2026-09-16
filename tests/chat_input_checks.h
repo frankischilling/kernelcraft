@@ -15,7 +15,7 @@ static void chatFrame(GLFWwindow* window) {
   if (frame == 74) {
     beforeChatPosition = input->camera->position;
     beforeChatTick = input->clock.tick;
-    beforeChatSlot = selectedHotbarSlot();
+    beforeChatSlot = selectedHotbarSlot(input);
     beforeChatDebug = input->showDebug;
     beforeChatWireframe = input->wireframe;
     input->saveRequested = false;
@@ -33,7 +33,7 @@ static void chatFrame(GLFWwindow* window) {
     for (size_t i = 0; i < sizeof(blocked) / sizeof(blocked[0]); i++)
       key(window, blocked[i], 0, GLFW_PRESS, 0);
     CHECK(input->flying && !input->saveRequested && !input->jumpRequested && !input->runInput.running);
-    CHECK(selectedHotbarSlot() == beforeChatSlot && input->showDebug == beforeChatDebug && input->wireframe == beforeChatWireframe);
+    CHECK(selectedHotbarSlot(input) == beforeChatSlot && input->showDebug == beforeChatDebug && input->wireframe == beforeChatWireframe);
     float yaw = input->camera->yaw, pitch = input->camera->pitch;
     mouseCallback(window, 6000, 7000);
     mouseCallback(window, 9000, 11000);
