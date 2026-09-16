@@ -13,6 +13,8 @@
     }                                                                                                                                                                              \
   } while (0)
 
+#include "player_model_checks.h"
+
 static void clearWorld(void) {
   for (int x = 0; x < CHUNKS_PER_AXIS; x++)
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -365,6 +367,7 @@ int main(void) {
   testMovementSpeeds();
   testRunTaps();
   testCrouchLedges();
+  testPlayerModel();
   cleanupChunks();
   Player player;
   CHECK(!playerFindSpawn(&player, (Vec3){0}) && !playerCanOccupy((Vec3){0}));

@@ -43,6 +43,14 @@ try {
         Invoke-Expected 1 @('--no-save') 'Failed to initialize sky rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
         Copy-Item -LiteralPath (Join-Path $runtime "assets/sky/$moon.png") -Destination $missingMoon
     }
+    $missingSkin = Join-Path $missingGame 'assets/player/skin.png'
+    Remove-Item -LiteralPath $missingSkin
+    Invoke-Expected 1 @('--no-save') 'Player skin must be a 64x64 RGBA image' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+    Copy-Item -LiteralPath (Join-Path $runtime 'assets/textures/dirt.png') -Destination $missingSkin
+    Invoke-Expected 1 @('--no-save') 'Player skin must be a 64x64 RGBA image' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+    Copy-Item -LiteralPath (Join-Path $runtime 'assets/player/skin.png') -Destination $missingSkin
+    Remove-Item -LiteralPath (Join-Path $missingGame 'assets/shaders/player_fragment.glsl')
+    Invoke-Expected 1 @('--no-save') 'Failed to initialize player rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
     $env:KERNELCRAFT_TEST_WORLD = Join-Path $fixture 'world with spaces.kcw'
     $env:KERNELCRAFT_TEST_RESTART = 'save'
     Invoke-Expected 0 @('--world', 'world with spaces.kcw', '--seed', '42')
