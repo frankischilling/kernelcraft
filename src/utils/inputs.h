@@ -27,6 +27,19 @@ typedef struct {
   InventorySlotRef slots[INVENTORY_DRAG_SLOT_MAX];
 } InventoryGesture;
 
+typedef enum {
+  BLOCK_PLACEMENT_HAND_NONE = 0,
+  BLOCK_PLACEMENT_HAND_MAIN,
+  BLOCK_PLACEMENT_HAND_OFFHAND,
+} BlockPlacementHand;
+
+typedef struct {
+  uint16_t item;
+  BlockPlacementHand hand;
+  double elapsed;
+  bool active;
+} BlockPlacementAnimation;
+
 typedef struct {
   Camera* camera;
   Chat chat;
@@ -34,6 +47,8 @@ typedef struct {
   Player player;
   PlayerRunInput runInput;
   BlockBreaking breaking;
+  double breakVisualElapsed;
+  BlockPlacementAnimation placement;
   PlayerModelAnimation animation;
   CameraView view;
   Inventory inventory;
@@ -64,6 +79,9 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
 // Feet and visual pose share the same exact flight offset used by saving.
 Vec3 inputBodyFeet(const InputState* input);
 void inputPlayerPose(const InputState* input, PlayerModelPose* pose);
+// Resolves the visible first-person/third-person hands, retaining the last
+// consumed block until its placement swing returns to rest.
+void inputHeldItems(const InputState* input, ItemStack* mainHand, ItemStack* offhand);
 // Discard simulation backlog, queued jumps, run/tap state, and cached mouse position.
 // Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);

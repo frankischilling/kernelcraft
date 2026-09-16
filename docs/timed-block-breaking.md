@@ -9,10 +9,12 @@ the crosshair fills until the block disappears. Right mouse places once per pres
 | Grass | 0.75 seconds |
 | Stone | 1.5 seconds |
 | Cobblestone | 2 seconds |
+| Oak planks | 1 second |
+| Stone bricks | 2 seconds |
 
 Walking, crouching, running, and debug flight use these same rates. Every current
-hotbar slot uses the hand rate, including empty slots. Suitable tools, drops,
-inventory, and crack textures remain planned.
+hotbar slot uses the hand rate, including empty slots. Suitable tools and crack
+textures remain planned.
 
 Releasing left mouse discards progress. Losing reach, looking away, aiming at a
 different cell, or observing a different material in the cell also restarts from
@@ -38,7 +40,12 @@ error. Completion is observed on the first frame that reaches the duration.
 The game loop updates breaking after movement, using the current eye and DDA
 selection, before saving and rendering. A completed break calls `setBlock`, so
 the existing bounds validation and dirty-neighbor propagation apply. Rendering
-rebuilds only dirty chunks; partial progress never rebuilds a terrain mesh.
+rebuilds only dirty chunks; partial progress never rebuilds a terrain mesh. The
+visible hand swing has its own elapsed presentation time while left mouse remains
+held. Gameplay progress still resets immediately when a block is removed, while
+the held item can finish its current strike/recovery cycle without snapping to
+the resting pose on the removal frame. Release, pause, hotbar changes, and the
+other existing cancellation paths clear that presentation timer with the hold.
 
 The HUD draws the progress bar using the existing compatibility renderer and
 restores caller OpenGL state. The bar uses the reserved band above the crosshair
@@ -58,7 +65,8 @@ versions. Use `--no-save` or an explicit temporary `--world` path for checks.
   progress carried into the next block.
 - `tests/app_smoke.c`: real callbacks, all pause paths, slot/right-click/flight
   cancellation, empty-slot breaking, held progress across the actual frame loop,
-  HUD pixels, completed edits, and clean neighbor meshes after rendering.
+  HUD pixels, completed edits, a non-rest held-item pose on the removal frame,
+  and clean neighbor meshes after rendering.
 - `tests/test_hud.c`: partial bar pixels, visibility while captured, responsive
   landscape/portrait layouts, crosshair and hotbar preservation, and GL state.
 - `tests/app_persistence.c`: a timed callback edit followed by F5, normal-exit
@@ -70,7 +78,9 @@ chosen hand rates feel during interactive play.
 
 ## Validation record
 
-The following commands passed for this change:
+The original timed-breaking implementation passed the following command set.
+Later held-item animation changes remain covered by the same repository suites;
+their current results belong with the corresponding branch or pull request.
 
 | Environment | Command | Result |
 | --- | --- | --- |

@@ -104,6 +104,10 @@ the world. World and inventory-preview items follow the corresponding arm's
 joint transforms, including the root pose. The inventory portrait uses neutral
 standing proportions, bounded mouse look, and studio lighting so its head and
 feet remain framed beside the armor slots while world simulation continues.
+Held blocks share the bare hand's asymmetric strike/recovery curve during
+breaking. A successful right-click placement gives the source hand a short
+one-shot swing, including offhand fallback, and retains a consumed last block
+visually until the swing returns to rest.
 
 Both player passes draw filled geometry even when F4 makes the terrain wireframe,
 then restore the OpenGL state they changed. The skin uses its own texture/shader
@@ -126,8 +130,10 @@ depth on all six faces from multiple angles, 468 camera-orbit samples of painted
 base/outer joint seams, asymmetric bottom-face UV markers, texture validation,
 OpenGL state restoration, first-person wrist size and return to rest,
 camera obstruction, view controls, movement poses, and unchanged timed block
-removal. Live hand captures compare depth bytes before and after the pass and
-check the resting aim region at portrait and landscape sizes. Startup
+removal. Renderer checks distinguish strike and recovery silhouettes, while a
+live removal-frame capture verifies that presentation progress remains nonzero
+after gameplay progress resets. Hand captures compare depth bytes before and
+after the pass and check the resting aim region at portrait and landscape sizes. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
 disposable package. Persistence tests retain legacy v1–v4 compatibility and
 exercise v5 inventory/equipment state through two-process restart checks.

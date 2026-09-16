@@ -257,6 +257,60 @@ static bool itemTestHeld(ItemRenderer* renderer, ItemTestTarget* target) {
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
     ok &= different > 100 && retained == renderer->heldTarget.framebuffer;
+
+    // Breaking must use a true strike/recovery path. The previous symmetric
+    // sin(pi * progress) transform made quarter and three-quarter phases
+    // identical, so a held block retraced the exact strike poses backward.
+    itemTestClear(.375);
+    pose.punch = 0.25f;
+    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    itemTestClear(.375);
+    pose.punch = 0.75f;
+    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    different = 0;
+    for (size_t i = 0; i < bytes; i += 4)
+      different += memcmp(pixels + i, other + i, 3) != 0;
+    ok &= different > 100;
+
+    // Both ends of the normalized cycle are the same resting item pose.
+    itemTestClear(.375);
+    pose.punch = 0;
+    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    itemTestClear(.375);
+    pose.punch = 1;
+    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= !memcmp(pixels, other, bytes);
+
+    // Successful placement has its own one-shot hand motion and can animate the
+    // offhand independently when placement falls back to that slot.
+    itemTestClear(.375);
+    pose.punch = 0;
+    pose.placeMain = 0.5f;
+    ok &= renderHeldItems(renderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    different = 0;
+    for (size_t i = 0; i < bytes; i += 4)
+      different += memcmp(pixels + i, other + i, 3) != 0;
+    ok &= different > 100;
+    pose.placeMain = 0;
+
+    itemTestClear(.375);
+    ok &= renderHeldItems(renderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    itemTestClear(.375);
+    pose.placeOffhand = 0.5f;
+    ok &= renderHeldItems(renderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    different = 0;
+    for (size_t i = 0; i < bytes; i += 4)
+      different += memcmp(pixels + i, other + i, 3) != 0;
+    ok &= different > 100;
+    pose.placeOffhand = 0;
+
     itemTestClear(.375);
     ok &= renderHeldItems(renderer, (ItemStack){0}, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);

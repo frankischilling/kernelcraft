@@ -64,6 +64,9 @@ typedef struct {
   double gaitPhase;
   float gaitWeight;
   float punch;
+  // Normalized one-shot placement progress for the hand that supplied a block.
+  float placeMain;
+  float placeOffhand;
 } PlayerModelPose;
 
 typedef struct {
@@ -72,6 +75,8 @@ typedef struct {
   double gaitPhase;
   float gaitWeight;
   float punch; // Normalized swing progress: 0 starts at rest, 1 returns to rest.
+  float placeMain;
+  float placeOffhand;
   bool crouched;
   bool running;
   bool grounded;
@@ -85,16 +90,28 @@ typedef struct {
   bool initialized;
 } PlayerModelAnimation;
 
+// Shared strike/recovery curve for first-person hands and held items. Every
+// component starts and ends at zero; mirrored progress values intentionally
+// differ so recovery does not retrace the strike through the same poses.
+typedef struct {
+  float reach;
+  float lift;
+  float arc;
+  float roll;
+} PlayerModelSwing;
+
 const PlayerSkinRect* playerModelSkinRect(PlayerModelPart part, PlayerSkinLayer layer, PlayerModelFace face);
 const PlayerPartSpec* playerModelPartSpec(PlayerModelPart part);
 // Per-face shell dilation in model units, shared by rendering and pose bounds.
 float playerModelOuterInflation(PlayerModelPart part);
 void playerModelPose(PlayerModelPose* pose, const PlayerPoseInput* input);
+PlayerModelSwing playerModelSwing(float progress);
 // Maps the unposed right-arm cuboid (including centerOffset) into camera space.
 void playerModelHandTransform(Mat4 transform, const PlayerModelPose* pose, float aspect);
 
 void resetPlayerModelAnimation(PlayerModelAnimation* state, Vec3 feet);
 void advancePlayerModelAnimation(PlayerModelAnimation* state, const Player* player, bool flying, bool active, double seconds);
+float playerModelPunchElapsed(double elapsed);
 float playerModelPunch(const BlockBreaking* breaking);
 
 #endif

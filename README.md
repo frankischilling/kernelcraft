@@ -238,7 +238,11 @@ or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
 a fresh press. All current slots use the same hand rates in walking and flight.
 Holding through completion starts the next target from zero; excess time never
-carries over. Tools and their speed modifiers remain planned. See
+carries over. The visible held block follows an asymmetric strike and recovery
+path while breaking, so the recovery does not retrace the strike. Successful
+placement plays a short swing in the hand that supplied the block; the final
+item in a stack remains visible until that swing finishes. Tools and their speed
+modifiers remain planned. See
 [timed hand breaking](docs/timed-block-breaking.md) for timing and checks.
 
 Each right press places once and consumes one item within six world units; breaking uses the same
@@ -585,6 +589,8 @@ remaining progression are not implemented.
 - **Visual Effects**:
   - [ ] Add screen effects such as damage flashes and underwater visuals
   - [ ] Implement block breaking and placement animations
+    - [x] Animate held blocks through distinct breaking strike/recovery poses and successful main/offhand placement swings
+    - [ ] Add block-surface crack/break effects and placement impact effects
   - [ ] Create item pickup and drop animations
   - [ ] Add status effect visuals for player buffs and debuffs
   - [ ] Implement environmental effects like fog and dynamic lighting

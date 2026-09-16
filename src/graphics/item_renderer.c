@@ -443,21 +443,25 @@ bool renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offha
   mat4_perspective(projection, 70, aspect, 0.05f, 10);
   beginItems(renderer, projection, daylight);
   float fit = fminf(1, aspect / 1.3f);
-  float punch = fmaxf(0, fminf(pose->punch, 1));
-  float swing = sinf(punch * 3.141592654f);
+  PlayerModelSwing attack = playerModelSwing(pose->punch);
+  PlayerModelSwing mainPlacement = playerModelSwing(pose->placeMain);
+  PlayerModelSwing offhandPlacement = playerModelSwing(pose->placeOffhand);
   float bob = sinf((float)pose->gaitPhase) * pose->gaitWeight * 0.018f;
   ItemStack hands[] = {mainHand, offhand};
   for (int hand = 0; hand < 2; hand++) {
     if (!hasItem(hands[hand]))
       continue;
     float side = hand ? -1.0f : 1.0f;
-    float action = hand ? 0 : swing;
+    PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
+    PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
     Mat4 model;
     mat4_identity(model);
-    translate(model, (Vec3){side * (0.42f * aspect - 0.18f * action * fit), -0.50f + bob + 0.12f * action, -1.2f + 0.12f * action});
-    rotate(model, 0, 0.20f - 0.55f * action);
-    rotate(model, 1, side * (-0.55f + 0.35f * action));
-    rotate(model, 2, side * (-0.12f - 0.3f * action));
+    translate(model, (Vec3){side * (0.42f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit),
+                            -0.50f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
+                            -1.2f - 0.18f * strike.arc - 0.20f * placement.arc});
+    rotate(model, 0, 0.20f - 0.48f * strike.arc + 0.35f * placement.arc);
+    rotate(model, 1, side * (-0.55f + 0.35f * strike.reach + 0.15f * placement.reach));
+    rotate(model, 2, side * (-0.12f - 0.30f * strike.roll + 0.12f * placement.roll));
     scale(model, (Vec3){0.5f * fit, 0.5f * fit, 0.5f * fit});
     drawModel(renderer, hands[hand].item, model);
   }

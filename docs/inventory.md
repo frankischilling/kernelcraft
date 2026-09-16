@@ -68,14 +68,18 @@ Damage reduction is inactive because health and damage mechanics are still
 unimplemented. Selecting a block or equipment item displays its 3D model in the
 right hand; the offhand item appears on the left. An empty main hand displays
 the supplied skin's bare arm. Held items follow walking and the existing punch
-cycle without changing block-breaking times.
+cycle without changing block-breaking times. Breaking uses distinct strike and
+recovery poses instead of replaying the same held-block path backward.
 
 ## Placement, pickup, and overflow
 
 Successful placement consumes one item. Rejected placement consumes nothing.
 When the selected hand has no placeable block, placement can use a block in
 the offhand. Right-clicking with selected armor equips it, exchanging an
-existing piece when necessary.
+existing piece when necessary. A committed placement starts a short swing in
+the hand that supplied the block. The renderer keeps the consumed item visible
+through the swing when placement used the last item in that stack. Rejected
+placements do not start the animation.
 
 Completed hand breaking creates one item of the removed material. Dropped
 blocks use textured 3D cubes; equipment uses shaped colored models with visible
@@ -141,7 +145,9 @@ restart. Geometry tests check outward faces, UV coordinates, volume, equipment
 openings, and stable texture-layer mappings. Graphical checks compare all six
 faces of all six block items against the source PNGs, and check icon placement,
 preview height, caller GL state, world-depth isolation, allocation failure
-recovery, and held-item visibility.
+recovery, held-item visibility, distinct breaking strike/recovery silhouettes,
+and main/offhand placement motion. Input checks verify placement animation starts
+only after a committed edit and preserves a consumed last item for the swing.
 
 For interactive review, launch with `--no-save` or a disposable `--world` path.
 Equip the starter armor, split stone across four squares, craft bricks, move

@@ -315,8 +315,8 @@ int main(int argc, char** argv) {
     }
 
     renderSky(&sky, &displayCamera, aspect, &daylight);
-    ItemStack mainHand = input.inventory.carried[selectedHotbarSlot(&input)];
-    ItemStack offhand = input.inventory.offhand;
+    ItemStack mainHand, offhand;
+    inputHeldItems(&input, &mainHand, &offhand);
     if (showBody) {
       renderPlayerModel(&playerRenderer, inputBodyFeet(&input), &playerPose, view, projection, &daylight);
       PlayerEquipmentVisuals equipment = {.helmet = input.inventory.armor[INVENTORY_ARMOR_HEAD].count != 0,

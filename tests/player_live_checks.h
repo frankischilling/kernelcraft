@@ -9,6 +9,8 @@ static unsigned liveBodyFrames;
 static uint64_t punchSilhouettes[3];
 static float punchPhases[3];
 static uint64_t heldItemColorHashes[3];
+static uint64_t placementSilhouettes[2];
+static float placementPhases[2];
 
 static void playerViewFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
@@ -207,17 +209,22 @@ bool __real_renderHeldItems(ItemRenderer*, ItemStack, ItemStack, const PlayerMod
 bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offhand, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
   CHECK(input);
-  ItemStack expectedMain = input->inventory.carried[input->selectedSlot];
+  ItemStack expectedMain, expectedOffhand;
+  inputHeldItems(input, &expectedMain, &expectedOffhand);
   CHECK(mainHand.item == expectedMain.item && mainHand.count == expectedMain.count);
-  CHECK(offhand.item == input->inventory.offhand.item && offhand.count == input->inventory.offhand.count);
+  CHECK(offhand.item == expectedOffhand.item && offhand.count == expectedOffhand.count);
   if (mainHand.count) {
     CHECK(playerRenderedFrame != frame);
     playerRenderedFrame = frame;
   }
 
-  bool probePunch = frame == 55 || frame == 60 || frame == 65;
+  bool probePunch = frame == 55 || frame == 60 || frame == 65 || frame == 69;
   bool probeItem = frame == 111 || frame == 113 || frame == 114;
-  if (!probePunch && !probeItem)
+  bool probePlacement = frame == 115 || frame == 119 || frame == 122;
+  if (frame == 123) {
+    CHECK(!input->placement.active && !mainHand.count && !input->inventory.carried[input->selectedSlot].count);
+  }
+  if (!probePunch && !probeItem && !probePlacement)
     return __real_renderHeldItems(renderer, mainHand, offhand, pose, aspect, daylight);
 
   GLint viewport[4];
@@ -239,14 +246,21 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStac
   CHECK(memcmp(depthBefore, depthAfter, pixels * sizeof(float)) == 0);
 
   if (probePunch) {
-    int index = (frame - 55) / 5;
-    punchSilhouettes[index] = silhouette;
-    punchPhases[index] = pose->punch;
-    if (frame == 65) {
-      CHECK(punchPhases[0] != punchPhases[1] && punchPhases[1] != punchPhases[2] && punchPhases[0] != punchPhases[2]);
-      CHECK(punchSilhouettes[0] != punchSilhouettes[1] && punchSilhouettes[1] != punchSilhouettes[2] && punchSilhouettes[0] != punchSilhouettes[2]);
+    CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1);
+    if (frame == 69) {
+      // Dirt completes between swing boundaries. Visual motion must survive the
+      // gameplay timer reset on the removal frame instead of snapping to rest.
+      CHECK(!input->breaking.active && pose->punch > 0 && pose->punch < 1);
+    } else {
+      int index = (frame - 55) / 5;
+      punchSilhouettes[index] = silhouette;
+      punchPhases[index] = pose->punch;
+      if (frame == 65) {
+        CHECK(punchPhases[0] != punchPhases[1] && punchPhases[1] != punchPhases[2] && punchPhases[0] != punchPhases[2]);
+        CHECK(punchSilhouettes[0] != punchSilhouettes[1] && punchSilhouettes[1] != punchSilhouettes[2] && punchSilhouettes[0] != punchSilhouettes[2]);
+      }
     }
-  } else {
+  } else if (probeItem) {
     int index = frame == 111 ? 0 : frame == 113 ? 1 : 2;
     heldItemColorHashes[index] = colorHash;
     if (frame == 111)
@@ -256,6 +270,19 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStac
     if (frame == 114) {
       CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1);
       CHECK(heldItemColorHashes[0] != heldItemColorHashes[1] && heldItemColorHashes[1] != heldItemColorHashes[2] && heldItemColorHashes[0] != heldItemColorHashes[2]);
+    }
+  } else {
+    CHECK(input->placement.active && input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN && !input->inventory.carried[input->selectedSlot].count);
+    CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count);
+    if (frame == 122) {
+      CHECK(pose->placeMain == 1 && pose->placeOffhand == 0);
+    } else {
+      int index = frame == 115 ? 0 : 1;
+      placementSilhouettes[index] = silhouette;
+      placementPhases[index] = pose->placeMain;
+      CHECK(placementPhases[index] > 0 && placementPhases[index] < 1);
+      if (frame == 119)
+        CHECK(placementPhases[0] != placementPhases[1] && placementSilhouettes[0] != placementSilhouettes[1]);
     }
   }
 
