@@ -137,8 +137,10 @@ $env:KERNELCRAFT_PROFILE_CSV = 'frames.csv'
 Use generator `2` with distances `6` and `12` for the forest comparison. The
 original baseline executable has fixed generator 1/radius 6 and ignores the
 two new environment settings. Omit `KERNELCRAFT_PROFILE_SCENE` to run all ten
-scenes. Apply the recorded patch and rebuild to reproduce the merge-sort
-alternative. Rebuild without that patch for the final implementation.
+scenes. Apply the recorded zero-context patch with
+`git apply --unidiff-zero docs/benchmarks/forest-2026-09-16/merge-sort.patch`
+and rebuild to reproduce the merge-sort alternative. Reverse that patch with
+`git apply -R --unidiff-zero` and the same path, then rebuild for the final implementation.
 
 Regressions cover radius bounds, unchanged/same/invalid setting cache reuse,
 distance-change invalidation, signed world edges, visible geometry 112 blocks

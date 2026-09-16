@@ -1,18 +1,9 @@
 diff --git a/src/graphics/world_renderer.c b/src/graphics/world_renderer.c
 --- a/src/graphics/world_renderer.c
 +++ b/src/graphics/world_renderer.c
-@@ -41,6 +41,7 @@
- 
- static OcclusionBuffer occlusion;
- static ChunkCandidate candidates[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
+@@ -43,0 +44 @@
 +static ChunkCandidate candidateScratch[CHUNKS_PER_AXIS * CHUNKS_PER_AXIS];
- static int candidateCount, hiddenCount;
- static Mat4 cachedTransform;
- static Vec3 cachedPosition;
-@@ -314,14 +315,19 @@
- }
- 
- static void sortCandidates(void) {
+@@ -317,8 +318,13 @@
 -  for (int i = 1; i < candidateCount; i++) {
 -    ChunkCandidate candidate = candidates[i];
 -    int slot = i;
@@ -34,6 +25,3 @@ diff --git a/src/graphics/world_renderer.c b/src/graphics/world_renderer.c
 +      }
 +    }
 +    memcpy(candidates, candidateScratch, (size_t)candidateCount * sizeof(*candidates));
-   }
- }
- 

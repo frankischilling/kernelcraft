@@ -466,8 +466,8 @@ remaining progression are not implemented.
   - [ ] Add chunk compression to reduce memory footprint
   - [x] Serialize and validate complete finite worlds (uncompressed)
 
-  Follow-up tasks below are unimplemented candidates, not measured speedups.
-  Start with profiling, then small changes before introducing worker threads,
+  Checked tasks below record completed, measured work; unchecked tasks remain
+  candidates. Start with profiling, then small changes before introducing worker threads,
   new mesh layouts, or save formats. Keep the existing greedy mesher, texture
   array, visibility cache, and HUD/sky/cloud improvements as the baseline; see
   [rebuild measurements](docs/mesh-rebuild-performance.md),
