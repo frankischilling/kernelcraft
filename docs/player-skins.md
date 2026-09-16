@@ -26,7 +26,8 @@ camera. Equipped leather pieces follow the same body joints in that preview
 and in third person. They use code-colored geometry while dedicated artwork is
 pending; the cap leaves the face visible. Equipment is stored in supported
 inventory saves and does not change collision dimensions. First-person held
-items include the skin's arm and sleeve. Dedicated armor sleeves remain planned.
+placeable blocks render without skin geometry. Non-placeable held equipment uses
+the skin's arm and sleeve. Dedicated armor sleeves remain planned.
 
 ## Model and animation
 
@@ -100,20 +101,21 @@ The resting arm leaves aim clear. The strike sweeps inward toward the target,
 with the crosshair and breaking bar drawn over it by the HUD.
 
 Nonempty hands use the shared [3D item models](inventory.md#rendering-and-saves).
-First-person items and their right/left skinned arms share a private depth
-attachment before compositing over the world. One grip transform drives both
-the arm and item through walking, breaking, and placement, keeping them attached.
-Their depth never changes the world buffer. World and inventory-preview items
-follow the corresponding arm's joint transforms, including the root pose.
+First-person placeable blocks render alone in the private held-item target, so no
+arm or hand is visible beside the block. Non-placeable equipment can include the
+matching right/left skinned arm in that same private depth target. Walking,
+breaking, and placement still move the held model through its viewmodel path.
+The private pass never changes the world depth buffer. World and inventory-preview
+items follow the corresponding arm's joint transforms, including the root pose.
 
-![Held stone with its skinned right arm](held-block-arm.png)
+![Held stone block without a first-person arm](held-block-arm.png)
 
-This native application fixture shows the lower-right angled right-arm grip.
-The cube exposes its top and side while the forearm enters diagonally from the
-screen corner instead of hanging straight below the item. The matching offhand
-mirrors that pose with the left-arm skin, while an empty main hand retains its
-separate bare-arm pose. Regression captures also cover intermediate breaking
-and placement poses, including the last consumed block in a stack.
+This native application fixture shows the lower-right held stone by itself. The
+matching offhand pose is mirrored and also omits the arm; an offhand block
+suppresses the otherwise empty main-hand fallback. The normal bare-arm pose still
+appears for an empty main hand when no offhand block replaces it. Regression
+captures also cover intermediate breaking and placement poses, including the
+last consumed block in a stack.
 
 The inventory portrait uses neutral
 standing proportions, bounded mouse look, and studio lighting so its head and
@@ -147,9 +149,10 @@ camera obstruction, view controls, movement poses, and unchanged timed block
 removal. Renderer checks distinguish strike and recovery silhouettes, while a
 live removal-frame capture verifies that presentation progress remains nonzero
 after gameplay progress resets. Held-item checks also bound the cube beside aim
-and require the forearm to lean outward toward the matching screen corner at
-rest, during breaking, and during placement. Hand captures compare depth bytes
-before and after the pass and check the resting aim region at portrait and landscape sizes. Startup
+and require zero arm pixels for placeable blocks at rest, throughout breaking,
+and throughout main/offhand placement at portrait and landscape sizes. Mixed
+block/equipment checks keep the non-block skinned-arm path covered. Hand and held
+item captures compare depth bytes before and after the pass. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
 disposable package. Persistence tests retain legacy v1–v4 compatibility and
 exercise v5 inventory/equipment state through two-process restart checks.

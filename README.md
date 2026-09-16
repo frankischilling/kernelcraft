@@ -76,7 +76,7 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with shaded 3D item icons.
   - E opens a 36-slot inventory with 2×2 crafting, armor/offhand slots, stack management, and an equipped-player preview. See [inventory controls and limits](docs/inventory.md).
   - Finite block stacks, collectible mined items, and Q/Ctrl-Q item drops.
-  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands, with visible skinned arms and sleeves while holding items.
+  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands. First-person placeable blocks render by themselves; non-block equipment keeps its skinned arm and sleeve.
   - F5 and clean-exit saves restore blocks, position, view, selected slot, inventory, equipment, crafting inputs, cursor items, and world drops.
 
 ## Getting Started

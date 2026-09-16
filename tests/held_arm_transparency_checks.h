@@ -116,7 +116,7 @@ static bool itemTestArmTransparency(ItemRenderer* items, PlayerRenderer* playerR
   size_t opaqueChanged = heldArmTransparencySetOuterAlpha(opaqueSkin, original, 255);
   size_t halfChanged = heldArmTransparencySetOuterAlpha(halfSkin, original, 128);
   bool ok = transparentChanged > 0 && transparentChanged == opaqueChanged && opaqueChanged == halfChanged && glGetError() == GL_NO_ERROR;
-  size_t compared = 0, itemOverlap = 0;
+  size_t compared = 0;
   DayNightState light = itemTestNeutralLight();
   const float phases[] = {0.133f, 0.5f, 0.9f};
 
@@ -128,8 +128,8 @@ static bool itemTestArmTransparency(ItemRenderer* items, PlayerRenderer* playerR
         pose.placeOffhand = phases[phase];
       else
         pose.placeMain = phases[phase];
-      ItemStack mainHand = hand ? (ItemStack){0} : (ItemStack){ITEM_STONE, 1};
-      ItemStack offhand = hand ? (ItemStack){ITEM_STONE, 1} : (ItemStack){0};
+      ItemStack mainHand = hand ? (ItemStack){0} : (ItemStack){ITEM_LEATHER_HELMET, 1};
+      ItemStack offhand = hand ? (ItemStack){ITEM_LEATHER_BOOTS, 1} : (ItemStack){0};
 
       heldArmTransparencyUpload(playerRenderer, transparentSkin, false);
       ok &= heldArmTransparencyCapture(items, playerRenderer, target, mainHand, offhand, &pose, &light, transparent, depthBefore, depthAfter);
@@ -150,8 +150,6 @@ static bool itemTestArmTransparency(ItemRenderer* items, PlayerRenderer* playerR
           continue;
         caseCompared++;
         compared++;
-        bool grayStone = abs((int)base[0] - base[1]) <= 4 && abs((int)base[1] - base[2]) <= 4 && base[0] > 20 && base[0] < 230;
-        itemOverlap += grayStone;
         for (int channel = 0; channel < 3; channel++) {
           int expected = ((int)sleeve[channel] * 128 + (int)base[channel] * 127 + 127) / 255;
           ok &= abs((int)actual[channel] - expected) <= 3;
@@ -175,9 +173,9 @@ static bool itemTestArmTransparency(ItemRenderer* items, PlayerRenderer* playerR
 
   ok &= compared > 120 && glGetError() == GL_NO_ERROR;
   if (ok)
-    printf("Held arm fractional sleeves: %zu blended samples, %zu over stone items\n", compared, itemOverlap);
+    printf("Held equipment arm fractional sleeves: %zu blended samples\n", compared);
   else
-    fprintf(stderr, "Held arm fractional sleeve ordering/depth regression failed: compared=%zu stone_overlap=%zu\n", compared, itemOverlap);
+    fprintf(stderr, "Held equipment arm fractional sleeve ordering/depth regression failed: compared=%zu\n", compared);
 
   free(original);
   free(transparentSkin);

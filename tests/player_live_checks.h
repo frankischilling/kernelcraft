@@ -186,7 +186,7 @@ void __real_renderPlayerHand(const PlayerRenderer*, const PlayerModelPose*, floa
 void __wrap_renderPlayerHand(const PlayerRenderer* renderer, const PlayerModelPose* pose, float aspect, const DayNightState* daylight) {
   CHECK(playerRenderedFrame != frame);
   playerRenderedFrame = frame;
-  bool probe = frame == 99 || frame == 112 || frame == 114;
+  bool probe = frame == 99 || frame == 112;
   if (!probe) {
     __real_renderPlayerHand(renderer, pose, aspect, daylight);
     return;
@@ -222,7 +222,8 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* player
   inputHeldItems(input, &expectedMain, &expectedOffhand);
   CHECK(mainHand.item == expectedMain.item && mainHand.count == expectedMain.count);
   CHECK(offhand.item == expectedOffhand.item && offhand.count == expectedOffhand.count);
-  if (mainHand.count) {
+  bool offhandBlockWithoutMain = !mainHand.count && offhand.count && inventoryItemBlock(offhand.item) != BLOCK_AIR;
+  if (mainHand.count || offhandBlockWithoutMain) {
     CHECK(playerRenderedFrame != frame);
     playerRenderedFrame = frame;
   }
@@ -270,7 +271,7 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* player
 
   if (probePunch) {
     CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1);
-    CHECK(skinPixels > 20); // A floating stone item without its skinned arm must fail.
+    CHECK(skinPixels == 0);
     if (frame == 69) {
       // Dirt completes between swing boundaries. Visual motion must survive the
       // gameplay timer reset on the removal frame instead of snapping to rest.
@@ -288,17 +289,17 @@ bool __wrap_renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* player
     int index = frame == 111 ? 0 : frame == 113 ? 1 : 2;
     heldItemColorHashes[index] = colorHash;
     if (frame == 111)
-      CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count && skinPixels > 20);
+      CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count && skinPixels == 0);
     if (frame == 113)
       CHECK(mainHand.item == ITEM_LEATHER_HELMET && mainHand.count == 1 && !offhand.count);
     if (frame == 114) {
-      CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1 && skinPixels > 20);
+      CHECK(!mainHand.count && offhand.item == ITEM_STONE_BRICKS && offhand.count == 1 && skinPixels == 0);
       CHECK(heldItemColorHashes[0] != heldItemColorHashes[1] && heldItemColorHashes[1] != heldItemColorHashes[2] && heldItemColorHashes[0] != heldItemColorHashes[2]);
     }
   } else {
     CHECK(input->placement.active && input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN && !input->inventory.carried[input->selectedSlot].count);
     CHECK(mainHand.item == ITEM_STONE && mainHand.count == 1 && !offhand.count);
-    CHECK(skinPixels > 20);
+    CHECK(skinPixels == 0);
     if (frame == 122) {
       CHECK(pose->placeMain == 1 && pose->placeOffhand == 0);
     } else {

@@ -88,9 +88,10 @@ The cutout and interaction follow-up passes both native Windows Release and
 Debug suites with MinGW GCC 13.2.0 and Intel UHD Graphics. Source-image probes
 check all 42 transparent and 214 opaque leaf texels, background depth, bark behind
 leaf gaps, and alpha-tested shadow depth. Callback tests confirm leaf removal
-with empty/full drop storage and preserve ordinary log drops. Held-arm checks
+with empty/full drop storage and preserve ordinary log drops. Held-block checks
 sample 21 phases for breaking and each hand's placement at three framebuffer
-sizes; fractional sleeves are compared against independent alpha composites.
+sizes and require zero arm pixels. Non-block equipment separately checks
+fractional sleeves against independent alpha composites.
 Crack checks cover six faces, growing coverage, cancellation, removal, foreground
 occlusion, leaf gaps, and preserved depth. The repository CI repeats the CPU,
 sanitizer, and graphical suites with GCC/Clang on Linux; current run results are

@@ -304,78 +304,6 @@ static unsigned itemTestCountHeldArmLayer(const unsigned char* pixels, int width
   return count;
 }
 
-static uint64_t itemTestHeldArmSilhouette(const unsigned char* pixels, int width, int height, int hand) {
-  uint64_t hash = UINT64_C(14695981039346656037);
-  for (int y = 0; y < height; y++)
-    for (int x = 0; x < width; x++) {
-      const unsigned char* pixel = pixels + ((size_t)y * width + x) * 4;
-      hash = (hash ^ (unsigned)itemTestHeldArmColor(pixel, hand)) * UINT64_C(1099511628211);
-    }
-  return hash;
-}
-
-typedef struct {
-  int minX, minY, maxX, maxY;
-  unsigned count;
-} ItemTestHeldBounds;
-
-static bool itemTestHeldGripComposition(const unsigned char* pixels, int width, int height, int hand) {
-  ItemTestHeldBounds arm = {.minX = width, .minY = height, .maxX = -1, .maxY = -1};
-  ItemTestHeldBounds item = {.minX = width, .minY = height, .maxX = -1, .maxY = -1};
-  for (int y = 0; y < height; y++)
-    for (int x = 0; x < width; x++) {
-      const unsigned char* pixel = pixels + ((size_t)y * width + x) * 4;
-      bool rightArm = itemTestHeldArmColor(pixel, 0);
-      bool leftArm = itemTestHeldArmColor(pixel, 1);
-      ItemTestHeldBounds* bounds = itemTestHeldArmColor(pixel, hand) ? &arm : pixel[3] && !rightArm && !leftArm ? &item : NULL;
-      if (!bounds)
-        continue;
-      if (x < bounds->minX)
-        bounds->minX = x;
-      if (y < bounds->minY)
-        bounds->minY = y;
-      if (x > bounds->maxX)
-        bounds->maxX = x;
-      if (y > bounds->maxY)
-        bounds->maxY = y;
-      bounds->count++;
-    }
-  if (arm.count <= 40 || item.count <= 100 || arm.minY >= arm.maxY)
-    return false;
-
-  int splitY = (arm.minY + arm.maxY) / 2;
-  uint64_t lowerX = 0, upperX = 0;
-  unsigned lowerCount = 0, upperCount = 0;
-  for (int y = arm.minY; y <= arm.maxY; y++)
-    for (int x = arm.minX; x <= arm.maxX; x++) {
-      const unsigned char* pixel = pixels + ((size_t)y * width + x) * 4;
-      if (!itemTestHeldArmColor(pixel, hand))
-        continue;
-      if (y <= splitY) {
-        lowerX += (unsigned)x;
-        lowerCount++;
-      } else {
-        upperX += (unsigned)x;
-        upperCount++;
-      }
-    }
-  if (!lowerCount || !upperCount)
-    return false;
-
-  float lowerMean = (float)lowerX / lowerCount;
-  float upperMean = (float)upperX / upperCount;
-  float outwardLean = (hand ? -1.0f : 1.0f) * (lowerMean - upperMean);
-  bool edgeGrip = hand ? arm.minX <= item.minX + width / 16 : arm.maxX + width / 16 >= item.maxX;
-  bool compactItem = (item.maxX - item.minX + 1) * 3 < width;
-  bool sideOfAim = hand ? item.maxX < width / 2 : item.minX > width / 2;
-  if (!sideOfAim || !compactItem || !edgeGrip || outwardLean <= width / 120.0f) {
-    fprintf(stderr, "Held grip composition failed: %dx%d hand=%d item=[%d,%d]-[%d,%d] arm=[%d,%d]-[%d,%d] lean=%.2f\n", width, height, hand, item.minX, item.minY, item.maxX,
-            item.maxY, arm.minX, arm.minY, arm.maxX, arm.maxY, outwardLean);
-    return false;
-  }
-  return true;
-}
-
 static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemTestTarget* target) {
   const int sizes[][2] = {{320, 240}, {180, 320}, {960, 540}};
   DayNightState light = itemTestNeutralLight();
@@ -406,11 +334,11 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
     ok &= !memcmp(before, after, bytes);
     unsigned rightArm = itemTestCountHeldArm(pixels, width, height, 0), leftArm = itemTestCountHeldArm(pixels, width, height, 1);
-    ok &= rightArm > 40 && leftArm > 40;
-    ok &= itemTestCountHeldArmLayer(pixels, width, height, 0, 0) > 10 && itemTestCountHeldArmLayer(pixels, width, height, 0, 1) > 5;
-    ok &= itemTestCountHeldArmLayer(pixels, width, height, 1, 0) > 10 && itemTestCountHeldArmLayer(pixels, width, height, 1, 1) > 5;
-    // Visible arm fragments must own depth in the private target. The composite
-    // above already proved that none of those private depths touched world depth.
+    ok &= rightArm == 0 && leftArm == 0;
+    ok &= itemTestCountHeldArmLayer(pixels, width, height, 0, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 0, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(pixels, width, height, 1, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 1, 1) == 0;
+    // A block-only viewmodel must not leave hidden arm fragments in the private
+    // target, and compositing that target must continue to preserve world depth.
     glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->heldTarget.framebuffer);
     itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, target->framebuffer);
@@ -418,7 +346,7 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     for (size_t pixel = 0; pixel < (size_t)width * height; pixel++)
       if ((itemTestHeldArmColor(pixels + pixel * 4, 0) || itemTestHeldArmColor(pixels + pixel * 4, 1)) && after[pixel] < 0.999f)
         armDepth++;
-    ok &= armDepth == rightArm + leftArm;
+    ok &= armDepth == 0;
     unsigned left = 0, right = 0;
     for (int y = 0; y < height; y++)
       for (int x = 0; x < width; x++) {
@@ -439,17 +367,18 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     unsigned different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
-    ok &= different > 100 && retained == renderer->heldTarget.framebuffer && itemTestCountHeldArm(other, width, height, 0) > 40;
-    ok &= itemTestHeldGripComposition(other, width, height, 0);
-    uint64_t restingArm = itemTestHeldArmSilhouette(other, width, height, 0);
+    ok &= different > 100 && retained == renderer->heldTarget.framebuffer && itemTestCountHeldArm(other, width, height, 0) == 0;
 
-    // Walking bob moves the arm and item as one grip-space assembly.
+    // Walking bob still moves the block even though no first-person arm is drawn.
     itemTestClear(.375);
     pose.gaitWeight = 1;
     pose.gaitPhase = 1.5707963267948966;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    ok &= itemTestHeldArmSilhouette(pixels, width, height, 0) != restingArm;
+    different = 0;
+    for (size_t i = 0; i < bytes; i += 4)
+      different += memcmp(pixels + i, other + i, 3) != 0;
+    ok &= different > 20 && itemTestCountHeldArm(pixels, width, height, 0) == 0;
     pose.gaitWeight = 0;
     pose.gaitPhase = 0;
 
@@ -460,66 +389,76 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     pose.punch = 0.25f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    ok &= itemTestHeldGripComposition(pixels, width, height, 0);
-    uint64_t strikeArm = itemTestHeldArmSilhouette(pixels, width, height, 0);
+    ok &= itemTestCountHeldArm(pixels, width, height, 0) == 0;
     itemTestClear(.375);
     pose.punch = 0.75f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
-    ok &= itemTestHeldGripComposition(other, width, height, 0);
-    uint64_t recoveryArm = itemTestHeldArmSilhouette(other, width, height, 0);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
-    ok &= different > 100 && strikeArm != recoveryArm;
+    ok &= different > 100;
 
     // Both ends of the normalized cycle are the same resting item pose.
     itemTestClear(.375);
     pose.punch = 0;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    restingArm = itemTestHeldArmSilhouette(pixels, width, height, 0);
     itemTestClear(.375);
     pose.punch = 1;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
     ok &= !memcmp(pixels, other, bytes);
 
-    // Successful placement has its own one-shot hand motion and can animate the
-    // offhand independently when placement falls back to that slot.
+    // Successful placement has its own one-shot held-model motion and can
+    // animate the offhand independently when placement falls back to that slot.
     itemTestClear(.375);
     pose.punch = 0;
     pose.placeMain = 0.5f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
-    ok &= itemTestHeldGripComposition(other, width, height, 0);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
-    ok &= different > 100 && itemTestHeldArmSilhouette(other, width, height, 0) != restingArm;
+    ok &= different > 100;
     pose.placeMain = 0;
 
     itemTestClear(.375);
     ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    ok &= itemTestCountHeldArm(pixels, width, height, 1) > 40;
-    ok &= itemTestHeldGripComposition(pixels, width, height, 1);
-    uint64_t restingOffhandArm = itemTestHeldArmSilhouette(pixels, width, height, 1);
+    ok &= itemTestCountHeldArm(pixels, width, height, 1) == 0;
     itemTestClear(.375);
     pose.placeOffhand = 0.5f;
     ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
-    ok &= itemTestHeldGripComposition(other, width, height, 1);
+    ok &= itemTestCountHeldArm(other, width, height, 1) == 0;
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
-    ok &= different > 100 && itemTestHeldArmSilhouette(other, width, height, 1) != restingOffhandArm;
+    ok &= different > 100;
     pose.placeOffhand = 0;
 
-    // The arm previously vanished at intermediate phases even when resting
-    // and midpoint poses passed. Require skin coverage across each whole action.
+    // Suppression is per hand: a block has no arm while a non-placeable held
+    // equipment item still uses its own skinned arm and sleeve.
+    ItemStack equipment = {ITEM_LEATHER_BOOTS, 1};
+    itemTestClear(.375);
+    ok &= renderHeldItems(renderer, playerRenderer, primary, equipment, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) == 0 && itemTestCountHeldArm(other, width, height, 1) > 40;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 0, 0) == 0 && itemTestCountHeldArmLayer(other, width, height, 0, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 1, 0) > 10 && itemTestCountHeldArmLayer(other, width, height, 1, 1) > 5;
+    itemTestClear(.375);
+    ok &= renderHeldItems(renderer, playerRenderer, equipment, secondary, &pose, (float)width / height, &light);
+    itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestCountHeldArm(other, width, height, 0) > 40 && itemTestCountHeldArm(other, width, height, 1) == 0;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 0, 0) > 10 && itemTestCountHeldArmLayer(other, width, height, 0, 1) > 5;
+    ok &= itemTestCountHeldArmLayer(other, width, height, 1, 0) == 0 && itemTestCountHeldArmLayer(other, width, height, 1, 1) == 0;
+
+    // A block must remain arm-free through the complete breaking and placement
+    // cycles in both hands, including the rest endpoints.
     for (int action = 0; ok && action < 3; action++) {
-      unsigned minimumArm = UINT32_MAX;
       for (int step = 0; ok && step <= 20; step++) {
         pose.punch = pose.placeMain = pose.placeOffhand = 0;
         float phase = step / 20.0f;
@@ -533,14 +472,15 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
         ok &= renderHeldItems(renderer, playerRenderer, action == 2 ? (ItemStack){0} : primary, action == 2 ? secondary : (ItemStack){0}, &pose, (float)width / height, &light);
         itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
         unsigned arm = itemTestCountHeldArm(other, width, height, action == 2);
-        if (arm < minimumArm)
-          minimumArm = arm;
-        if (arm <= 40) {
-          fprintf(stderr, "Held arm disappeared: %dx%d action=%d phase=%.2f pixels=%u\n", width, height, action, phase, arm);
+        unsigned visible = 0;
+        for (size_t i = 3; i < bytes; i += 4)
+          visible += other[i] != 0;
+        if (arm != 0 || visible <= 100) {
+          fprintf(stderr, "Held block arm-free check failed: %dx%d action=%d phase=%.2f arm=%u visible=%u\n", width, height, action, phase, arm, visible);
           ok = false;
         }
       }
-      printf("Held arm sweep: %dx%d action=%d minimum=%u pixels\n", width, height, action, minimumArm);
+      printf("Held block arm-free sweep: %dx%d action=%d\n", width, height, action);
     }
     pose.punch = pose.placeMain = pose.placeOffhand = 0;
 

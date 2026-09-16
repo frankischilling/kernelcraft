@@ -71,9 +71,10 @@ The leather set uses colored geometry and icons while dedicated armor artwork
 remains on the content backlog. It follows the existing body joints; the cap
 leaves the face visible. Armor does not alter collision size or movement.
 Damage reduction is inactive because health and damage mechanics are still
-unimplemented. Selecting a block or equipment item displays its 3D model in the
-right hand with its skinned arm and sleeve; an occupied offhand draws the left
-arm with that hand's separate skin regions. An empty main hand displays
+unimplemented. Selecting a placeable block displays only its 3D model in that
+hand, with no arm or hand. Non-placeable equipment keeps the corresponding
+skinned arm and sleeve. An offhand block also suppresses the empty-main-hand
+fallback so the block remains by itself. An empty main hand otherwise displays
 the supplied skin's bare arm. Held items follow walking and the existing punch
 cycle without changing block-breaking times. Breaking uses distinct strike and
 recovery poses instead of replaying the same held-block path backward.
@@ -156,8 +157,9 @@ openings, and stable texture-layer mappings. Graphical checks compare all six
 faces of all eight block items against the source PNGs, and check icon placement,
 preview height, caller GL state, world-depth isolation, allocation failure
 recovery, held-item visibility, distinct breaking strike/recovery silhouettes,
-and main/offhand placement motion. Input checks verify placement animation starts
-only after a committed edit and preserves a consumed last item for the swing.
+main/offhand placement motion, zero arm pixels for placeable blocks, and the
+retained skinned-arm path for equipment. Input checks verify placement animation
+starts only after a committed edit and preserves a consumed last item for the swing.
 
 For interactive review, launch with `--no-save` or a disposable `--world` path.
 Equip the starter armor, split stone across four squares, craft bricks, move

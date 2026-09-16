@@ -29,7 +29,8 @@ wireframe; it writes no world depth and creates no mesh rebuild or buffer upload
 ![Progressive cracks during a held break](breaking-cracks.png)
 
 This native application capture uses F4 wireframe to show the crack pattern on
-the targeted block and the skinned arm attached to the held item.
+the targeted block and the moving held stone. Placeable blocks draw without a
+first-person arm or hand.
 
 Releasing left mouse discards progress. Losing reach, looking away, aiming at a
 different cell, or observing a different material in the cell also restarts from
@@ -56,7 +57,7 @@ The game loop updates breaking after movement, using the current eye and DDA
 selection, before saving and rendering. A completed break calls `setBlock`, so
 the existing bounds validation and dirty-neighbor propagation apply. Rendering
 rebuilds only dirty chunks; partial progress never rebuilds a terrain mesh. The
-visible hand swing has its own elapsed presentation time while left mouse remains
+held-block swing has its own elapsed presentation time while left mouse remains
 held. Gameplay progress still resets immediately when a block is removed, while
 the held item can finish its current strike/recovery cycle without snapping to
 the resting pose on the removal frame. Release, pause, hotbar changes, and the

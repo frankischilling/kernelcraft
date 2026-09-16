@@ -113,10 +113,11 @@ to portrait. Run item geometry, source-face rendering, held-depth isolation,
 allocation-failure, and live inventory regressions. Use the existing supplied
 PNGs; primitive equipment models do not complete the dedicated-artwork backlog.
 
-Check the skinned forearm and wrist throughout breaking and placement, including
-early/late phases and offhand placement; a visible resting hand alone is not
-sufficient. Arms and held items share private depth, with fractional sleeves
-blended after opaque geometry. Surface cracks follow gameplay breaking progress
+Check first-person held blocks at rest and throughout breaking and placement,
+including early/late phases, offhand placement, and a consumed last item. A
+placeable block must show no arm or hand. Non-placeable equipment still uses its
+skinned arm and sleeve, with fractional sleeves blended after opaque geometry in
+the private held-item target. Surface cracks follow gameplay breaking progress
 and must vanish after removal, cancellation, or a target/material change. Inspect
 leaf cracks over transparent texels and repeat in wireframe. The corresponding
 item, cutout/shadow, crack, and live application regressions run under `-Test`.

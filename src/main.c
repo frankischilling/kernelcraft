@@ -335,7 +335,7 @@ int main(int argc, char** argv) {
     renderDroppedItems(itemRenderer, &input.drops, view, projection, &daylight);
     renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
     if (!showBody && !input.inventoryOpen) {
-      if (!mainHand.count)
+      if (!mainHand.count && inventoryItemBlock(offhand.item) == BLOCK_AIR)
         renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
       if (!renderHeldItems(itemRenderer, &playerRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
         fprintf(stderr, "Cannot render held items: framebuffer allocation or drawing failed\n");

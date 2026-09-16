@@ -377,6 +377,10 @@ static bool hasItem(ItemStack stack) {
   return stack.count && stack.item && inventoryStackValid(stack);
 }
 
+static bool heldItemShowsArm(ItemStack stack) {
+  return inventoryItemBlock(stack.item) == BLOCK_AIR;
+}
+
 void renderPlayerHeldItems(const ItemRenderer* renderer, Vec3 feet, const PlayerModelPose* pose, ItemStack mainHand, ItemStack offhand, const Mat4 view, const Mat4 projection,
                            const DayNightState* daylight) {
   if (!ready(renderer) || !pose || !daylight || (!hasItem(mainHand) && !hasItem(offhand)))
@@ -436,9 +440,9 @@ static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose,
   PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
   PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
   mat4_identity(model);
-  // Keep the held cube beside and below aim instead of presenting a large,
-  // square-on block. The steeper yaw exposes its top/side faces while the
-  // slightly smaller scale leaves room for the wrist to read as a grip.
+  // Keep the held model beside and below aim instead of presenting a large,
+  // square-on block. The steeper yaw exposes block top/side faces while the
+  // compact scale keeps the center of the view clear.
   translate(model, (Vec3){side * (0.48f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), -0.32f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
                           -1.25f - 0.18f * strike.arc - 0.20f * placement.arc});
   rotate(model, 0, 0.26f - 0.48f * strike.arc + 0.35f * placement.arc);
@@ -449,10 +453,8 @@ static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose,
 
 static void heldArmTransform(Mat4 arm, const Mat4 grip, int hand) {
   memcpy(arm, grip, sizeof(Mat4));
-  // Anchor the wrist on the lower front of the item, then send the forearm out
-  // toward the matching lower screen corner. The earlier near-vertical arm read
-  // like a support post under the cube; this diagonal keeps the familiar
-  // first-person hand silhouette while preserving the shared grip-space motion.
+  // Non-block equipment keeps the familiar first-person skinned arm. Anchor its
+  // wrist under the held model and send the forearm toward the matching corner.
   translate(arm, (Vec3){hand ? -0.34f : 0.34f, -0.30f, 0.50f});
   rotate(arm, 0, 3.141592654f);
   rotate(arm, 2, hand ? 0.90f : -0.90f);
@@ -478,25 +480,28 @@ bool renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRendere
   clearTarget(&renderer->heldTarget);
   Mat4 projection;
   mat4_perspective(projection, 70, aspect, 0.05f, 10);
-  // Establish the same private-pass raster state before the first arm as the
-  // item draws use. The arm helper preserves this state while swapping shaders,
-  // so caller alpha/stencil/logic/sRGB settings cannot affect either hand.
+  // Establish the private-pass raster state before the first held draw. The arm
+  // helper preserves it while swapping shaders, so caller alpha/stencil/logic/
+  // sRGB settings cannot affect either hand.
   beginItems(renderer, projection, daylight);
   ItemStack hands[] = {mainHand, offhand};
   for (int hand = 0; hand < 2; hand++) {
     if (!hasItem(hands[hand]))
       continue;
-    Mat4 grip, arm;
+    Mat4 grip;
     heldGripTransform(grip, hand, pose, aspect);
-    heldArmTransform(arm, grip, hand);
-    renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, false);
+    if (heldItemShowsArm(hands[hand])) {
+      Mat4 arm;
+      heldArmTransform(arm, grip, hand);
+      renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, false);
+    }
     beginItems(renderer, projection, daylight);
     drawModel(renderer, hands[hand].item, grip);
   }
   // Fractional sleeve texels blend only after every opaque arm/item has depth.
   if (playerRenderer->fractionalAlpha)
     for (int hand = 0; hand < 2; hand++) {
-      if (!hasItem(hands[hand]))
+      if (!hasItem(hands[hand]) || !heldItemShowsArm(hands[hand]))
         continue;
       Mat4 grip, arm;
       heldGripTransform(grip, hand, pose, aspect);
