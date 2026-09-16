@@ -229,6 +229,8 @@ try {
             ForEach-Object { Join-Path $projectDirectory $_ }
         $worldSources += Join-Path $projectDirectory 'src/world/day_night.c'
         $worldSources += Join-Path $projectDirectory 'src/world/chat.c'
+        $worldSources += Join-Path $projectDirectory 'src/world/inventory.c'
+        $worldSources += Join-Path $projectDirectory 'src/world/dropped_items.c'
         Build-Executable $worldSources $worldTest @('-Wl,--wrap=malloc', '-Wl,--wrap=free', '-lm')
 
         $editTest = Join-Path $outputDirectory 'test-edits.exe'
@@ -251,6 +253,13 @@ try {
         $saveSources = @((Join-Path $projectDirectory 'tests/test_save.c')) + @($worldSources | Select-Object -Skip 1)
         Build-Executable $saveSources $saveTest @('-Wl,--wrap=fwrite', '-Wl,--wrap=fflush', '-Wl,--wrap=fclose', '-Wl,--wrap=__imp__commit', '-Wl,--wrap=__imp_MoveFileExA', '-Wl,--wrap=calloc', '-lm')
 
+        $inventoryTest = Join-Path $outputDirectory 'test-inventory.exe'
+        $inventorySources = @((Join-Path $projectDirectory 'tests/test_inventory.c')) + @($worldSources | Select-Object -Skip 1)
+        Build-Executable $inventorySources $inventoryTest @('-lm')
+        $droppedItemsTest = Join-Path $outputDirectory 'test-dropped-items.exe'
+        $droppedItemsSources = @((Join-Path $projectDirectory 'tests/test_dropped_items.c')) + @($worldSources | Select-Object -Skip 1)
+        Build-Executable $droppedItemsSources $droppedItemsTest @('-lm')
+
         $optionsTest = Join-Path $outputDirectory 'test-options.exe'
         $optionsSources = @('tests/test_options.c', 'src/utils/options.c') | ForEach-Object { Join-Path $projectDirectory $_ }
         Build-Executable $optionsSources $optionsTest
@@ -268,7 +277,7 @@ try {
         $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
         $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand') })
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_persistence.c'))) $persistenceTest ($persistenceFlags + $libraries)
-        $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $optionsTest, $shaderTest, $smokeTest)
+        $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $inventoryTest, $droppedItemsTest, $optionsTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -300,6 +309,8 @@ try {
             Invoke-Native $playerTest
             Invoke-Native $seedTest
             Invoke-Native $saveTest
+            Invoke-Native $inventoryTest
+            Invoke-Native $droppedItemsTest
             Invoke-Native $optionsTest
             Invoke-Native $shaderTest
             Invoke-Native $hudTest
