@@ -8,6 +8,7 @@
 
 typedef struct {
   uint32_t seed;
+  int renderDistance;
   bool seedGiven, noSave, help;
   char worldPath[WORLD_PATH_CAPACITY];
 } AppOptions;

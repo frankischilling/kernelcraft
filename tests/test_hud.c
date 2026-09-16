@@ -99,10 +99,10 @@ GLuint __wrap_loadTextureArray(const char* const paths[], int layers) {
   materialArrayCalls++;
   if (!failMaterialLoad)
     return __real_loadTextureArray(paths, layers);
-  CHECK(paths && layers == 10);
-  if (!paths || layers != 10)
+  CHECK(paths && layers == 13);
+  if (!paths || layers != 13)
     return 0;
-  const char* substituted[10];
+  const char* substituted[13];
   memcpy(substituted, paths, sizeof(substituted));
   // Fail after array allocation and several successful layer uploads.
   substituted[4] = "nonexistent-item-material.png";

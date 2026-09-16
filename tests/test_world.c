@@ -207,7 +207,10 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
             continue;
           CHECK(seen[x][y][z][face]++ == 0);
           int id = chunk->blocks[x][y][z].id;
-          int expected = id == 5                              ? 8
+          int expected = id == 7                              ? (face == TOP || face == BOTTOM ? 11 : 10)
+                         : id == 8                            ? 12
+                         : id == 9 && face == TOP             ? 5
+                         : id == 5                            ? 8
                          : id == 6                            ? 9
                          : id == BLOCK_COBBLESTONE            ? MATERIAL_COBBLESTONE
                          : id == BLOCK_STONE                  ? MATERIAL_STONE
@@ -357,7 +360,7 @@ static void test_greedy_shapes(void) {
   }
 }
 
-static void test_generated_meshes(void) {
+static void test_generated_meshes(bool legacy) {
   // Fingerprint recorded from the unchanged generator at revision 12de8dd.
   uint64_t terrainHash = UINT64_C(14695981039346656037);
   for (int x = -128; x < 128; x++)
@@ -367,7 +370,10 @@ static void test_generated_meshes(void) {
         terrainHash = (terrainHash ^ getBlock(&pos)->id) * UINT64_C(1099511628211);
       }
 
-  CHECK(terrainHash == UINT64_C(512190482430576247));
+  if (legacy)
+    CHECK(terrainHash == UINT64_C(512190482430576247));
+  else
+    CHECK(terrainHash != UINT64_C(512190482430576247));
   size_t faces = 0, quads = 0, bytes = 0;
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
@@ -402,7 +408,30 @@ static void test_generated_meshes(void) {
     }
   }
 
-  printf("Generated world: %zu exposed unit faces, %zu quads, %zu mesh bytes\n", faces, quads, bytes);
+  printf("Generated %s world: %zu exposed unit faces, %zu quads, %zu CPU mesh bytes\n", legacy ? "legacy" : "forest", faces, quads, bytes);
+}
+
+static void test_forest_materials(void) {
+  const int blocks[] = {7, 8, 9};
+  for (size_t material = 0; material < sizeof(blocks) / sizeof(blocks[0]); material++) {
+    clear_world();
+    // A prism straddles both negative chunk seams, exercising shared-face culling.
+    for (int x = -2; x < 2; x++)
+      for (int y = 20; y < 23; y++)
+        for (int z = -2; z < 2; z++)
+          CHECK(setBlock(&(Vec3i){x, y, z}, blocks[material]));
+    size_t area = 0;
+    for (int cx = 7; cx <= 8; cx++)
+      for (int cz = 7; cz <= 8; cz++) {
+        Chunk* chunk = getChunk(&(Vec2i){cx, cz});
+        ChunkMesh mesh;
+        CHECK(buildChunkMesh(chunk, &mesh));
+        check_mesh_geometry(&mesh);
+        area += check_mesh_coverage(chunk, &mesh);
+        freeChunkMesh(&mesh);
+      }
+    CHECK(area == 80); // 2 * (4*4 + 4*3 + 4*3), with no internal seam faces.
+  }
 }
 #endif
 
@@ -476,7 +505,12 @@ static void test_full_checkerboard_mesh(void) {
 int main(void) {
   initChunks();
 #ifndef KERNELCRAFT_BASELINE
-  test_generated_meshes();
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+      generateTerrainChunkVersioned(getChunk(&(Vec2i){x, z}), 0, 1);
+  test_generated_meshes(true);
+  CHECK(initChunks());
+  test_generated_meshes(false);
   test_day_night();
   test_chat();
   test_software_occlusion();
@@ -488,6 +522,7 @@ int main(void) {
 #ifndef KERNELCRAFT_BASELINE
   test_mesh();
   test_greedy_shapes();
+  test_forest_materials();
   test_detached_mesh();
   test_mesh_allocation_failures();
   test_full_checkerboard_mesh();

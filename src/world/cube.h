@@ -19,6 +19,9 @@ enum BlockID {
   BLOCK_COBBLESTONE = 4,
   BLOCK_OAK_PLANKS = 5,
   BLOCK_STONE_BRICKS = 6,
+  BLOCK_OAK_LOG = 7,
+  BLOCK_OAK_LEAVES = 8,
+  BLOCK_LEAFY_GRASS = 9,
 };
 
 // block struct
@@ -27,7 +30,7 @@ typedef struct {
 } Block;
 
 static inline bool blockIDValid(int id) {
-  return id >= BLOCK_AIR && id <= BLOCK_STONE_BRICKS;
+  return id >= BLOCK_AIR && id <= BLOCK_LEAFY_GRASS;
 }
 
 static inline bool blockIsSolid(int id) {

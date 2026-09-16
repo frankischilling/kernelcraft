@@ -61,8 +61,8 @@ float sunlightVisibility(vec3 normal) {
 }
 
 float terrainLayer(vec3 normal) {
-    if (Material == 0.0 || Material >= 7.0)
-        return Material; // Stone and building materials have no alternate tile.
+    if (Material < 1.0 || Material > 3.0)
+        return Material; // Explicit leafy ground, wood, leaves, and masonry keep their tile.
     // Move just inside the face to identify its owning voxel on either sign
     // of each axis. World coordinates keep variants stable across merged quads,
     // chunk seams, edits, and saved-world reloads.

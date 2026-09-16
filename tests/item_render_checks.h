@@ -75,12 +75,22 @@ static DayNightState itemTestNeutralLight(void) {
 static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) {
   if (!itemTestTarget(target, 256, 256))
     return false;
-  const char* paths[10] = {
-      "assets/textures/stone.png",       "assets/textures/dirt.png",       "assets/textures/grass-top.png",   "assets/textures/grass-side.png", NULL, NULL, NULL,
-      "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
-  unsigned char* images[10] = {0};
+  const char* paths[13] = {"assets/textures/stone.png",
+                           "assets/textures/dirt.png",
+                           "assets/textures/grass-top.png",
+                           "assets/textures/grass-side.png",
+                           NULL,
+                           NULL,
+                           NULL,
+                           "assets/textures/cobblestone.png",
+                           "assets/textures/oak-planks.png",
+                           "assets/textures/stone-bricks.png",
+                           "assets/textures/oak-log-side.png",
+                           "assets/textures/oak-log-top.png",
+                           "assets/textures/oak-leaves.png"};
+  unsigned char* images[13] = {0};
   bool ok = true;
-  for (int layer = 0; layer < 10; layer++) {
+  for (int layer = 0; layer < 13; layer++) {
     if (!paths[layer])
       continue;
     int width, height, channels;
@@ -88,7 +98,9 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
     ok &= images[layer] && width == 16 && height == 16;
   }
   const Vec3 normals[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-  const int layers[6][6] = {{3, 3, 2, 1, 3, 3}, {1, 1, 1, 1, 1, 1}, {0, 0, 0, 0, 0, 0}, {7, 7, 7, 7, 7, 7}, {8, 8, 8, 8, 8, 8}, {9, 9, 9, 9, 9, 9}};
+  const uint16_t items[] = {1, 2, 3, 4, 5, 6, 11, 12};
+  const int layers[8][6] = {{3, 3, 2, 1, 3, 3}, {1, 1, 1, 1, 1, 1}, {0, 0, 0, 0, 0, 0},       {7, 7, 7, 7, 7, 7},
+                            {8, 8, 8, 8, 8, 8}, {9, 9, 9, 9, 9, 9}, {10, 10, 11, 11, 10, 10}, {12, 12, 12, 12, 12, 12}};
   DayNightState light = itemTestNeutralLight();
   Mat4 model, projection;
   mat4_identity(model);
@@ -96,8 +108,9 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
   projection[0] = projection[5] = 2;
   projection[10] = -0.2f;
   unsigned checked = 0;
-  for (uint16_t item = 1; ok && item <= 6; item++)
+  for (size_t itemIndex = 0; ok && itemIndex < sizeof(items) / sizeof(items[0]); itemIndex++)
     for (int face = 0; ok && face < 6; face++) {
+      uint16_t item = items[itemIndex];
       Vec3 normal = normals[face], eye, center = {0}, up = {0, 1, 0};
       vec3_scale(&eye, &normal, 3);
       if (face == 2)
@@ -121,7 +134,7 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
           float u = face < 2 ? p.z + .5f : p.x + .5f;
           float v = face == 2 ? p.z + .5f : face == 3 ? .5f - p.z : .5f - p.y;
           int tx = (int)floorf(u * 16), ty = (int)floorf(v * 16);
-          const unsigned char* expected = images[layers[item - 1][face]] + (ty * 16 + tx) * 4;
+          const unsigned char* expected = images[layers[itemIndex][face]] + (ty * 16 + tx) * 4;
           const unsigned char* actual = pixels + (py * 256 + px) * 4;
           for (int c = 0; c < 4; c++)
             ok &= abs((int)actual[c] - expected[c]) <= 1;
@@ -130,7 +143,7 @@ static bool itemTestFaces(const ItemRenderer* renderer, ItemTestTarget* target) 
       if (!ok)
         fprintf(stderr, "3D item face image mismatch: item=%u face=%d\n", item, face);
     }
-  for (int layer = 0; layer < 10; layer++)
+  for (int layer = 0; layer < 13; layer++)
     stbi_image_free(images[layer]);
   if (ok)
     printf("3D block faces match %u independent source-image samples\n", checked);

@@ -57,11 +57,31 @@ uint16_t inventoryItemMaxStack(uint16_t item) {
 }
 
 int inventoryItemBlock(uint16_t item) {
-  return item >= ITEM_GRASS_BLOCK && item <= ITEM_STONE_BRICKS ? (int)item : BLOCK_AIR;
+  if (item >= ITEM_GRASS_BLOCK && item <= ITEM_STONE_BRICKS)
+    return (int)item;
+  switch (item) {
+  case ITEM_OAK_LOG:
+    return BLOCK_OAK_LOG;
+  case ITEM_OAK_LEAVES:
+    return BLOCK_OAK_LEAVES;
+  default:
+    return BLOCK_AIR;
+  }
 }
 
 uint16_t inventoryBlockItem(int block) {
-  return block >= BLOCK_GRASS && block <= BLOCK_STONE_BRICKS ? (uint16_t)block : ITEM_NONE;
+  if (block >= BLOCK_GRASS && block <= BLOCK_STONE_BRICKS)
+    return (uint16_t)block;
+  switch (block) {
+  case BLOCK_OAK_LOG:
+    return ITEM_OAK_LOG;
+  case BLOCK_OAK_LEAVES:
+    return ITEM_OAK_LEAVES;
+  case BLOCK_LEAFY_GRASS:
+    return ITEM_GRASS_BLOCK;
+  default:
+    return ITEM_NONE;
+  }
 }
 
 const char* inventoryItemName(uint16_t item) {
@@ -86,6 +106,10 @@ const char* inventoryItemName(uint16_t item) {
     return "Leather Pants";
   case ITEM_LEATHER_BOOTS:
     return "Leather Boots";
+  case ITEM_OAK_LOG:
+    return "Oak Log";
+  case ITEM_OAK_LEAVES:
+    return "Oak Leaves";
   default:
     return "";
   }
@@ -110,6 +134,10 @@ uint32_t inventoryItemColor(uint16_t item) {
   case ITEM_LEATHER_LEGGINGS:
   case ITEM_LEATHER_BOOTS:
     return UINT32_C(0xA06540);
+  case ITEM_OAK_LOG:
+    return UINT32_C(0x6B4F2A);
+  case ITEM_OAK_LEAVES:
+    return UINT32_C(0x4F7F3B);
   default:
     return 0;
   }
@@ -188,15 +216,67 @@ void inventoryInit(Inventory* inventory) {
   inventory->carried[12] = (ItemStack){ITEM_LEATHER_BOOTS, 1};
 }
 
-ItemStack inventoryCraftResult(const Inventory* inventory) {
+typedef enum {
+  CRAFT_NONE,
+  CRAFT_STONE_BRICKS,
+  CRAFT_OAK_PLANKS,
+} CraftRecipe;
+
+typedef struct {
+  CraftRecipe recipe;
+  ItemStack result;
+  uint16_t crafts;
+  int singleSlot;
+} CraftMatch;
+
+static CraftMatch craftMatch(const Inventory* inventory) {
+  CraftMatch match = {0};
   if (!inventory)
-    return emptyStack();
+    return match;
+
+  bool allStone = true;
+  uint16_t stoneCrafts = INVENTORY_STACK_MAX;
+  int occupied = 0;
+  int logSlot = -1;
   for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++) {
     ItemStack stack = inventory->crafting[slot];
-    if (!inventoryStackValid(stack) || stack.item != ITEM_STONE)
-      return emptyStack();
+    if (!inventoryStackValid(stack))
+      return (CraftMatch){0};
+    if (stack.item != ITEM_STONE)
+      allStone = false;
+    else if (stack.count < stoneCrafts)
+      stoneCrafts = stack.count;
+    if (!stackEmpty(stack)) {
+      occupied++;
+      if (stack.item == ITEM_OAK_LOG)
+        logSlot = slot;
+    }
   }
-  return (ItemStack){ITEM_STONE_BRICKS, 4};
+
+  if (allStone)
+    return (CraftMatch){.recipe = CRAFT_STONE_BRICKS, .result = {ITEM_STONE_BRICKS, 4}, .crafts = stoneCrafts, .singleSlot = -1};
+  if (occupied == 1 && logSlot >= 0)
+    return (CraftMatch){.recipe = CRAFT_OAK_PLANKS, .result = {ITEM_OAK_PLANKS, 4}, .crafts = inventory->crafting[logSlot].count, .singleSlot = logSlot};
+  return match;
+}
+
+static void consumeCrafts(Inventory* inventory, CraftMatch match, uint16_t crafts) {
+  if (match.recipe == CRAFT_STONE_BRICKS) {
+    for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++) {
+      inventory->crafting[slot].count = (uint16_t)(inventory->crafting[slot].count - crafts);
+      if (inventory->crafting[slot].count == 0)
+        inventory->crafting[slot] = emptyStack();
+    }
+  } else if (match.recipe == CRAFT_OAK_PLANKS) {
+    ItemStack* stack = &inventory->crafting[match.singleSlot];
+    stack->count = (uint16_t)(stack->count - crafts);
+    if (stack->count == 0)
+      *stack = emptyStack();
+  }
+}
+
+ItemStack inventoryCraftResult(const Inventory* inventory) {
+  return craftMatch(inventory).result;
 }
 
 ItemStack inventoryGet(const Inventory* inventory, InventorySlotRef slot) {
@@ -362,7 +442,8 @@ bool inventorySwapSlots(Inventory* inventory, InventorySlotRef a, InventorySlotR
 bool inventoryCraftOnce(Inventory* inventory) {
   if (!inventoryValidate(inventory))
     return false;
-  ItemStack result = inventoryCraftResult(inventory);
+  CraftMatch match = craftMatch(inventory);
+  ItemStack result = match.result;
   if (stackEmpty(result))
     return false;
   if (!stackEmpty(inventory->cursor) && inventory->cursor.item != result.item)
@@ -371,11 +452,7 @@ bool inventoryCraftOnce(Inventory* inventory) {
     return false;
 
   Inventory next = *inventory;
-  for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++) {
-    next.crafting[slot].count--;
-    if (next.crafting[slot].count == 0)
-      next.crafting[slot] = emptyStack();
-  }
+  consumeCrafts(&next, match, 1);
   if (stackEmpty(next.cursor))
     next.cursor = result;
   else
@@ -385,26 +462,21 @@ bool inventoryCraftOnce(Inventory* inventory) {
 }
 
 size_t inventoryCraftAll(Inventory* inventory) {
-  if (!inventoryValidate(inventory) || stackEmpty(inventoryCraftResult(inventory)))
+  if (!inventoryValidate(inventory))
     return 0;
-  uint16_t recipes = inventory->crafting[0].count;
-  for (int slot = 1; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++)
-    if (inventory->crafting[slot].count < recipes)
-      recipes = inventory->crafting[slot].count;
-  uint32_t capacity = rangeCapacity(inventory->carried, 0, INVENTORY_CARRIED_SLOT_COUNT, ITEM_STONE_BRICKS);
-  uint32_t fit = capacity / 4;
-  size_t crafts = recipes < fit ? recipes : fit;
+  CraftMatch match = craftMatch(inventory);
+  if (stackEmpty(match.result))
+    return 0;
+  uint32_t capacity = rangeCapacity(inventory->carried, 0, INVENTORY_CARRIED_SLOT_COUNT, match.result.item);
+  uint32_t fit = capacity / match.result.count;
+  size_t crafts = match.crafts < fit ? match.crafts : fit;
   if (crafts == 0)
     return 0;
 
   Inventory next = *inventory;
-  for (int slot = 0; slot < INVENTORY_CRAFTING_SLOT_COUNT; slot++) {
-    next.crafting[slot].count = (uint16_t)(next.crafting[slot].count - crafts);
-    if (next.crafting[slot].count == 0)
-      next.crafting[slot] = emptyStack();
-  }
-  uint32_t output = (uint32_t)crafts * 4;
-  insertIntoRange(next.carried, 0, INVENTORY_CARRIED_SLOT_COUNT, ITEM_STONE_BRICKS, &output);
+  consumeCrafts(&next, match, (uint16_t)crafts);
+  uint32_t output = (uint32_t)crafts * match.result.count;
+  insertIntoRange(next.carried, 0, INVENTORY_CARRIED_SLOT_COUNT, match.result.item, &output);
   if (output)
     return 0;
   *inventory = next;

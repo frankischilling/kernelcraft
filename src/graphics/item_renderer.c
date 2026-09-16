@@ -259,11 +259,12 @@ bool initItemRenderer(ItemRenderer* renderer) {
   if (image < 0)
     goto finish;
   glUniform1i(image, 0);
-  const char* paths[] = {"assets/textures/stone.png",       "assets/textures/dirt.png",        "assets/textures/grass-top.png",
-                         "assets/textures/grass-side.png",  "assets/textures/dirt-rocks.png",  "assets/textures/grass-top-leaves.png",
-                         "assets/textures/grass-bug.png",   "assets/textures/cobblestone.png", "assets/textures/oak-planks.png",
-                         "assets/textures/stone-bricks.png"};
-  renderer->materials = loadTextureArray(paths, 10);
+  const char* paths[] = {"assets/textures/stone.png",        "assets/textures/dirt.png",         "assets/textures/grass-top.png",
+                         "assets/textures/grass-side.png",   "assets/textures/dirt-rocks.png",   "assets/textures/grass-top-leaves.png",
+                         "assets/textures/grass-bug.png",    "assets/textures/cobblestone.png",  "assets/textures/oak-planks.png",
+                         "assets/textures/stone-bricks.png", "assets/textures/oak-log-side.png", "assets/textures/oak-log-top.png",
+                         "assets/textures/oak-leaves.png"};
+  renderer->materials = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!renderer->materials)
     goto finish;
   glGenVertexArrays(1, &renderer->vao);
@@ -456,8 +457,7 @@ bool renderHeldItems(ItemRenderer* renderer, ItemStack mainHand, ItemStack offha
     PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
     Mat4 model;
     mat4_identity(model);
-    translate(model, (Vec3){side * (0.42f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit),
-                            -0.50f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
+    translate(model, (Vec3){side * (0.42f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), -0.50f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
                             -1.2f - 0.18f * strike.arc - 0.20f * placement.arc});
     rotate(model, 0, 0.20f - 0.48f * strike.arc + 0.35f * placement.arc);
     rotate(model, 1, side * (-0.55f + 0.35f * strike.reach + 0.15f * placement.reach));

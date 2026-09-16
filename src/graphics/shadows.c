@@ -113,7 +113,8 @@ bool updateShadowMap(ShadowMap* map, Vec3 direction, bool edited, const ShadowGe
     if (!geometry[i].indices)
       continue;
     glBindVertexArray(geometry[i].vao);
-    glDrawElements(GL_TRIANGLES, geometry[i].indices, GL_UNSIGNED_INT, NULL);
+    GLenum indexType = geometry[i].indexType == GL_UNSIGNED_SHORT ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    glDrawElements(GL_TRIANGLES, geometry[i].indices, indexType, NULL);
     (*drawCalls)++;
   }
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);

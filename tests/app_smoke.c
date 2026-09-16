@@ -904,8 +904,13 @@ static void placementFrame(GLFWwindow* window) {
 }
 
 static void wireframeFrame(GLFWwindow* window) {
+  static int savedRenderDistance;
   InputState* input = glfwGetWindowUserPointer(window);
   if (frame == 70) {
+    // Keep this wall-only geometry comparison independent of distant forests,
+    // whose occlusion is deliberately bypassed in wireframe mode.
+    savedRenderDistance = getWorldRenderDistance();
+    CHECK(setWorldRenderDistance(2));
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
     CHECK(!input->wireframe);
     input->flying = true;
@@ -924,6 +929,8 @@ static void wireframeFrame(GLFWwindow* window) {
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_REPEAT, 0);
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_RELEASE, 0);
   }
+  if (frame == 74)
+    CHECK(setWorldRenderDistance(savedRenderDistance));
 }
 
 GLFWwindow* __real_glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
@@ -1017,7 +1024,7 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     movementFrame(window);
   if (frame >= 55 && frame <= 70)
     breakingFrame(window);
-  if (frame >= 70 && frame < 74)
+  if (frame >= 70 && frame <= 74)
     wireframeFrame(window);
   if (frame >= 74 && frame < 84)
     chatFrame(window);

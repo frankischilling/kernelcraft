@@ -10,6 +10,7 @@ typedef struct {
 
 _Static_assert(MATERIAL_STONE == 0 && MATERIAL_DIRT == 1 && MATERIAL_GRASS_TOP == 2 && MATERIAL_GRASS_SIDE == 3, "Item block layers must match terrain base layers");
 _Static_assert(MATERIAL_COBBLESTONE == 7 && MATERIAL_OAK_PLANKS == 8 && MATERIAL_STONE_BRICKS == 9, "Item building layers must match terrain array order");
+_Static_assert(MATERIAL_OAK_LOG_SIDE == 10 && MATERIAL_OAK_LOG_TOP == 11 && MATERIAL_OAK_LEAVES == 12, "Oak item layers must match terrain array order");
 _Static_assert(ITEM_MODEL_VERTEX_CAPACITY >= 16 * 36, "Item model capacity must hold sixteen cuboids");
 
 static void includePoint(ItemModel* model, Vec3 point) {
@@ -83,6 +84,10 @@ static float blockLayer(uint16_t item, int face) {
     return MATERIAL_OAK_PLANKS;
   case ITEM_STONE_BRICKS:
     return MATERIAL_STONE_BRICKS;
+  case ITEM_OAK_LOG:
+    return face == TOP || face == BOTTOM ? MATERIAL_OAK_LOG_TOP : MATERIAL_OAK_LOG_SIDE;
+  case ITEM_OAK_LEAVES:
+    return MATERIAL_OAK_LEAVES;
   default:
     return ITEM_MODEL_SOLID_LAYER;
   }
@@ -161,6 +166,10 @@ bool itemModelBuild(uint16_t item, ItemModel* output) {
     built = buildBlock(item, &model);
   else
     switch (item) {
+    case ITEM_OAK_LOG:
+    case ITEM_OAK_LEAVES:
+      built = buildBlock(item, &model);
+      break;
     case ITEM_LEATHER_HELMET:
       built = buildHelmet(&model);
       break;

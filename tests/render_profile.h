@@ -72,7 +72,42 @@ static int profileCompare(const void* left, const void* right) {
   return (a > b) - (a < b);
 }
 
+static bool profileWorld(uint32_t generator) {
+  if (generator == WORLD_GENERATOR_VERSION)
+    return initChunksSeeded(0);
+  // Build an explicit legacy snapshot for matched renderer comparisons. Its
+  // staging/copy cost is part of generation_ms, not mesh_upload_ms or frames.
+  uint8_t* blocks = malloc(WORLD_BLOCK_COUNT);
+  if (!blocks)
+    return false;
+  size_t offset = 0;
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
+      Chunk chunk = {.position = {x - CHUNKS_PER_AXIS / 2, z - CHUNKS_PER_AXIS / 2}};
+      generateTerrainChunkVersioned(&chunk, 0, generator);
+      memcpy(blocks + offset, chunk.blocks, sizeof(chunk.blocks));
+      offset += sizeof(chunk.blocks);
+    }
+  bool success = replaceWorldBlocksVersioned(0, generator, blocks, WORLD_BLOCK_COUNT);
+  free(blocks);
+  return success;
+}
+
 static int profileRendering(GLuint shader) {
+  const char* generatorText = getenv("KERNELCRAFT_PROFILE_GENERATOR");
+  uint32_t generator = WORLD_GENERATOR_VERSION;
+  if (generatorText) {
+    if (strcmp(generatorText, "1") && strcmp(generatorText, "2"))
+      return 36;
+    generator = (uint32_t)(generatorText[0] - '0');
+  }
+  const char* distanceText = getenv("KERNELCRAFT_PROFILE_DISTANCE");
+  char* distanceEnd = NULL;
+  long distance = distanceText ? strtol(distanceText, &distanceEnd, 10) : WORLD_RENDER_DISTANCE_DEFAULT;
+  if ((distanceText && (distanceEnd == distanceText || *distanceEnd)) || distance < WORLD_RENDER_DISTANCE_MIN || distance > WORLD_RENDER_DISTANCE_MAX ||
+      !setWorldRenderDistance((int)distance))
+    return 37;
+  printf("PROFILE_WORLD generator=%u render_distance=%ld\n", generator, distance);
   const char* widthText = getenv("KERNELCRAFT_PROFILE_WIDTH");
   const char* heightText = getenv("KERNELCRAFT_PROFILE_HEIGHT");
   char *widthEnd = NULL, *heightEnd = NULL;
@@ -168,7 +203,7 @@ static int profileRendering(GLuint shader) {
   __glewGenQueries = profileGenQueries;
   cleanupWorld();
   double start = glfwGetTime();
-  bool success = initChunksSeeded(0);
+  bool success = profileWorld(generator);
   double generationMs = (glfwGetTime() - start) * 1000;
   start = glfwGetTime();
   success = success && initWorld(shader);
@@ -208,7 +243,8 @@ static int profileRendering(GLuint shader) {
     ProfileFrame samples[PROFILE_FRAMES];
     double drainMs = 0, batchStart = 0, frameBoundary = 0;
     double totalFrame = 0, totalCPU = 0, totalGPU = 0, rebuildMs = 0;
-    size_t totalTriangles = 0, totalBytes = 0;
+    size_t totalTriangles = 0, totalBytes = 0, peakIndexBytes = 0, totalIndexBytes = 0;
+    unsigned long totalScanned = 0, totalCandidates = 0;
     unsigned long totalDraws = 0, totalQueries = 0, totalRebuilt = 0, totalUploads = 0, totalBlocks = 0;
     // Add a tall player-built wall in front of the same generated terrain.
     // Camera motion behind it exercises actual occlusion, not frustum rejection.
@@ -398,6 +434,11 @@ static int profileRendering(GLuint shader) {
       totalRebuilt += result.chunksRebuilt;
       totalUploads += uploads - hudUploads;
       totalBytes += profileUploadBytes;
+      totalScanned += (unsigned)result.visibilityChunksScanned;
+      totalCandidates += (unsigned)result.visibilityCandidates;
+      totalIndexBytes += result.indexBytesUploaded;
+      if (result.indexBytesRetained > peakIndexBytes)
+        peakIndexBytes = result.indexBytesRetained;
       totalCloudDraws += cloudDraws;
       samples[frame] = (ProfileFrame){frameMs,
                                       cpuMs,
@@ -471,6 +512,8 @@ static int profileRendering(GLuint shader) {
     qsort(gpuTimes, PROFILE_FRAMES, sizeof(double), profileCompare);
     qsort(cloudGPU, PROFILE_FRAMES, sizeof(double), profileCompare);
     printf("PROFILE_SHADOW %s,draws_per_frame=%.3f,refresh_frames=%lu/%d\n", scenarios[scenario], (double)totalShadowDraws / PROFILE_FRAMES, shadowFrames, PROFILE_FRAMES);
+    printf("PROFILE_CHUNKS %s,scanned_per_frame=%.3f,candidates_per_frame=%.3f,peak_index_bytes=%zu,index_upload_bytes_per_frame=%.3f\n", scenarios[scenario],
+           (double)totalScanned / PROFILE_FRAMES, (double)totalCandidates / PROFILE_FRAMES, peakIndexBytes, (double)totalIndexBytes / PROFILE_FRAMES);
     printf("PROFILE_HUD_WORK %s,draws_per_frame=%.3f,uploads_per_frame=%.3f\n", scenarios[scenario], (double)totalHUDDraws / PROFILE_FRAMES,
            (double)totalHUDUploads / PROFILE_FRAMES);
     printf("PROFILE_CLOUD %s,%.6f,%.6f,%.6f,%.6f,%.6f\n", scenarios[scenario], totalCloudGPU / PROFILE_FRAMES, cloudGPU[(PROFILE_FRAMES * 95 + 99) / 100 - 1],

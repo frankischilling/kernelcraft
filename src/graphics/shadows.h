@@ -9,6 +9,7 @@
 typedef struct {
   GLuint vao;
   GLsizei indices;
+  GLenum indexType; // Zero retains the historical GL_UNSIGNED_INT default.
 } ShadowGeometry;
 
 typedef struct {

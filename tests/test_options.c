@@ -22,12 +22,24 @@ int main(void) {
   AppOptions options;
   CHECK(parse(1, (char*[]){"game"}, &options));
   CHECK(options.seed == 0 && !options.seedGiven && !options.noSave && !options.help);
+  CHECK(options.renderDistance == 12);
   CHECK(strstr(options.worldPath, "kernelcraft.kcw") && options.worldPath[0]);
   CHECK(parse(5, (char*[]){"game", "--world", "world with spaces.kcw", "--seed", "4294967295"}, &options));
   CHECK(options.seed == UINT32_MAX && options.seedGiven && strstr(options.worldPath, "world with spaces.kcw"));
   CHECK(parse(4, (char*[]){"game", "--seed", "00042", "--no-save"}, &options));
   CHECK(options.noSave && options.seed == 42);
   CHECK(parse(2, (char*[]){"game", "--help"}, &options) && options.help);
+  const char* distances[] = {"1", "6", "12", "16", "00012"};
+  const int expectedDistances[] = {1, 6, 12, 16, 12};
+  for (size_t i = 0; i < sizeof(distances) / sizeof(distances[0]); i++) {
+    CHECK(parse(6, (char*[]){"game", "--render-distance", (char*)distances[i], "--no-save", "--seed", "42"}, &options));
+    CHECK(options.renderDistance == expectedDistances[i] && options.noSave && options.seed == 42);
+  }
+  const char* badDistances[] = {"", "0", "17", "-1", "+12", "1.5", " 6", "6 ", "0x10", "9999999999999999999999", "4294967297", "12cats"};
+  for (size_t i = 0; i < sizeof(badDistances) / sizeof(badDistances[0]); i++)
+    CHECK(!parse(3, (char*[]){"game", "--render-distance", (char*)badDistances[i]}, &options));
+  CHECK(!parse(2, (char*[]){"game", "--render-distance"}, &options));
+  CHECK(!parse(5, (char*[]){"game", "--render-distance", "6", "--render-distance", "12"}, &options));
   const char* badSeeds[] = {"", "-1", "+1", " 1", "1 ", "0x10", "4294967296", "9999999999999999999999", "12cats"};
   for (size_t i = 0; i < sizeof(badSeeds) / sizeof(badSeeds[0]); i++)
     CHECK(!parse(3, (char*[]){"game", "--seed", (char*)badSeeds[i]}, &options));

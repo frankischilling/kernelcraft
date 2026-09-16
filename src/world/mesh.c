@@ -4,6 +4,12 @@
 #include <string.h>
 
 static enum Material faceMaterial(uint8_t block, int face) {
+  if (block == BLOCK_OAK_LOG)
+    return face == TOP || face == BOTTOM ? MATERIAL_OAK_LOG_TOP : MATERIAL_OAK_LOG_SIDE;
+  if (block == BLOCK_OAK_LEAVES)
+    return MATERIAL_OAK_LEAVES;
+  if (block == BLOCK_LEAFY_GRASS && face == TOP)
+    return MATERIAL_GRASS_TOP_LEAVES;
   if (block == BLOCK_OAK_PLANKS)
     return MATERIAL_OAK_PLANKS;
   if (block == BLOCK_STONE_BRICKS)
