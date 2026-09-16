@@ -78,6 +78,22 @@ void __wrap_renderPlayerModel(const PlayerRenderer* renderer, Vec3 feet, const P
   InputState* input = glfwGetWindowUserPointer(glfwGetCurrentContext());
   Vec3 expectedFeet = inputBodyFeet(input);
   CHECK(feet.x == expectedFeet.x && feet.y == expectedFeet.y && feet.z == expectedFeet.z);
+  if (frame == 96) {
+    // Crouching lowers the authoritative first-person eye, but the selected
+    // third-person camera keeps its standing-height anchor. The fixture around
+    // the player is clear enough for the full three-block rear camera distance.
+    Vec3 direction = input->camera->front;
+    vec3_normalize(&direction, &direction);
+    Vec3 expectedPosition = {input->player.position.x - direction.x * 3, input->player.position.y + PLAYER_EYE_HEIGHT - direction.y * 3,
+                             input->player.position.z - direction.z * 3};
+    Vec3 expectedTarget;
+    vec3_add(&expectedTarget, &expectedPosition, &direction);
+    Mat4 expectedView;
+    mat4_lookAt(expectedView, &expectedPosition, &expectedTarget, &input->camera->up);
+    for (int element = 0; element < 16; element++)
+      CHECK(fabsf(view[element] - expectedView[element]) < 0.00001f);
+    CHECK(fabsf(input->camera->position.y - (input->player.position.y + PLAYER_CROUCH_EYE_HEIGHT)) < 0.00001f);
+  }
   Camera eye = *input->camera;
   Player body = input->player;
   GLint viewport[4];

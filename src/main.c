@@ -280,7 +280,15 @@ int main(int argc, char** argv) {
     glViewport(0, 0, width, height);
     float aspect = (float)width / height;
     Camera displayCamera = camera;
-    bool showBody = input.view != CAMERA_FIRST_PERSON && makeThirdPersonCamera(&displayCamera, &camera, input.view == CAMERA_THIRD_PERSON_FRONT, aspect);
+    bool showBody = false;
+    if (input.view != CAMERA_FIRST_PERSON) {
+      Camera thirdPersonEye = camera;
+      if (!input.flying && input.player.crouched)
+        thirdPersonEye.position.y = input.player.position.y + PLAYER_EYE_HEIGHT;
+      showBody = makeThirdPersonCamera(&displayCamera, &thirdPersonEye, input.view == CAMERA_THIRD_PERSON_FRONT, aspect);
+      if (!showBody)
+        displayCamera = camera;
+    }
     PlayerModelPose playerPose;
     inputPlayerPose(&input, &playerPose);
     Mat4 view, projection;

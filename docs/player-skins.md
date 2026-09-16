@@ -9,6 +9,8 @@ F6 cycles first-person, rear third-person, and front third-person views. A third
 camera normally sits three blocks from the eye. Center, edge, and corner probes
 limit its distance near terrain. When less than 0.8 blocks remain, that frame
 uses first-person rendering. This does not change the selected camera mode.
+The selected third-person camera keeps the standing-height anchor while crouched;
+only the first-person eye moves down to the crouched eye height.
 F6 ignores repeats, chat entry, inactive/minimized windows, and zero framebuffer
 sizes. The chosen mode survives pauses and resets to first person on restart.
 
