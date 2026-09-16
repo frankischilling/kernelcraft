@@ -7,7 +7,9 @@ load, mapping block IDs 1–3 to the same numbered slots. Other fields, checksum
 payload order, and replacement behavior are unchanged. The
 [cobblestone increment](cobblestone-texture.md) writes version 3 to add block ID 4.
 Versions 1 and 2 still load but reject payloads containing this newer ID.
-Version 3 saves require the updated build to reopen.
+Version 3 saves require the updated build to reopen. Version 4 adds block IDs 5
+and 6. The current writer emits version 5, which preserves the version 4 world
+payload and adds inventory plus dropped-item state after it.
 
 Base: `6171a9a2769d7ce36eba1c3fd2e37c6cf644d707`, merged main after PR #12.
 The only open PR was #12; it was reviewed, freshly tested with
@@ -24,16 +26,95 @@ receives its seed explicitly and does not depend on generation order or rand().
 Do not claim cross-platform bitwise terrain equality beyond observed checks.
 
 Store full chunks: about 4 MiB per world, bounded and simple to validate. This
-preserves edits independently of future procedural changes. The little-endian
-format uses a 72-byte header: 8-byte magic, format/generator versions, seed,
-world width/height, chunk width/count, payload byte count, IEEE binary32 feet
-X/Y/Z and yaw/pitch, selected block ID, reserved zero, and a 32-bit FNV-1a
-checksum over the preceding header and payload. Chunk coordinates are implicit
-in fixed array order X/Z, then local X/Y/Z; each block ID is one byte. No structs
-or pointers are serialized. Reject unsupported versions, dimensions/counts,
-unknown IDs, non-finite/out-of-bounds player state, body overlap, truncation,
-trailing data, and checksum mismatch before replacing live chunks or state.
-The checksum detects accidental damage; it is not authentication.
+preserves edits independently of future procedural changes. Version 5 remains a
+little-endian format with a 72-byte header followed by the fixed-size world block
+payload and a bounded extension. No C structs or pointers are serialized.
+
+### Current version 5 layout
+
+The 72-byte header is:
+
+| Offset | Bytes | Field |
+| ---: | ---: | --- |
+| 0 | 8 | Magic `KCRFTSV\0` |
+| 8 | 4 | Save format version (`5`) |
+| 12 | 4 | World generator version |
+| 16 | 4 | World seed |
+| 20 | 4 | World width (`256`) |
+| 24 | 4 | World height (`64`) |
+| 28 | 4 | Chunk width (`16`) |
+| 32 | 4 | Chunk count (`256`) |
+| 36 | 4 | World block payload byte count (`4194304`) |
+| 40 | 4 | Player feet X, IEEE binary32 |
+| 44 | 4 | Player feet Y, IEEE binary32 |
+| 48 | 4 | Player feet Z, IEEE binary32 |
+| 52 | 4 | Yaw, IEEE binary32 |
+| 56 | 4 | Pitch, IEEE binary32 |
+| 60 | 4 | Selected hotbar slot, one-based (`1..9`) |
+| 64 | 4 | Version 5 extension byte count |
+| 68 | 4 | 32-bit FNV-1a checksum |
+
+The world payload begins at byte 72 and contains `4194304` one-byte block IDs.
+Chunk coordinates are implicit in fixed array order X/Z, then local X/Y/Z.
+Version 5 accepts air (`0`) plus the six current non-air block IDs. Version 1 and
+2 payloads may contain air plus IDs 1–3, version 3 may additionally contain ID 4,
+and version 4 uses the same air-plus-six-block world payload accepted by version 5.
+
+The version 5 extension starts immediately after the world payload. Its first 16
+bytes are four little-endian `uint32_t` values: carried-slot count `36`, armor-slot
+count `4`, crafting-input count `4`, and active dropped-item count `0..128`. They
+are followed by exactly 46 stack records in this order:
+
+1. `carried[0..35]`, where slots 0–8 are the hotbar.
+2. Armor slots in head, chest, legs, feet order.
+3. Offhand.
+4. The four 2x2 crafting inputs in row-major order.
+5. Cursor stack.
+
+Each stack record is eight bytes: little-endian `uint32_t item` followed by
+little-endian `uint32_t count`. Item IDs are persistent identifiers: `0` is empty,
+IDs 1–6 are the six block items, and IDs 7–10 are the leather helmet, chestplate,
+leggings, and boots. New item IDs must be appended rather than renumbering existing
+ones. Empty stacks are exactly `(0, 0)`. Ordinary items may hold 1–999 items;
+equipment is nonstackable and therefore has count 1. Armor records also have to
+match their armor slot. The derived crafting result is not serialized.
+
+The fixed inventory portion is `16 + 46 * 8 = 384` bytes. Each active world drop
+then adds a 20-byte record: binary32 X/Y/Z followed by the same eight-byte item
+stack record. Only active entries are written, in dropped-item pool index order.
+Thus the extension length is exactly `384 + dropCount * 20`, from 384 through
+2944 bytes. Drop positions must be finite, with X/Z in `[-128, 128)` and Y in
+`[0, 64)`, and the stack must be a valid nonempty inventory stack. Velocity,
+pickup delay, simulation accumulator, and animation clock are runtime state and
+are not serialized. Loading compacts saved drops into the first active pool
+entries, sets velocity to zero and pickup delay to 0.5 seconds, and resets both
+clocks to zero.
+
+The version 5 checksum is 32-bit FNV-1a over header bytes 0–67, then every world
+payload byte, then every extension byte. The checksum field at bytes 68–71 is not
+included. Versions 1–4 retain their original checksum scope of header bytes 0–67
+plus the world payload and require the field at offset 64 to be zero. The checksum
+detects accidental damage; it is not authentication.
+
+Before publishing a load, validate the version, generator, dimensions/counts,
+extension length/schema, checksum, block IDs, selected slot, player position and
+body clearance, every inventory stack and armor placement, every dropped stack
+and position, exact payload length, and EOF. Version 1 restricts the selected slot
+to the original first three positions; versions 2–5 accept all nine. Versions
+1–4 have no inventory/drop extension: they load the current starter inventory
+(999 of each of the six block items in hotbar slots 0–5 and the four leather
+pieces in carried slots 9–12) and an empty dropped-item pool.
+
+Loading stages the world bytes, inventory, drops, and player state before changing
+live state. The world replacement must succeed before the decoded `SavedPlayer`
+is published; any malformed file or replacement-allocation failure leaves the
+live chunks, seed, and output player unchanged. At application startup, a loaded
+nonempty cursor or any nonempty 2x2 crafting input automatically reopens the
+inventory. This keeps those transient owned stacks visible instead of resuming
+world controls with hidden cursor/crafting ownership. Closing the inventory first
+tries to return cursor/crafting stacks to carried storage; any remainder is
+transferred to bounded world drops on a copy, and the close commits only when the
+whole ownership transfer succeeds.
 
 Save to an exclusively created sibling temporary file. Check writes, flush,
 file sync, and close before replacing the destination. Clean up only the temp
@@ -50,10 +131,11 @@ and is used by ordinary graphical fixtures. `--help` needs no graphics context.
 F5 saves during play, and a successful normal exit saves again. Restart loads
 that file. Reload in the current process is not part of this increment.
 
-Preserve feet, view, and material selection. Restarts use walking mode with zero
-velocity; saving in flight chooses a clear position near the camera (or a safe
-surface) for the next walk. Show seed and save status in the HUD, with explicit
-errors. Tests must use unique temporary paths and never the user's default save.
+Preserve feet, view, selected hotbar slot, inventory ownership, and active dropped
+stacks. Restarts use walking mode with zero velocity; saving in flight chooses a
+clear position near the camera (or a safe surface) for the next walk. Show seed
+and save status in the HUD, with explicit errors. Tests must use unique temporary
+paths and never the user's default save.
 
 ## Implementation plan
 
@@ -83,7 +165,7 @@ errors. Tests must use unique temporary paths and never the user's default save.
 Greedy meshing and compatible texture repetition follow this tested save/load
 path. The later Cube World direction, Fire Bugs, Goblins, and Cupid Sponge remain.
 
-## Delivered checkpoint
+## Historical delivered checkpoint (PR #13)
 
 Branch `feat/world-persistence` starts at the base above. Commit `97037aa` adds
 seeded generation; `921e853` adds the save format, application controls, and
@@ -122,11 +204,14 @@ An unavailable destination tests F5's HUD failure status and the nonzero exit
 when the final save also fails. Flight snapshot tests check safe fallback,
 normalized yaw, walking restoration, and preservation of the live camera.
 
-## Validation on 2026-09-08
+## Historical validation on 2026-09-08
 
-All commands below exited 0. Linux commands ran from the repository in WSL
-Ubuntu; native Windows commands ran from PowerShell. Expected negative fixtures
-returned 1 and were checked by their enclosing tests.
+This table records validation of the earlier persistence checkpoint described by
+PR #13. It predates the version 5 inventory/drop extension above and should not be
+read as validation results for version 5. All commands below exited 0 at that
+time. Linux commands ran from the repository in WSL Ubuntu; native Windows
+commands ran from PowerShell. Expected negative fixtures returned 1 and were
+checked by their enclosing tests.
 
 | Command | Result |
 | --- | --- |
@@ -185,9 +270,9 @@ Build and run commands and controls are in the README. Default worlds are saved
 in the launch directory; the Windows -Run wrapper now preserves that directory.
 Paths use the platform C runtime encoding and a 4095-byte bound; arbitrary
 Unicode or extended Windows paths are not promised. Saves are synchronous full
-snapshots, without compression, periodic autosave, backups, migrations, or
-multi-session conflict handling. Corrupt saves stop startup; users can choose
-a different path to start a new world without overwriting them.
+snapshots, without compression, periodic autosave, backups, or multi-session
+conflict handling. Corrupt saves stop startup; users can choose a different path
+to start a new world without overwriting them.
 
 Next: evaluate greedy meshing against the exposed-face baseline. Merge only
 compatible material/orientation/lighting faces and preserve repeated texture

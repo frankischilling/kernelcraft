@@ -1,5 +1,11 @@
 # Textured nine-slot hotbar
 
+Current behavior is described in [player inventory](inventory.md). The hotbar
+displays actual carried items and counts, including moved/crafted stacks and
+equipment. The six original material images are shared with inventory and
+dropped sprites, and v5 persists all owned stacks. The checkpoint below
+records the original fixed-hotbar implementation and its historical validation.
+
 Base: `5fbe94db06a57bd49483d326f0a7cc3eef2c54bd`, after PR #31 was merged.
 Branch: `feat/textured-nine-slot-hotbar`.
 Tracked by [issue #32](https://github.com/frankischilling/kernelcraft/issues/32).
