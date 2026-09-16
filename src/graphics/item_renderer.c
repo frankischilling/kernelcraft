@@ -430,7 +430,7 @@ static void compositeHeld(const ItemRenderer* renderer, GLuint texture, const GL
   glDrawArrays(GL_TRIANGLES, renderer->quadFirst, 6);
 }
 
-static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose, float aspect) {
+static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose, float aspect, bool block) {
   float fit = fminf(1, aspect / 1.3f);
   PlayerModelSwing attack = playerModelSwing(pose->punch);
   PlayerModelSwing mainPlacement = playerModelSwing(pose->placeMain);
@@ -440,10 +440,11 @@ static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose,
   PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
   PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
   mat4_identity(model);
-  // Keep the held model beside and below aim instead of presenting a large,
-  // square-on block. The steeper yaw exposes block top/side faces while the
-  // compact scale keeps the center of the view clear.
-  translate(model, (Vec3){side * (0.48f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), -0.32f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
+  // Placeable blocks enter from below the viewport like Minecraft's first-person
+  // viewmodel, leaving roughly their upper half visible at rest. Equipment keeps
+  // the higher grip because its skinned arm is anchored to this same transform.
+  float restingY = block ? -0.80f - 0.12f * (1.0f - fit) : -0.32f;
+  translate(model, (Vec3){side * (0.48f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), restingY + bob + 0.12f * strike.lift - 0.10f * placement.arc,
                           -1.25f - 0.18f * strike.arc - 0.20f * placement.arc});
   rotate(model, 0, 0.26f - 0.48f * strike.arc + 0.35f * placement.arc);
   rotate(model, 1, side * (-0.70f + 0.35f * strike.reach + 0.15f * placement.reach));
@@ -488,9 +489,10 @@ bool renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRendere
   for (int hand = 0; hand < 2; hand++) {
     if (!hasItem(hands[hand]))
       continue;
+    bool block = !heldItemShowsArm(hands[hand]);
     Mat4 grip;
-    heldGripTransform(grip, hand, pose, aspect);
-    if (heldItemShowsArm(hands[hand])) {
+    heldGripTransform(grip, hand, pose, aspect, block);
+    if (!block) {
       Mat4 arm;
       heldArmTransform(arm, grip, hand);
       renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, false);
@@ -504,7 +506,7 @@ bool renderHeldItems(ItemRenderer* renderer, const PlayerRenderer* playerRendere
       if (!hasItem(hands[hand]) || !heldItemShowsArm(hands[hand]))
         continue;
       Mat4 grip, arm;
-      heldGripTransform(grip, hand, pose, aspect);
+      heldGripTransform(grip, hand, pose, aspect, false);
       heldArmTransform(arm, grip, hand);
       renderPlayerViewArm(playerRenderer, hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM, projection, arm, daylight, true);
     }

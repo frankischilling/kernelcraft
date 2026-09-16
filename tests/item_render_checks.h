@@ -304,6 +304,31 @@ static unsigned itemTestCountHeldArmLayer(const unsigned char* pixels, int width
   return count;
 }
 
+static bool itemTestHeldBlockFraming(const float* depth, int width, int height, int hand) {
+  int minX = width, maxX = -1, minY = height, maxY = -1;
+  unsigned visible = 0, bottom = 0;
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      if ((!hand && x < width / 2) || (hand && x >= width / 2))
+        continue;
+      if (depth[(size_t)y * width + x] >= 0.999f)
+        continue;
+      visible++;
+      bottom += y == 0;
+      minX = x < minX ? x : minX;
+      maxX = x > maxX ? x : maxX;
+      minY = y < minY ? y : minY;
+      maxY = y > maxY ? y : maxY;
+    }
+  if (!visible || maxX < minX || maxY < minY)
+    return false;
+  int spanX = maxX - minX + 1, spanY = maxY - minY + 1;
+  bool framed = minY == 0 && bottom >= (unsigned)(spanX / 4) && spanY * 20 >= spanX * 7 && spanY * 20 <= spanX * 17;
+  if (!framed)
+    fprintf(stderr, "Held block framing failed: %dx%d hand=%d visible=%u bounds=%d,%d..%d,%d bottom=%u\n", width, height, hand, visible, minX, minY, maxX, maxY, bottom);
+  return framed;
+}
+
 static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemTestTarget* target) {
   const int sizes[][2] = {{320, 240}, {180, 320}, {960, 540}};
   DayNightState light = itemTestNeutralLight();
@@ -337,6 +362,16 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     ok &= rightArm == 0 && leftArm == 0;
     ok &= itemTestCountHeldArmLayer(pixels, width, height, 0, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 0, 1) == 0;
     ok &= itemTestCountHeldArmLayer(pixels, width, height, 1, 0) == 0 && itemTestCountHeldArmLayer(pixels, width, height, 1, 1) == 0;
+    for (int hand = 0; hand < 2; hand++) {
+      itemTestClear(.375);
+      ItemStack framingMain = hand ? (ItemStack){0} : (ItemStack){ITEM_STONE, 1};
+      ItemStack framingOffhand = hand ? (ItemStack){ITEM_STONE, 1} : (ItemStack){0};
+      ok &= renderHeldItems(renderer, playerRenderer, framingMain, framingOffhand, &pose, (float)width / height, &light);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->heldTarget.framebuffer);
+      itemTestRead(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, after);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, target->framebuffer);
+      ok &= itemTestHeldBlockFraming(after, width, height, hand);
+    }
     // A block-only viewmodel must not leave hidden arm fragments in the private
     // target, and compositing that target must continue to preserve world depth.
     glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->heldTarget.framebuffer);

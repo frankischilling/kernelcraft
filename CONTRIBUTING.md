@@ -115,9 +115,11 @@ PNGs; primitive equipment models do not complete the dedicated-artwork backlog.
 
 Check first-person held blocks at rest and throughout breaking and placement,
 including early/late phases, offhand placement, and a consumed last item. A
-placeable block must show no arm or hand. Non-placeable equipment still uses its
-skinned arm and sleeve, with fractional sleeves blended after opaque geometry in
-the private held-item target. Surface cracks follow gameplay breaking progress
+placeable block must show no arm or hand. At rest, roughly half of the projected
+block height should remain below the lower viewport edge in landscape and portrait.
+Non-placeable equipment still uses its skinned arm and sleeve, with fractional
+sleeves blended after opaque geometry in the private held-item target. Surface
+cracks follow gameplay breaking progress
 and must vanish after removal, cancellation, or a target/material change. Inspect
 leaf cracks over transparent texels and repeat in wireframe. The corresponding
 item, cutout/shadow, crack, and live application regressions run under `-Test`.

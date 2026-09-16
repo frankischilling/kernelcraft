@@ -104,14 +104,18 @@ Nonempty hands use the shared [3D item models](inventory.md#rendering-and-saves)
 First-person placeable blocks render alone in the private held-item target, so no
 arm or hand is visible beside the block. Non-placeable equipment can include the
 matching right/left skinned arm in that same private depth target. Walking,
-breaking, and placement still move the held model through its viewmodel path.
+breaking, and placement still move the held model through its viewmodel path. At
+rest, a placeable block enters from the lower corner with roughly half of its
+projected height below the viewport; narrow portrait views lower it slightly more
+to preserve the same composition.
 The private pass never changes the world depth buffer. World and inventory-preview
 items follow the corresponding arm's joint transforms, including the root pose.
 
 ![Held stone block without a first-person arm](held-block-arm.png)
 
-This native application fixture shows the lower-right held stone by itself. The
-matching offhand pose is mirrored and also omits the arm; an offhand block
+This native application fixture shows the lower-right held stone by itself, with
+its lower half clipped below the viewport. The matching offhand pose is mirrored
+and also omits the arm; an offhand block
 suppresses the otherwise empty main-hand fallback. The normal bare-arm pose still
 appears for an empty main hand when no offhand block replaces it. Regression
 captures also cover intermediate breaking and placement poses, including the

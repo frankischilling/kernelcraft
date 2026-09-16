@@ -240,8 +240,10 @@ or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
 a fresh press. All current slots use the same hand rates in walking and flight.
 Holding through completion starts the next target from zero; excess time never
-carries over. The visible held block follows an asymmetric strike and recovery
-path while breaking, so the recovery does not retrace the strike. Successful
+carries over. A resting held block enters from the lower corner with roughly
+half of its projected height below the viewport. While breaking, it follows an
+asymmetric strike and recovery path so the recovery does not retrace the strike.
+Successful
 placement plays a short swing in the hand that supplied the block; the final
 item in a stack remains visible until that swing finishes. Tools and their speed
 modifiers remain planned. See
