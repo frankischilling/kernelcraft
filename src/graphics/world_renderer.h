@@ -30,6 +30,8 @@ bool setWorldRenderDistance(int chunks);
 int getWorldRenderDistance(void);
 // Rendering functions require a current GL context. The caller owns the shader.
 bool initWorld(GLuint shaderProgram);
+// Borrowed nearest-sampled cutout image for surface overlays; valid until cleanup.
+GLuint worldLeafTexture(void);
 // Updates uniforms only; the clock never invalidates chunk meshes or culling.
 void setWorldDayNight(const DayNightState* state);
 // Solid terrain uses current-view conservative occlusion; wireframe bypasses it.

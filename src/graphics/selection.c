@@ -1,6 +1,92 @@
 #include <GL/glew.h>
 #include "selection.h"
+#include "world_renderer.h"
 #include "../world/chunk.h"
+#include "../world/world.h"
+
+typedef struct {
+  float ax;
+  float ay;
+  float bx;
+  float by;
+  float reveal;
+} CrackSegment;
+
+static const CrackSegment crackSegments[] = {
+    {0.00f, 0.00f, -0.11f, 0.10f, 0.00f},   {0.00f, 0.00f, 0.13f, 0.08f, 0.05f},   {0.00f, 0.00f, 0.03f, -0.14f, 0.11f},    {-0.11f, 0.10f, -0.24f, 0.25f, 0.18f},
+    {-0.11f, 0.10f, -0.29f, 0.06f, 0.24f},  {0.13f, 0.08f, 0.29f, 0.22f, 0.31f},   {0.13f, 0.08f, 0.32f, 0.01f, 0.37f},     {0.03f, -0.14f, 0.17f, -0.29f, 0.44f},
+    {0.03f, -0.14f, -0.13f, -0.32f, 0.50f}, {-0.24f, 0.25f, -0.34f, 0.37f, 0.57f}, {-0.24f, 0.25f, -0.39f, 0.22f, 0.63f},   {0.29f, 0.22f, 0.40f, 0.34f, 0.69f},
+    {0.32f, 0.01f, 0.42f, -0.09f, 0.75f},   {0.17f, -0.29f, 0.29f, -0.40f, 0.81f}, {-0.13f, -0.32f, -0.25f, -0.42f, 0.87f}, {-0.29f, 0.06f, -0.41f, -0.02f, 0.93f}};
+
+static bool blockMatchesBreaking(const BlockBreaking* breaking, const Ray* selection, float* progress) {
+  if (!breaking || !selection || !breaking->active || !selection->hit || selection->blockCoords.x != breaking->target.x || selection->blockCoords.y != breaking->target.y ||
+      selection->blockCoords.z != breaking->target.z)
+    return false;
+  float value = blockBreakingProgress(breaking);
+  if (!(value > 0))
+    return false;
+  const Block* block = getBlock(&breaking->target);
+  if (!block || block->id != breaking->block)
+    return false;
+  *progress = value;
+  return true;
+}
+
+static Vec3 crackFacePoint(int face, Vec3i block, float s, float t) {
+  Vec3 point = {block.x + 0.5f, block.y + 0.5f, block.z + 0.5f};
+  switch (face) {
+  case RIGHT:
+    point.x += 0.5f;
+    point.y += 0.5f - t;
+    point.z += s - 0.5f;
+    break;
+  case LEFT:
+    point.x -= 0.5f;
+    point.y += 0.5f - t;
+    point.z += s - 0.5f;
+    break;
+  case TOP:
+    point.x += s - 0.5f;
+    point.y += 0.5f;
+    point.z += t - 0.5f;
+    break;
+  case BOTTOM:
+    point.x += s - 0.5f;
+    point.y -= 0.5f;
+    point.z += 0.5f - t;
+    break;
+  case FRONT:
+    point.x += s - 0.5f;
+    point.y += 0.5f - t;
+    point.z += 0.5f;
+    break;
+  default:
+    point.x += s - 0.5f;
+    point.y += 0.5f - t;
+    point.z -= 0.5f;
+    break;
+  }
+  point.x *= CUBE_SIZE;
+  point.y *= CUBE_SIZE;
+  point.z *= CUBE_SIZE;
+  return point;
+}
+
+static void emitCrackSegment(int face, Vec3i block, const CrackSegment* segment, float halfWidth) {
+  float dx = segment->bx - segment->ax, dy = segment->by - segment->ay;
+  float length = sqrtf(dx * dx + dy * dy);
+  if (length <= 0)
+    return;
+  float px = -dy / length * halfWidth, py = dx / length * halfWidth;
+  const float points[][2] = {
+      {segment->ax + px, segment->ay + py}, {segment->ax - px, segment->ay - py}, {segment->bx - px, segment->by - py}, {segment->bx + px, segment->by + py}};
+  for (int corner = 0; corner < 4; corner++) {
+    float s = points[corner][0] + 0.5f, t = points[corner][1] + 0.5f;
+    Vec3 point = crackFacePoint(face, block, s, t);
+    glTexCoord2f(s, t);
+    glVertex3f(point.x, point.y, point.z);
+  }
+}
 
 static float outlineOffsetFactor(const float* vertices, Vec3i block, const Mat4 matrix, const GLint viewport[4]) {
   // Estimate the polygon's depth slope in window coordinates, just as GL does.
@@ -104,5 +190,95 @@ void drawSelection(const Ray* selection, const Mat4 view, const Mat4 projection)
   glPopMatrix();
   glMatrixMode(matrixMode);
   glPopAttrib();
+  glUseProgram((GLuint)program);
+}
+
+void drawBlockBreaking(const BlockBreaking* breaking, const Ray* selection, const Mat4 view, const Mat4 projection) {
+  float progress;
+  if (!blockMatchesBreaking(breaking, selection, &progress))
+    return;
+  bool leafMask = breaking->block == BLOCK_OAK_LEAVES;
+  GLuint leafTexture = leafMask ? worldLeafTexture() : 0;
+  if (leafMask && !leafTexture)
+    return;
+
+  GLint program, matrixMode, activeTexture, textureUnits, sampler0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+  glGetIntegerv(GL_MATRIX_MODE, &matrixMode);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+  glGetIntegerv(GL_MAX_TEXTURE_UNITS, &textureUnits);
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_SAMPLER_BINDING, &sampler0);
+  glActiveTexture((GLenum)activeTexture);
+  glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT | GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_POLYGON_BIT | GL_TEXTURE_BIT);
+  glUseProgram(0);
+  for (int unit = 0; unit < textureUnits; unit++) {
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glDisable(GL_TEXTURE_1D);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_TEXTURE_3D);
+    glDisable(GL_TEXTURE_CUBE_MAP);
+    glDisable(GL_TEXTURE_GEN_S);
+    glDisable(GL_TEXTURE_GEN_T);
+  }
+  glActiveTexture(GL_TEXTURE0);
+  glBindSampler(0, 0);
+  glDisable(GL_ALPHA_TEST);
+  if (leafMask) {
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, leafTexture);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glEnable(GL_ALPHA_TEST);
+    glAlphaFunc(GL_GREATER, 0.0f);
+    glMatrixMode(GL_TEXTURE);
+    glPushMatrix();
+    glLoadIdentity();
+  }
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glDepthFunc(GL_LEQUAL);
+  glEnable(GL_BLEND);
+  glBlendEquation(GL_FUNC_ADD);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDisable(GL_CULL_FACE);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(-1, -1);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glColor4f(0.015f, 0.012f, 0.01f, 0.38f + 0.52f * progress);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadMatrixf(projection);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadMatrixf(view);
+
+  Vec3i block = breaking->target;
+  float halfWidth = 0.007f + 0.009f * progress;
+  for (int face = 0; face < 6; face++) {
+    Vec3i normal = vec3iFaceMap[face];
+    Vec3i neighborPos = {block.x + normal.x, block.y + normal.y, block.z + normal.z};
+    const Block* neighbor = getBlock(&neighborPos);
+    int neighborID = neighbor ? neighbor->id : BLOCK_AIR;
+    if (!blockFaceVisible(breaking->block, neighborID))
+      continue;
+    glBegin(GL_QUADS);
+    for (size_t segment = 0; segment < sizeof(crackSegments) / sizeof(crackSegments[0]); segment++)
+      if (progress >= crackSegments[segment].reveal)
+        emitCrackSegment(face, block, &crackSegments[segment], halfWidth);
+    glEnd();
+  }
+
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  if (leafMask) {
+    glActiveTexture(GL_TEXTURE0);
+    glMatrixMode(GL_TEXTURE);
+    glPopMatrix();
+  }
+  glMatrixMode(matrixMode);
+  glPopAttrib();
+  glBindSampler(0, (GLuint)sampler0);
+  glActiveTexture((GLenum)activeTexture);
   glUseProgram((GLuint)program);
 }

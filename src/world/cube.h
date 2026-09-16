@@ -37,6 +37,16 @@ static inline bool blockIsSolid(int id) {
   return blockIDValid(id) && id != BLOCK_AIR;
 }
 
+// Cutout foliage remains solid for collision but cannot hide an opaque neighbor.
+// Equal leaf neighbors share one outer shell, without coplanar internal faces.
+static inline bool blockOccludesFaces(int id) {
+  return blockIsSolid(id) && id != BLOCK_OAK_LEAVES;
+}
+
+static inline bool blockFaceVisible(int id, int neighbor) {
+  return blockIsSolid(id) && !blockOccludesFaces(neighbor) && !(id == BLOCK_OAK_LEAVES && neighbor == BLOCK_OAK_LEAVES);
+}
+
 // Six vertices per face, each with position, normal, and UV coordinates.
 const float* getCubeFaceVertices(int face);
 

@@ -25,6 +25,7 @@ typedef struct {
 
 static RenderChunk renderChunks[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
 static GLuint textureArray;
+static GLuint leafTexture;
 static GLuint program, gridVAO, gridVBO;
 static GLint viewProjectionLocation, gridLocation;
 static ShadowCache shadows;
@@ -57,7 +58,7 @@ static void refreshShadowGeometry(void) {
     for (int z = 0; z < CHUNKS_PER_AXIS; z++) {
       RenderChunk* chunk = &renderChunks[x][z];
       if (chunk->indexCount)
-        shadowGeometry[shadowGeometryCount++] = (ShadowGeometry){chunk->vao, (GLsizei)chunk->indexCount, chunk->indexType};
+        shadowGeometry[shadowGeometryCount++] = (ShadowGeometry){chunk->vao, (GLsizei)chunk->indexCount, chunk->indexType, textureArray};
     }
 }
 
@@ -234,6 +235,12 @@ bool initWorld(GLuint shaderProgram) {
   glActiveTexture(GL_TEXTURE0);
   textureArray = loadTextureArray(paths, (int)(sizeof(paths) / sizeof(paths[0])));
   if (!textureArray)
+    goto failure;
+  GLint previousTexture;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
+  leafTexture = loadTexture("assets/textures/oak-leaves.png");
+  glBindTexture(GL_TEXTURE_2D, (GLuint)previousTexture);
+  if (!leafTexture || glGetError() != GL_NO_ERROR)
     goto failure;
   glUseProgram(program);
   viewProjectionLocation = glGetUniformLocation(program, "viewProjection");
@@ -462,6 +469,10 @@ RenderResult renderWorld(const Camera* camera, const Mat4 view, const Mat4 proje
   return result;
 }
 
+GLuint worldLeafTexture(void) {
+  return leafTexture;
+}
+
 void cleanupWorld(void) {
   cleanupShadowCache(&shadows);
   for (int x = 0; x < CHUNKS_PER_AXIS; x++) {
@@ -479,6 +490,8 @@ void cleanupWorld(void) {
   glDeleteBuffers(1, &gridVBO);
   gridVAO = gridVBO = 0;
   glDeleteTextures(1, &textureArray);
+  glDeleteTextures(1, &leafTexture);
+  leafTexture = 0;
   textureArray = 0;
   program = 0;
   visibilityValid = false;

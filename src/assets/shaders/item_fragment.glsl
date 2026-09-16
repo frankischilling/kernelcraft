@@ -20,7 +20,10 @@ vec3 toSrgb(vec3 color) {
 }
 
 void main() {
-    vec3 albedo = Layer < 0.0 ? itemColor : texture(materials, vec3(TexCoord, Layer)).rgb;
+    vec4 texel = Layer < 0.0 ? vec4(itemColor, 1.0) : texture(materials, vec3(TexCoord, Layer));
+    if (Layer == 12.0 && texel.a < 0.5)
+        discard;
+    vec3 albedo = texel.rgb;
     vec3 n = normalize(Normal);
     vec3 ambient = mix(groundColor, skyColor, n.y * 0.5 + 0.5);
     vec3 direction = lightDirection / max(length(lightDirection), 0.000001);

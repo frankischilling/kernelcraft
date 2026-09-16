@@ -357,14 +357,14 @@ bool setBlock(const Vec3i* pos, int id) {
     return false;
   if (old->id == id)
     return true;
-  bool exposureChanged = blockIsSolid(old->id) != blockIsSolid(id);
+  bool exposureChanged = blockIsSolid(old->id) != blockIsSolid(id) || blockOccludesFaces(old->id) != blockOccludesFaces(id);
   int x = pos->x + WORLD_SIZE / 2, z = pos->z + WORLD_SIZE / 2;
   int cx = x / CHUNK_SIZE, cz = z / CHUNK_SIZE;
   int lx = x % CHUNK_SIZE, lz = z % CHUNK_SIZE;
   Chunk* chunk = chunks[cx][cz];
   chunk->blocks[lx][pos->y][lz].id = (uint8_t)id;
   chunk->dirty = true;
-  // A material-only change cannot expose a neighbor's face.
+  // Changes between opaque and cutout blocks also change neighbor visibility.
   if (exposureChanged) {
     if (lx == 0)
       dirtyNeighbor(cx - 1, cz);

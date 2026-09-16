@@ -30,6 +30,123 @@ static uint32_t inventoryTestDroppedCount(const DroppedItems* drops, uint16_t it
   return total;
 }
 
+static void inventoryTestFillDropPool(DroppedItems* drops) {
+  *drops = (DroppedItems){0};
+  for (int slot = 0; slot < DROPPED_ITEM_CAPACITY; slot++)
+    CHECK(droppedItemsSpawn(drops, (ItemStack){ITEM_DIRT, INVENTORY_STACK_MAX}, (Vec3){-120.0f + (slot % 16) * 2, 50, -120.0f + (slot / 16) * 2}, (Vec3){0}, 0));
+}
+
+static void inventoryTestClearDirtyChunks(void) {
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+      getChunk(&(Vec2i){x, z})->dirty = false;
+}
+
+static void testLeafBreakDropPolicy(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  InputState saved = *input;
+  Camera camera = *input->camera;
+  int priorCursor = cursorMode;
+  bool priorDirty[CHUNKS_PER_AXIS][CHUNKS_PER_AXIS];
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+      priorDirty[x][z] = getChunk(&(Vec2i){x, z})->dirty;
+  GLFWmousebuttonfun click = glfwSetMouseButtonCallback(window, NULL);
+  glfwSetMouseButtonCallback(window, click);
+  CHECK(click);
+
+  focused = GLFW_TRUE;
+  iconified = zeroFramebuffer = false;
+  setCursorCaptured(window, true);
+  input->inventoryOpen = false;
+  input->chat.open = false;
+  input->flying = false;
+  input->camera->position = (Vec3){-0.5f, 41.5f, -3.0f};
+  input->camera->front = (Vec3){0, 0, 1};
+  inventoryClear(&input->inventory);
+  input->inventory.carried[6] = (ItemStack){ITEM_OAK_LEAVES, 17};
+  input->inventory.carried[7] = (ItemStack){ITEM_OAK_LOG, 9};
+  input->drops = (DroppedItems){0};
+  input->inventoryNotice = NULL;
+  const Vec3i target = {-1, 41, -1};
+  for (int z = -3; z <= 0; z++)
+    CHECK(setBlock(&(Vec3i){-1, 41, z}, BLOCK_AIR));
+
+  // A partial leaf break can be cancelled without changing inventory or drops.
+  CHECK(setBlock(&target, BLOCK_OAK_LEAVES));
+  inventoryTestClearDirtyChunks();
+  Inventory beforeInventory = input->inventory;
+  DroppedItems beforeDrops = input->drops;
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  processBlockBreaking(window, input, 0.1);
+  CHECK(input->breakHeld && blockBreakingProgress(&input->breaking) > 0 && blockBreakingProgress(&input->breaking) < 1);
+  CHECK(getBlock(&target)->id == BLOCK_OAK_LEAVES);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) && !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+  CHECK(!input->breakHeld && !input->breaking.active && getBlock(&target)->id == BLOCK_OAK_LEAVES);
+  processBlockBreaking(window, input, 1.0);
+  CHECK(getBlock(&target)->id == BLOCK_OAK_LEAVES && !memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) &&
+        !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+
+  // Completion with an empty pool removes the leaf and creates no item. The
+  // negative-coordinate corner invalidates its owner and both seam neighbors.
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  processBlockBreaking(window, input, 0.1);
+  processBlockBreaking(window, input, 0.1);
+  CHECK(getBlock(&target)->id == BLOCK_AIR && input->breakHeld && !input->breaking.active);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) && !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+  CHECK(getChunk(&(Vec2i){7, 7})->dirty && getChunk(&(Vec2i){8, 7})->dirty && getChunk(&(Vec2i){7, 8})->dirty && !getChunk(&(Vec2i){8, 8})->dirty);
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+
+  // A completely full drop pool must not reserve capacity or stop leaf progress.
+  CHECK(setBlock(&target, BLOCK_OAK_LEAVES));
+  inventoryTestFillDropPool(&input->drops);
+  inventoryTestClearDirtyChunks();
+  beforeDrops = input->drops;
+  beforeInventory = input->inventory;
+  input->inventoryNotice = NULL;
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  processBlockBreaking(window, input, 0.1);
+  CHECK(input->breakHeld && getBlock(&target)->id == BLOCK_OAK_LEAVES && !input->inventoryNotice);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) && !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+  processBlockBreaking(window, input, 0.1);
+  CHECK(getBlock(&target)->id == BLOCK_AIR && !input->inventoryNotice);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) && !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+
+  // Logs retain the ordinary one-item drop policy.
+  input->drops = (DroppedItems){0};
+  CHECK(setBlock(&target, BLOCK_OAK_LOG));
+  beforeInventory = input->inventory;
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  for (int tick = 0; tick < 15 && getBlock(&target)->id != BLOCK_AIR; tick++)
+    processBlockBreaking(window, input, 0.1);
+  CHECK(getBlock(&target)->id == BLOCK_AIR && inventoryTestDroppedCount(&input->drops, ITEM_OAK_LOG) == 1);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)));
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+
+  // Ordinary block breaking still refuses to proceed when no drop can fit.
+  inventoryTestFillDropPool(&input->drops);
+  CHECK(setBlock(&target, BLOCK_STONE));
+  beforeDrops = input->drops;
+  beforeInventory = input->inventory;
+  input->inventoryNotice = NULL;
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+  CHECK(input->breakHeld && input->breaking.active);
+  processBlockBreaking(window, input, 0.1);
+  CHECK(getBlock(&target)->id == BLOCK_STONE && !input->breakHeld && !input->breaking.active && input->inventoryNotice);
+  CHECK(!memcmp(&input->inventory, &beforeInventory, sizeof(beforeInventory)) && !memcmp(&input->drops, &beforeDrops, sizeof(beforeDrops)));
+  click(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+  CHECK(setBlock(&target, BLOCK_AIR));
+
+  for (int x = 0; x < CHUNKS_PER_AXIS; x++)
+    for (int z = 0; z < CHUNKS_PER_AXIS; z++)
+      getChunk(&(Vec2i){x, z})->dirty |= priorDirty[x][z];
+  *input = saved;
+  *input->camera = camera;
+  cursorMode = priorCursor;
+}
+
 static void testInventoryInput(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
   InputState original = *input;
@@ -263,6 +380,8 @@ static void testInventoryInput(GLFWwindow* window) {
   mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
   finishHandBreak(window);
   CHECK(getBlock(&(Vec3i){72, 41, 74})->id == BLOCK_AIR && inventoryTestDroppedCount(&input->drops, ITEM_STONE_BRICKS) == 1);
+
+  testLeafBreakDropPolicy(window);
 
   *input->camera = camera;
   *input = original;

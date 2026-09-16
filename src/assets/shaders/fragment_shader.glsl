@@ -104,6 +104,9 @@ void main() {
     // RGBA8 tiles contain sRGB colors. Shade in linear light, then encode for
     // the existing display framebuffer. HUD and selection keep their own path;
     // GL_FRAMEBUFFER_SRGB stays disabled so output is encoded exactly once.
-    vec3 albedo = srgbToLinear(texture(texture1, vec3(TexCoord, terrainLayer(norm))).rgb);
+    vec4 texel = texture(texture1, vec3(TexCoord, terrainLayer(norm)));
+    if (Material == 12.0 && texel.a < 0.5)
+        discard;
+    vec3 albedo = srgbToLinear(texel.rgb);
     FragColor = vec4(linearToSrgb(albedo * (ambient + diffuse)), 1.0);
 }

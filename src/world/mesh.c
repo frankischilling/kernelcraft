@@ -131,9 +131,9 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   memset(mesh, 0, sizeof(*mesh));
   uint8_t exposed[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE] = {0};
   bool slices[6][MESH_SLICES] = {{false}};
-  // Cache solidity once. The one-cell border preserves cross-chunk/world edges
+  // Cache material IDs once. The one-cell border preserves cross-chunk/world edges
   // without repeating world coordinate lookup for every interior neighbor.
-  bool solid[CHUNK_SIZE + 2][CHUNK_HEIGHT + 2][CHUNK_SIZE + 2] = {{{false}}};
+  uint8_t solid[CHUNK_SIZE + 2][CHUNK_HEIGHT + 2][CHUNK_SIZE + 2] = {{{0}}};
   size_t faceCounts[MATERIAL_COUNT] = {0};
   size_t exposedFaces = 0;
   int originX = chunk->position.a * CHUNK_SIZE;
@@ -144,7 +144,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
   for (int x = 0; x < CHUNK_SIZE; x++)
     for (int y = 0; y < CHUNK_HEIGHT; y++)
       for (int z = 0; z < CHUNK_SIZE; z++) {
-        solid[x + 1][y + 1][z + 1] = blockIsSolid(chunk->blocks[x][y][z].id);
+        solid[x + 1][y + 1][z + 1] = blockIsSolid(chunk->blocks[x][y][z].id) ? chunk->blocks[x][y][z].id : BLOCK_AIR;
         anySolid |= solid[x + 1][y + 1][z + 1];
       }
   if (!anySolid) {
@@ -157,10 +157,10 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
       const Block* right = getBlock(&(Vec3i){originX + CHUNK_SIZE, y, originZ + edge});
       const Block* back = getBlock(&(Vec3i){originX + edge, y, originZ - 1});
       const Block* front = getBlock(&(Vec3i){originX + edge, y, originZ + CHUNK_SIZE});
-      solid[0][y + 1][edge + 1] = left && blockIsSolid(left->id);
-      solid[CHUNK_SIZE + 1][y + 1][edge + 1] = right && blockIsSolid(right->id);
-      solid[edge + 1][y + 1][0] = back && blockIsSolid(back->id);
-      solid[edge + 1][y + 1][CHUNK_SIZE + 1] = front && blockIsSolid(front->id);
+      solid[0][y + 1][edge + 1] = left ? left->id : BLOCK_AIR;
+      solid[CHUNK_SIZE + 1][y + 1][edge + 1] = right ? right->id : BLOCK_AIR;
+      solid[edge + 1][y + 1][0] = back ? back->id : BLOCK_AIR;
+      solid[edge + 1][y + 1][CHUNK_SIZE + 1] = front ? front->id : BLOCK_AIR;
     }
 
   for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -169,7 +169,7 @@ bool buildChunkMesh(const Chunk* chunk, ChunkMesh* mesh) {
         if (!solid[x + 1][y + 1][z + 1])
           continue;
         for (int face = 0; face < 6; face++) {
-          if (solid[x + 1 + vec3iFaceMap[face].x][y + 1 + vec3iFaceMap[face].y][z + 1 + vec3iFaceMap[face].z])
+          if (!blockFaceVisible(solid[x + 1][y + 1][z + 1], solid[x + 1 + vec3iFaceMap[face].x][y + 1 + vec3iFaceMap[face].y][z + 1 + vec3iFaceMap[face].z]))
             continue;
           exposedFaces++;
           exposed[x][y][z] |= (uint8_t)(1u << face);

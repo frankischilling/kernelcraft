@@ -328,14 +328,16 @@ int main(int argc, char** argv) {
       renderPlayerHeldItems(itemRenderer, inputBodyFeet(&input), &playerPose, mainHand, offhand, view, projection, &daylight);
     }
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
-    if (!input.inventoryOpen)
+    if (!input.inventoryOpen) {
       drawSelection(&selection, view, projection);
+      drawBlockBreaking(&input.breaking, &selection, view, projection);
+    }
     renderDroppedItems(itemRenderer, &input.drops, view, projection, &daylight);
     renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
     if (!showBody && !input.inventoryOpen) {
       if (!mainHand.count)
         renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
-      if (!renderHeldItems(itemRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
+      if (!renderHeldItems(itemRenderer, &playerRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
         fprintf(stderr, "Cannot render held items: framebuffer allocation or drawing failed\n");
         exitStatus = EXIT_FAILURE;
         break;

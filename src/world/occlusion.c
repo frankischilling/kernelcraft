@@ -26,6 +26,10 @@ static bool project(const OcclusionBuffer* buffer, Vec3 p, Projected* out) {
 void buildMeshOccluders(const ChunkMesh* mesh, MeshOccluders* occluders) {
   occluders->count = 0;
   for (size_t first = 0; first + 3 < mesh->vertexCount; first += 4) {
+    // A foliage rectangle has holes; treating its bounds as filled could hide
+    // geometry visible through them. Keep uncertain coverage out of the buffer.
+    if (mesh->vertices[first].material == MATERIAL_OAK_LEAVES)
+      continue;
     Vec3 u, v;
     vec3_subtract(&u, &mesh->vertices[first + 1].position, &mesh->vertices[first].position);
     vec3_subtract(&v, &mesh->vertices[first + 3].position, &mesh->vertices[first].position);

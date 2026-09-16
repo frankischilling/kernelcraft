@@ -220,7 +220,7 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
           CHECK(blockIsSolid(id) && material == expected);
           Vec3i neighbor = {pos.x + direction.x, pos.y + direction.y, pos.z + direction.z};
           const Block* block = getBlock(&neighbor);
-          CHECK(!block || !blockIsSolid(block->id));
+          CHECK(!block || !blockIsSolid(block->id) || (block->id == BLOCK_OAK_LEAVES && id != BLOCK_OAK_LEAVES));
           area++;
         }
     }
@@ -234,7 +234,8 @@ static size_t check_mesh_coverage(const Chunk* chunk, const ChunkMesh* mesh) {
           Vec3i d = vec3iFaceMap[face];
           Vec3i pos = {chunk->position.a * CHUNK_SIZE + x + d.x, y + d.y, chunk->position.b * CHUNK_SIZE + z + d.z};
           const Block* neighbor = getBlock(&pos);
-          bool exposed = blockIsSolid(chunk->blocks[x][y][z].id) && (!neighbor || !blockIsSolid(neighbor->id));
+          int id = chunk->blocks[x][y][z].id;
+          bool exposed = blockIsSolid(id) && (!neighbor || !blockIsSolid(neighbor->id) || (neighbor->id == BLOCK_OAK_LEAVES && id != BLOCK_OAK_LEAVES));
           CHECK(seen[x][y][z][face] == (unsigned)exposed);
         }
 
@@ -393,7 +394,7 @@ static void test_generated_meshes(bool legacy) {
                                   {chunk->position.a * 16 + i, j, chunk->position.b * 16 + k + 1}, {chunk->position.a * 16 + i, j, chunk->position.b * 16 + k - 1}};
             for (int face = 0; face < 6; face++) {
               const Block* neighbor = getBlock(&neighbors[face]);
-              if (!neighbor || neighbor->id == BLOCK_AIR)
+              if (!neighbor || neighbor->id == BLOCK_AIR || (neighbor->id == BLOCK_OAK_LEAVES && chunk->blocks[i][j][k].id != BLOCK_OAK_LEAVES))
                 expectedFaces++;
             }
           }
@@ -432,6 +433,46 @@ static void test_forest_materials(void) {
       }
     CHECK(area == 80); // 2 * (4*4 + 4*3 + 4*3), with no internal seam faces.
   }
+}
+
+static void test_cutout_leaf_mesh(void) {
+  clear_world();
+  const Vec3i bark = {-1, 20, 1}, foliage = {0, 20, 1};
+  CHECK(setBlock(&bark, BLOCK_OAK_LOG) && setBlock(&foliage, BLOCK_OAK_LEAVES));
+  Chunk* left = getChunk(&(Vec2i){7, 8});
+  Chunk* right = getChunk(&(Vec2i){8, 8});
+  ChunkMesh mesh;
+  CHECK(buildChunkMesh(left, &mesh));
+  CHECK(mesh.indexCount == 36 && check_mesh_coverage(left, &mesh) == 6);
+  freeChunkMesh(&mesh);
+  CHECK(buildChunkMesh(right, &mesh));
+  CHECK(mesh.indexCount == 30 && check_mesh_coverage(right, &mesh) == 5);
+  freeChunkMesh(&mesh);
+  left->dirty = right->dirty = false;
+  CHECK(setBlock(&foliage, BLOCK_STONE));
+  CHECK(left->dirty && right->dirty); // Solidity did not change, opacity did.
+  CHECK(buildChunkMesh(left, &mesh));
+  CHECK(mesh.indexCount == 30);
+  freeChunkMesh(&mesh);
+  left->dirty = right->dirty = false;
+  CHECK(setBlock(&foliage, BLOCK_OAK_LEAVES));
+  CHECK(left->dirty && right->dirty);
+  left->dirty = right->dirty = false;
+  CHECK(setBlock(&foliage, BLOCK_OAK_LEAVES));
+  CHECK(!left->dirty && !right->dirty);
+
+  clear_world();
+  for (int x = 1; x < 5; x++)
+    for (int y = 20; y < 24; y++)
+      for (int z = 1; z < 5; z++)
+        CHECK(setBlock(&(Vec3i){x, y, z}, BLOCK_OAK_LEAVES));
+  CHECK(buildChunkMesh(right, &mesh));
+  CHECK(mesh.indexCount == 36 && check_mesh_coverage(right, &mesh) == 96);
+  MeshOccluders occluders;
+  buildMeshOccluders(&mesh, &occluders);
+  CHECK(occluders.count == 0); // Six large cutout planes must never hide chunks.
+  freeChunkMesh(&mesh);
+  CHECK(blockIsSolid(BLOCK_OAK_LEAVES));
 }
 #endif
 
@@ -523,6 +564,7 @@ int main(void) {
   test_mesh();
   test_greedy_shapes();
   test_forest_materials();
+  test_cutout_leaf_mesh();
   test_detached_mesh();
   test_mesh_allocation_failures();
   test_full_checkerboard_mesh();

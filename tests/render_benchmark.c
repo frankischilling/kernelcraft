@@ -74,6 +74,8 @@ static GLint GLAPIENTRY countLookup(GLuint program, const GLchar* name) {
 #include "player_render_checks.h"
 #include "inventory_render_checks.h"
 #include "item_render_checks.h"
+#include "leaf_render_checks.h"
+#include "block_crack_checks.h"
 #include "render_profile.h"
 #include "forest_render_checks.h"
 #include "chunk_render_checks.h"
@@ -145,7 +147,7 @@ static GLuint referenceProgram(void) {
                        "linear*=light;\n"
                        "return linear<=0.0031308 ? linear*12.92 : 1.055*pow(linear,1.0/2.4)-0.055;}\n"
                        "void main(){\n"
-                       "vec3 c=texture(texture1,TexCoord).rgb;\n"
+                       "vec4 texel=texture(texture1,TexCoord); if(texel.a<0.5) discard; vec3 c=texel.rgb;\n"
                        "FragColor=vec4(shade(c.r,faceLight.r),shade(c.g,faceLight.g),shade(c.b,faceLight.b),1.0);}\n";
   FILE* file = fopen(path, "wb");
   if (!file)
@@ -190,6 +192,13 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
         setBlock(&(Vec3i){x, y, z}, repeatedTextureBlock(pattern, x, y, z));
   if (!initWorld(shader))
     return false;
+  // Cutout gaps reveal recessed faces that can shadow each other. This texture
+  // reference has no shadow map, so compare those patterns under neutral fill;
+  // separate shadow fixtures verify actual alpha-tested shadow depth.
+  bool cutoutPattern = pattern == 10 || pattern == 12;
+  const GLfloat neutralLight[] = {1, 1, 1};
+  if (cutoutPattern)
+    setWorldDayNight(&(DayNightState){.lightDirection = {0, 1, 0}, .skyFill = {1, 1, 1}, .groundFill = {1, 1, 1}});
   GLuint textures[] = {loadTexture("assets/textures/stone.png"),        loadTexture("assets/textures/dirt.png"),         loadTexture("assets/textures/grass-top.png"),
                        loadTexture("assets/textures/grass-side.png"),   loadTexture("assets/textures/dirt-rocks.png"),   loadTexture("assets/textures/grass-top-leaves.png"),
                        loadTexture("assets/textures/grass-bug.png"),    loadTexture("assets/textures/cobblestone.png"),  loadTexture("assets/textures/oak-planks.png"),
@@ -244,7 +253,12 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
       for (int y = 20; y < 23; y++)
         for (int z = 1; z < 4; z++)
           for (int face = 0; face < 6; face++) {
-            glUniform3fv(faceLightLocation, 1, faceLight[face]);
+            int id = repeatedTextureBlock(pattern, x, y, z);
+            Vec3i direction = vec3iFaceMap[face];
+            const Block* neighbor = getBlock(&(Vec3i){x + direction.x, y + direction.y, z + direction.z});
+            if (neighbor && blockIsSolid(neighbor->id) && (neighbor->id != BLOCK_OAK_LEAVES || id == BLOCK_OAK_LEAVES))
+              continue;
+            glUniform3fv(faceLightLocation, 1, cutoutPattern ? neutralLight : faceLight[face]);
             float vertices[48];
             memcpy(vertices, getCubeFaceVertices(face), sizeof(vertices));
             for (int corner = 0; corner < 6; corner++) {
@@ -253,7 +267,6 @@ static bool testRepeatedTextures(GLuint shader, int pattern) {
               vertices[corner * 8 + 2] = (vertices[corner * 8 + 2] + z + 0.5f) * CUBE_SIZE;
             }
 
-            int id = repeatedTextureBlock(pattern, x, y, z);
             int material = referenceTerrainMaterial(id, face);
             material = referenceTerrainLayer(material, (Vec3i){x, y, z}, worldSeed());
             glBindTexture(GL_TEXTURE_2D, textures[material]);
@@ -703,6 +716,10 @@ int main(int argc, char** argv) {
     return testTerrainLighting(shader) ? 0 : 23;
   if (getenv("KERNELCRAFT_CLOUD_CHECK"))
     return testCloudRendering(shader) ? 0 : 26;
+  if (getenv("KERNELCRAFT_CRACK_CHECK"))
+    return testBlockCracks(shader) ? 0 : 34;
+  if (getenv("KERNELCRAFT_ITEM_CHECK"))
+    return testItemRendering() ? 0 : 30;
 #endif
   const float pitches[] = {0.0f, -30.0f, 89.0f, -45.0f};
   for (int scenario = 0; scenario < 4; scenario++) {
@@ -930,6 +947,10 @@ int main(int argc, char** argv) {
     return 29;
   if (!testItemRendering())
     return 30;
+  if (!testLeafCutout(shader))
+    return 33;
+  if (!testBlockCracks(shader))
+    return 34;
 #endif
   __glewBufferSubData = realBufferSubData;
   __glewBufferData = realBufferData;

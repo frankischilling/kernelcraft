@@ -35,6 +35,10 @@ static void cancelBreaking(InputState* input) {
   }
 }
 
+static uint16_t blockBreakDropItem(int block) {
+  return block == BLOCK_OAK_LEAVES ? ITEM_NONE : inventoryBlockItem(block);
+}
+
 bool initInputs(InputState* input, Camera* camera) {
   *input = (InputState){.camera = camera};
   initDayNight(&input->clock);
@@ -532,17 +536,25 @@ void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTim
       input->breakVisualElapsed += fmin(deltaTime, BREAK_MAX_FRAME_SECONDS);
     Ray ray = rayCast(input->camera->position, input->camera->front, EDIT_REACH);
     const Block* block = ray.hit ? getBlock(&ray.blockCoords) : NULL;
-    DroppedItems next = input->drops;
+    uint16_t dropItem = ITEM_NONE;
     if (block && blockHandBreakSeconds(block->id) > 0) {
-      Vec3 position = {ray.blockCoords.x + 0.5f, ray.blockCoords.y + 0.5f, ray.blockCoords.z + 0.5f};
-      if (!droppedItemsSpawn(&next, (ItemStack){inventoryBlockItem(block->id), 1}, position, (Vec3){0, 1, 0}, 0.1f)) {
-        input->inventoryNotice = "Collect nearby dropped items before breaking more blocks";
-        cancelBreaking(input);
+      dropItem = blockBreakDropItem(block->id);
+      if (dropItem != ITEM_NONE) {
+        DroppedItems next = input->drops;
+        Vec3 position = {ray.blockCoords.x + 0.5f, ray.blockCoords.y + 0.5f, ray.blockCoords.z + 0.5f};
+        if (!droppedItemsSpawn(&next, (ItemStack){dropItem, 1}, position, (Vec3){0, 1, 0}, 0.1f)) {
+          input->inventoryNotice = "Collect nearby dropped items before breaking more blocks";
+          cancelBreaking(input);
+          return;
+        }
+        if (advanceBlockBreaking(&input->breaking, input->camera->position, input->camera->front, deltaTime)) {
+          input->drops = next;
+          input->inventoryNotice = NULL;
+        }
         return;
       }
     }
     if (advanceBlockBreaking(&input->breaking, input->camera->position, input->camera->front, deltaTime)) {
-      input->drops = next;
       input->inventoryNotice = NULL;
     }
   }

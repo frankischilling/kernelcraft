@@ -947,6 +947,7 @@ GLFWwindow* __wrap_glfwCreateWindow(int width, int height, const char* title, GL
 #include "player_input_checks.h"
 #include "player_live_checks.h"
 #include "inventory_input_checks.h"
+#include "block_crack_live_checks.h"
 
 int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
   if (frame == -1) {
@@ -1231,7 +1232,7 @@ void __wrap_HUDDraw(GLuint program, DebugData* data) {
     // This selected face interior is away from mesh diagonals and the outline.
     // The gold tint must still fill it when the terrain itself is unfilled.
     unsigned char tint[3];
-    glReadPixels(660, 375, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, tint);
+    memcpy(tint, tintBeforeCracks, sizeof(tint));
     CHECK(input->wireframe);
     const float gold[] = {255, 216.75f, 51};
     for (int channel = 0; channel < 3; channel++)
@@ -1454,6 +1455,7 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
 
   if (frame >= 0) {
     CHECK(swaps == 121 && waits == 3);
+    CHECK(liveCrackFrames == 3);
     puts("Application inventory/player preview, live simulation, equipment, crafting, portrait resize and pause checks passed");
     puts("Application player skin, camera views, movement poses, timed held-item punches, placement swings, bare hand, 3D held items and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");

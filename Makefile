@@ -70,7 +70,8 @@ TEST_SOURCES += tests/test_inventory.c tests/test_dropped_items.c tests/test_ite
 TEST_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(TEST_SOURCES))
 WRAP_STARTUP := -Wl,--wrap=glfwCreateWindow -Wl,--wrap=glfwWindowShouldClose -Wl,--wrap=glfwSetInputMode -Wl,--wrap=glfwDestroyWindow -Wl,--wrap=glfwGetInputMode -Wl,--wrap=glfwGetWindowAttrib -Wl,--wrap=glfwGetKey -Wl,--wrap=glfwGetFramebufferSize -Wl,--wrap=glfwWaitEvents -Wl,--wrap=glfwSwapBuffers -Wl,--wrap=glfwGetTime -Wl,--wrap=HUDDraw -Wl,--wrap=renderSky
 WRAP_STARTUP += -Wl,--wrap=renderPlayerModel -Wl,--wrap=renderPlayerHand -Wl,--wrap=renderHeldItems
-WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents %--wrap=renderSky %--wrap=renderPlayerModel %--wrap=renderPlayerHand %--wrap=renderHeldItems,$(WRAP_STARTUP))
+WRAP_STARTUP += -Wl,--wrap=drawBlockBreaking
+WRAP_PERSISTENCE := $(filter-out %--wrap=glfwGetFramebufferSize %--wrap=glfwWaitEvents %--wrap=renderSky %--wrap=renderPlayerModel %--wrap=renderPlayerHand %--wrap=renderHeldItems %--wrap=drawBlockBreaking,$(WRAP_STARTUP))
 WRAP_BENCHMARK := -Wl,--wrap=glDrawArrays -Wl,--wrap=glDrawElements -Wl,--wrap=occlusionBoundsHidden -Wl,--wrap=meshVisibilityIntersects -Wl,--wrap=renderText
 
 # Quote option text as data, including embedded single quotes. Keep this in a
