@@ -108,10 +108,12 @@ follow the corresponding arm's joint transforms, including the root pose.
 
 ![Held stone with its skinned right arm](held-block-arm.png)
 
-This native application fixture shows the current right-arm grip. The matching
-offhand uses the left-arm skin, while an empty main hand retains its separate
-bare-arm pose. Regression captures also cover intermediate breaking and
-placement poses, including the last consumed block in a stack.
+This native application fixture shows the lower-right angled right-arm grip.
+The cube exposes its top and side while the forearm enters diagonally from the
+screen corner instead of hanging straight below the item. The matching offhand
+mirrors that pose with the left-arm skin, while an empty main hand retains its
+separate bare-arm pose. Regression captures also cover intermediate breaking
+and placement poses, including the last consumed block in a stack.
 
 The inventory portrait uses neutral
 standing proportions, bounded mouse look, and studio lighting so its head and
@@ -144,8 +146,10 @@ OpenGL state restoration, first-person wrist size and return to rest,
 camera obstruction, view controls, movement poses, and unchanged timed block
 removal. Renderer checks distinguish strike and recovery silhouettes, while a
 live removal-frame capture verifies that presentation progress remains nonzero
-after gameplay progress resets. Hand captures compare depth bytes before and
-after the pass and check the resting aim region at portrait and landscape sizes. Startup
+after gameplay progress resets. Held-item checks also bound the cube beside aim
+and require the forearm to lean outward toward the matching screen corner at
+rest, during breaking, and during placement. Hand captures compare depth bytes
+before and after the pass and check the resting aim region at portrait and landscape sizes. Startup
 fixtures remove the skin/player shader and substitute a wrong-size skin in a
 disposable package. Persistence tests retain legacy v1–v4 compatibility and
 exercise v5 inventory/equipment state through two-process restart checks.

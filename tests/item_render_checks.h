@@ -314,6 +314,68 @@ static uint64_t itemTestHeldArmSilhouette(const unsigned char* pixels, int width
   return hash;
 }
 
+typedef struct {
+  int minX, minY, maxX, maxY;
+  unsigned count;
+} ItemTestHeldBounds;
+
+static bool itemTestHeldGripComposition(const unsigned char* pixels, int width, int height, int hand) {
+  ItemTestHeldBounds arm = {.minX = width, .minY = height, .maxX = -1, .maxY = -1};
+  ItemTestHeldBounds item = {.minX = width, .minY = height, .maxX = -1, .maxY = -1};
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      const unsigned char* pixel = pixels + ((size_t)y * width + x) * 4;
+      bool rightArm = itemTestHeldArmColor(pixel, 0);
+      bool leftArm = itemTestHeldArmColor(pixel, 1);
+      ItemTestHeldBounds* bounds = itemTestHeldArmColor(pixel, hand) ? &arm : pixel[3] && !rightArm && !leftArm ? &item : NULL;
+      if (!bounds)
+        continue;
+      if (x < bounds->minX)
+        bounds->minX = x;
+      if (y < bounds->minY)
+        bounds->minY = y;
+      if (x > bounds->maxX)
+        bounds->maxX = x;
+      if (y > bounds->maxY)
+        bounds->maxY = y;
+      bounds->count++;
+    }
+  if (arm.count <= 40 || item.count <= 100 || arm.minY >= arm.maxY)
+    return false;
+
+  int splitY = (arm.minY + arm.maxY) / 2;
+  uint64_t lowerX = 0, upperX = 0;
+  unsigned lowerCount = 0, upperCount = 0;
+  for (int y = arm.minY; y <= arm.maxY; y++)
+    for (int x = arm.minX; x <= arm.maxX; x++) {
+      const unsigned char* pixel = pixels + ((size_t)y * width + x) * 4;
+      if (!itemTestHeldArmColor(pixel, hand))
+        continue;
+      if (y <= splitY) {
+        lowerX += (unsigned)x;
+        lowerCount++;
+      } else {
+        upperX += (unsigned)x;
+        upperCount++;
+      }
+    }
+  if (!lowerCount || !upperCount)
+    return false;
+
+  float lowerMean = (float)lowerX / lowerCount;
+  float upperMean = (float)upperX / upperCount;
+  float outwardLean = (hand ? -1.0f : 1.0f) * (lowerMean - upperMean);
+  bool edgeGrip = hand ? arm.minX <= item.minX + width / 16 : arm.maxX + width / 16 >= item.maxX;
+  bool compactItem = (item.maxX - item.minX + 1) * 3 < width;
+  bool sideOfAim = hand ? item.maxX < width / 2 : item.minX > width / 2;
+  if (!sideOfAim || !compactItem || !edgeGrip || outwardLean <= width / 120.0f) {
+    fprintf(stderr, "Held grip composition failed: %dx%d hand=%d item=[%d,%d]-[%d,%d] arm=[%d,%d]-[%d,%d] lean=%.2f\n", width, height, hand, item.minX, item.minY, item.maxX,
+            item.maxY, arm.minX, arm.minY, arm.maxX, arm.maxY, outwardLean);
+    return false;
+  }
+  return true;
+}
+
 static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRenderer, ItemTestTarget* target) {
   const int sizes[][2] = {{320, 240}, {180, 320}, {960, 540}};
   DayNightState light = itemTestNeutralLight();
@@ -378,6 +440,7 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
     ok &= different > 100 && retained == renderer->heldTarget.framebuffer && itemTestCountHeldArm(other, width, height, 0) > 40;
+    ok &= itemTestHeldGripComposition(other, width, height, 0);
     uint64_t restingArm = itemTestHeldArmSilhouette(other, width, height, 0);
 
     // Walking bob moves the arm and item as one grip-space assembly.
@@ -397,11 +460,13 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     pose.punch = 0.25f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    ok &= itemTestHeldGripComposition(pixels, width, height, 0);
     uint64_t strikeArm = itemTestHeldArmSilhouette(pixels, width, height, 0);
     itemTestClear(.375);
     pose.punch = 0.75f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestHeldGripComposition(other, width, height, 0);
     uint64_t recoveryArm = itemTestHeldArmSilhouette(other, width, height, 0);
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
@@ -427,6 +492,7 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     pose.placeMain = 0.5f;
     ok &= renderHeldItems(renderer, playerRenderer, primary, (ItemStack){0}, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestHeldGripComposition(other, width, height, 0);
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;
@@ -437,11 +503,13 @@ static bool itemTestHeld(ItemRenderer* renderer, const PlayerRenderer* playerRen
     ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     ok &= itemTestCountHeldArm(pixels, width, height, 1) > 40;
+    ok &= itemTestHeldGripComposition(pixels, width, height, 1);
     uint64_t restingOffhandArm = itemTestHeldArmSilhouette(pixels, width, height, 1);
     itemTestClear(.375);
     pose.placeOffhand = 0.5f;
     ok &= renderHeldItems(renderer, playerRenderer, (ItemStack){0}, secondary, &pose, (float)width / height, &light);
     itemTestRead(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, other);
+    ok &= itemTestHeldGripComposition(other, width, height, 1);
     different = 0;
     for (size_t i = 0; i < bytes; i += 4)
       different += memcmp(pixels + i, other + i, 3) != 0;

@@ -436,24 +436,26 @@ static void heldGripTransform(Mat4 model, int hand, const PlayerModelPose* pose,
   PlayerModelSwing strike = hand ? (PlayerModelSwing){0} : attack;
   PlayerModelSwing placement = hand ? offhandPlacement : mainPlacement;
   mat4_identity(model);
-  translate(model, (Vec3){side * (0.42f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), -0.25f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
-                          -1.2f - 0.18f * strike.arc - 0.20f * placement.arc});
-  rotate(model, 0, 0.20f - 0.48f * strike.arc + 0.35f * placement.arc);
-  rotate(model, 1, side * (-0.55f + 0.35f * strike.reach + 0.15f * placement.reach));
-  rotate(model, 2, side * (-0.12f - 0.30f * strike.roll + 0.12f * placement.roll));
-  scale(model, (Vec3){0.5f * fit, 0.5f * fit, 0.5f * fit});
+  // Keep the held cube beside and below aim instead of presenting a large,
+  // square-on block. The steeper yaw exposes its top/side faces while the
+  // slightly smaller scale leaves room for the wrist to read as a grip.
+  translate(model, (Vec3){side * (0.48f * aspect - (0.18f * strike.reach + 0.10f * placement.reach) * fit), -0.32f + bob + 0.12f * strike.lift - 0.10f * placement.arc,
+                          -1.25f - 0.18f * strike.arc - 0.20f * placement.arc});
+  rotate(model, 0, 0.26f - 0.48f * strike.arc + 0.35f * placement.arc);
+  rotate(model, 1, side * (-0.70f + 0.35f * strike.reach + 0.15f * placement.reach));
+  rotate(model, 2, side * (-0.16f - 0.30f * strike.roll + 0.12f * placement.roll));
+  scale(model, (Vec3){0.44f * fit, 0.44f * fit, 0.44f * fit});
 }
 
 static void heldArmTransform(Mat4 arm, const Mat4 grip, int hand) {
   memcpy(arm, grip, sizeof(Mat4));
-  // Turn the body arm around so its wrist reaches the item while its shoulder
-  // continues down toward the corresponding lower screen corner. The offset is
-  // in the same grip space as the item, keeping both locked through animation.
-  // The palm meets the lower front corner, leaving the forearm exposed below
-  // the item throughout its strike and placement arcs.
-  translate(arm, (Vec3){hand ? -0.28f : 0.28f, -0.48f, 0.50f});
+  // Anchor the wrist on the lower front of the item, then send the forearm out
+  // toward the matching lower screen corner. The earlier near-vertical arm read
+  // like a support post under the cube; this diagonal keeps the familiar
+  // first-person hand silhouette while preserving the shared grip-space motion.
+  translate(arm, (Vec3){hand ? -0.34f : 0.34f, -0.30f, 0.50f});
   rotate(arm, 0, 3.141592654f);
-  rotate(arm, 2, hand ? -0.18f : 0.18f);
+  rotate(arm, 2, hand ? 0.90f : -0.90f);
   const PlayerPartSpec* spec = playerModelPartSpec(hand ? PLAYER_MODEL_LEFT_ARM : PLAYER_MODEL_RIGHT_ARM);
   translate(arm, (Vec3){-spec->centerOffset.x, -spec->centerOffset.y + spec->size.y * 0.5f, -spec->centerOffset.z});
 }
