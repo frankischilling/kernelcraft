@@ -34,11 +34,12 @@ Walking phase advances from actual horizontal displacement on credited physics
 ticks, at `4 * 0.6662` radians per block. Swing weight follows actual speed;
 the legs swing 1.4 times as far as the opposite arms. Running increases the swing;
 standing against a wall stops phase advance and eases the limbs toward rest.
-Airborne movement has a separate pose. Crouching uses a smaller render scale
-and a bent posture to follow the existing one-block
-body height. The fully posed outer shell is fitted between feet and ceiling,
-including head pitch and limb swing. These poses are presentation only; physics retains its existing
-fixed-step simulation and immediate posture changes.
+Airborne movement has a separate pose. Crouching keeps the same full-size body
+parts and uses joint rotations/translations for the bent posture, so entering
+third person does not make the character smaller. The posed outer shell is
+aligned to the feet so rotated legs do not sink into the floor. Physics retains
+its existing one-block crouch collision and immediate posture changes; in a
+one-block passage the full-size visual model can intersect the surrounding blocks.
 
 Punches use a repeating 0.3-second visual cycle sampled from the existing
 `BlockBreaking.elapsed` value. They do not accumulate another gameplay timer.

@@ -58,7 +58,7 @@ typedef struct {
   PlayerPartPose parts[PLAYER_MODEL_PART_COUNT];
   // Right-handed +Y rotation. After rootYaw, local -Z follows camera yaw.
   float rootYaw;
-  // Uniform render-only scale about the feet. Crouching uses the collision height.
+  // Uniform render-only scale about the feet. Normal player poses keep this at 1.
   float rootScale;
   // Presentation inputs retained separately from the posed third-person joints.
   double gaitPhase;

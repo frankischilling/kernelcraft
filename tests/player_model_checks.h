@@ -228,12 +228,13 @@ static void testPlayerModelPoses(void) {
   input = (PlayerPoseInput){.yaw = -90, .grounded = true, .crouched = true};
   PlayerModelPose crouched;
   playerModelPose(&crouched, &input);
-  CHECK(crouched.rootScale > 0 && crouched.rootScale <= PLAYER_CROUCH_HEIGHT / PLAYER_HEIGHT);
+  checkModelFloat(crouched.rootScale, 1);
   CHECK(fabsf(crouched.parts[PLAYER_MODEL_TORSO].rotation.x) > 0.05f);
-  CHECK(crouched.rootScale * PLAYER_HEIGHT <= PLAYER_CROUCH_HEIGHT + 0.00001f);
+  for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++)
+    checkModelVec3(crouched.parts[part].scale, (Vec3){1, 1, 1});
 }
 
-static void testCrouchedSkinEnvelope(void) {
+static void testCrouchedSkinFloor(void) {
   const float unit = PLAYER_HEIGHT / 32.0f;
   const float pitches[] = {-89, -25, 0, 30, 89};
   for (size_t pitch = 0; pitch < sizeof(pitches) / sizeof(*pitches); pitch++)
@@ -243,9 +244,10 @@ static void testCrouchedSkinEnvelope(void) {
             .yaw = 45, .pitch = pitches[pitch], .gaitPhase = gait * 1.5707963267948966, .gaitWeight = 1, .punch = punch * 0.5f, .grounded = true, .crouched = true};
         PlayerModelPose pose;
         playerModelPose(&pose, &input);
-        // Transform actual corners independently of the production analytic
-        // interval bound. Minecraft's classic outer layer adds a fixed amount
-        // on every axis rather than scaling the base cuboid proportionally.
+        checkModelFloat(pose.rootScale, 1);
+        // Transform actual corners independently of the production floor
+        // alignment. Crouching preserves full-size cuboids and only prevents a
+        // rotated limb or outer shell from dipping below the feet.
         for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++) {
           const PlayerPartSpec* spec = playerModelPartSpec((PlayerModelPart)part);
           const PlayerPartPose* joint = &pose.parts[part];
@@ -262,7 +264,7 @@ static void testCrouchedSkinEnvelope(void) {
               float x = p.x * cosf(joint->rotation.y) + z * sinf(joint->rotation.y);
               y = x * sinf(joint->rotation.z) + y * cosf(joint->rotation.z);
               y = (y + joint->translation.y + spec->pivot.y) * pose.rootScale;
-              CHECK(isfinite(y) && y >= -0.00001f && y <= PLAYER_CROUCH_HEIGHT + 0.00001f);
+              CHECK(isfinite(y) && y >= -0.00001f);
             }
           }
         }
@@ -435,7 +437,7 @@ static void testPlayerModel(void) {
   testPlayerSkinLayout();
   testPlayerPartGeometry();
   testPlayerModelPoses();
-  testCrouchedSkinEnvelope();
+  testCrouchedSkinFloor();
   testPlayerModelAnimation();
   testPlayerModelHandTransform();
   testPlayerModelPunch();

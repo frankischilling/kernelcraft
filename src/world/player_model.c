@@ -207,8 +207,8 @@ float playerModelOuterInflation(PlayerModelPart part) {
   return (part == PLAYER_MODEL_HEAD ? 0.5f : 0.25f) * MODEL_PIXEL;
 }
 
-static void fitCrouchedPose(PlayerModelPose* pose) {
-  float bottom = 0, top = 0;
+static void alignCrouchedPoseToFeet(PlayerModelPose* pose) {
+  float bottom = 0;
   for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++) {
     const PlayerPartSpec* spec = &partSpecs[part];
     const PlayerPartPose* joint = &pose->parts[part];
@@ -222,11 +222,10 @@ static void fitCrouchedPose(PlayerModelPose* pose) {
     float inflation = playerModelOuterInflation((PlayerModelPart)part);
     float extent = fabsf(row.x) * (spec->size.x * 0.5f + inflation) + fabsf(row.y) * (spec->size.y * 0.5f + inflation) + fabsf(row.z) * (spec->size.z * 0.5f + inflation);
     bottom = fminf(bottom, center - extent);
-    top = fmaxf(top, center + extent);
   }
-  // Rotating the head can increase height even after the nominal crouch scale.
-  // Fit the whole posed shell between feet and ceiling without moving physics.
-  pose->rootScale = fminf(pose->rootScale, PLAYER_CROUCH_HEIGHT / (top - bottom));
+  // Rotated legs and outer layers can dip slightly below the feet. Move the
+  // articulated pose up just enough to keep the visible skin on the ground.
+  // Crouching never changes the model's scale.
   for (int part = 0; part < PLAYER_MODEL_PART_COUNT; part++)
     pose->parts[part].translation.y -= bottom;
 }
@@ -270,10 +269,9 @@ void playerModelPose(PlayerModelPose* pose, const PlayerPoseInput* input) {
   }
 
   if (input->crouched) {
-    // Scale about the feet so the rendered body obeys the existing one-unit
-    // crouched height, then lean the upper body and legs so the posture reads as
-    // a squat instead of only a uniformly smaller standing model.
-    pose->rootScale = PLAYER_CROUCH_HEIGHT / PLAYER_HEIGHT;
+    // Keep the classic body dimensions and express crouching entirely through
+    // joint rotation/translation. Gameplay still uses the existing one-block
+    // collision posture; presentation must not make the player physically tiny.
     const float lean = -0.5f;
     const float shoulderHeight = 12 * MODEL_PIXEL;
     Vec3 shoulderShift = {0, shoulderHeight * (cosf(lean) - 1.0f), shoulderHeight * sinf(lean)};
@@ -308,7 +306,7 @@ void playerModelPose(PlayerModelPose* pose, const PlayerPoseInput* input) {
     pose->parts[PLAYER_MODEL_LEFT_ARM].rotation.x += bodyYaw;
   }
   if (input->crouched)
-    fitCrouchedPose(pose);
+    alignCrouchedPoseToFeet(pose);
 }
 
 static void translateHand(Mat4 transform, float x, float y, float z) {
