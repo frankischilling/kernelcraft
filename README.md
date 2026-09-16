@@ -73,9 +73,10 @@ kernelcraft aims to create a basic Minecraft clone using C and OpenGL. The prima
   - Explicit debug flight for inspecting and editing terrain.
   - Mouse input for looking around.
   - Enter opens local chat with `/time set day`, `/time set night`, numeric time commands, and `/moon set` phase previews.
-  - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with flat textured icons.
+  - Block placement and destruction, a target outline, crosshair, and nine-slot hotbar with shaded 3D item icons.
   - E opens a 36-slot inventory with 2×2 crafting, armor/offhand slots, stack management, and an equipped-player preview. See [inventory controls and limits](docs/inventory.md).
   - Finite block stacks, collectible mined items, and Q/Ctrl-Q item drops.
+  - Textured 3D blocks and shaped equipment in the inventory, world drops, and both hands. The empty main hand uses the supplied player skin.
   - F5 and clean-exit saves restore blocks, position, view, selected slot, inventory, equipment, crafting inputs, cursor items, and world drops.
 
 ## Getting Started
@@ -211,7 +212,10 @@ E opens the inventory. Left/right click moves or splits stacks; drag distributes
 items, Shift-click transfers or equips, and number keys swap with hotbar slots.
 The four-square recipe turns four stone into four stone bricks. E or Escape
 returns crafting/cursor items to storage, dropping any overflow. The equipped
-player preview follows the pointer. [Inventory controls](docs/inventory.md)
+player preview follows the pointer and fits the height of the armor column.
+The world keeps running with inventory open: time, clouds, falling, and item
+pickup continue while movement, looking, and editing controls are blocked.
+[Inventory controls](docs/inventory.md)
 describe offhand exchange, armor, drops, and full-storage behavior.
 
 Outside inventory, Escape toggles mouse capture and pauses movement. Focus loss releases the cursor;
@@ -234,7 +238,11 @@ or changing its material discards partial progress. Changing hotbar slots,
 right-clicking, toggling flight, or pausing also cancels the hold and requires
 a fresh press. All current slots use the same hand rates in walking and flight.
 Holding through completion starts the next target from zero; excess time never
-carries over. Tools and their speed modifiers remain planned. See
+carries over. The visible held block follows an asymmetric strike and recovery
+path while breaking, so the recovery does not retrace the strike. Successful
+placement plays a short swing in the hand that supplied the block; the final
+item in a stack remains visible until that swing finishes. Tools and their speed
+modifiers remain planned. See
 [timed hand breaking](docs/timed-block-breaking.md) for timing and checks.
 
 Each right press places once and consumes one item within six world units; breaking uses the same
@@ -523,7 +531,10 @@ remaining progression are not implemented.
   - [ ] Add damage from mobs, falls, and other environmental hazards
   - [ ] Add player death, respawn, and bed or checkpoint spawn rules
   - [x] Let the player drop items from inventory and hotbar, with bounded storage and collectible overflow
-  - [x] Render dropped blocks as spinning textured sprites; equipment uses code-defined markers
+  - [x] Render dropped blocks as spinning textured 3D cubes and equipment as shaped primitives
+  - [x] Share 3D models across inventory/hotbar icons, cursor items, and crafting results
+  - [x] Render selected and offhand items in first person, third person, and the inventory preview
+  - [x] Keep world simulation running while inventory controls remain modal
   - [x] Equip a starter leather set and render it on the preview and third-person player
   - [ ] Implement tool durability
   - [ ] Add tool repair costs and durability UI
@@ -578,6 +589,8 @@ remaining progression are not implemented.
 - **Visual Effects**:
   - [ ] Add screen effects such as damage flashes and underwater visuals
   - [ ] Implement block breaking and placement animations
+    - [x] Animate held blocks through distinct breaking strike/recovery poses and successful main/offhand placement swings
+    - [ ] Add block-surface crack/break effects and placement impact effects
   - [ ] Create item pickup and drop animations
   - [ ] Add status effect visuals for player buffs and debuffs
   - [ ] Implement environmental effects like fog and dynamic lighting

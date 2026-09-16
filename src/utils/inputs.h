@@ -27,6 +27,19 @@ typedef struct {
   InventorySlotRef slots[INVENTORY_DRAG_SLOT_MAX];
 } InventoryGesture;
 
+typedef enum {
+  BLOCK_PLACEMENT_HAND_NONE = 0,
+  BLOCK_PLACEMENT_HAND_MAIN,
+  BLOCK_PLACEMENT_HAND_OFFHAND,
+} BlockPlacementHand;
+
+typedef struct {
+  uint16_t item;
+  BlockPlacementHand hand;
+  double elapsed;
+  bool active;
+} BlockPlacementAnimation;
+
 typedef struct {
   Camera* camera;
   Chat chat;
@@ -34,6 +47,8 @@ typedef struct {
   Player player;
   PlayerRunInput runInput;
   BlockBreaking breaking;
+  double breakVisualElapsed;
+  BlockPlacementAnimation placement;
   PlayerModelAnimation animation;
   CameraView view;
   Inventory inventory;
@@ -64,9 +79,16 @@ bool snapshotPlayer(const InputState* input, SavedPlayer* saved);
 // Feet and visual pose share the same exact flight offset used by saving.
 Vec3 inputBodyFeet(const InputState* input);
 void inputPlayerPose(const InputState* input, PlayerModelPose* pose);
+// Resolves the visible first-person/third-person hands, retaining the last
+// consumed block until its placement swing returns to rest.
+void inputHeldItems(const InputState* input, ItemStack* mainHand, ItemStack* offhand);
 // Discard simulation backlog, queued jumps, run/tap state, and cached mouse position.
 // Retain the current body until active simulation can check standing clearance.
 void pauseInput(InputState* input);
+// World simulation runs while normal gameplay is captured or while the focused
+// inventory is open. Chat, an ordinary released cursor, focus loss,
+// iconification, and zero-size framebuffers pause simulation.
+bool inputSimulationActive(GLFWwindow* window, const InputState* input);
 void processInput(GLFWwindow* window, InputState* input, double deltaTime);
 // Run after movement and before rendering/saving so selection uses the new eye.
 void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTime);

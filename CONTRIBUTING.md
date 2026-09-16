@@ -45,7 +45,7 @@ dimensions independently of focus loss, plus zero-size pauses. Toggle F3 while c
 check that labels and material slots fit small landscape/portrait windows, save
 errors stay readable, and the aiming area remains clear.
 Select all nine hotbar slots with 1–9. Grass, dirt, stone, cobblestone, oak planks, and stone bricks
-occupy slots 1–6; empty slots 7–9 should break blocks without placing anything. Check the flat
+occupy slots 1–6; empty slots 7–9 should break blocks without placing anything. Check the 3D
 icons and selected border in small landscape, portrait, and wide/short windows.
 Hold left mouse to break and right-click to place blocks at chunk seams, and check
 that the outline follows the next target. Try placement near the camera and
@@ -99,3 +99,12 @@ transparency, walking/running/crouching/jumping poses, and held-breaking punches
 Repeat in portrait and landscape sizes, with F4 and chat, and across focus loss.
 The hand must leave the aim/progress region clear. Report automated capture
 results separately from interactive observations; see [player rendering](docs/player-skins.md).
+
+For items, check grass top/side/underside mapping, block and equipment thickness,
+selected/offhand models, and the empty bare-hand fallback. Open E while falling:
+gravity and world time must continue while movement/look/edit controls remain
+blocked. Drop and collect an item with inventory open, including during a drag.
+Check the preview's head/feet framing against the helmet/boot column, then resize
+to portrait. Run item geometry, source-face rendering, held-depth isolation,
+allocation-failure, and live inventory regressions. Use the existing supplied
+PNGs; primitive equipment models do not complete the dedicated-artwork backlog.

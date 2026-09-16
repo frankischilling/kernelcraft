@@ -214,8 +214,7 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return EXIT_FAILURE;
   }
-  GLuint blockIcons[INVENTORY_UI_BLOCK_TEXTURE_COUNT];
-  HUDItemTextures(blockIcons);
+  ItemRenderer* itemRenderer = HUDItems();
 
   initCamera(&camera);
   if (!(loaded == SAVE_OK ? initSavedInputs(&input, &camera, &saved) : initInputs(&input, &camera))) {
@@ -275,7 +274,7 @@ int main(int argc, char** argv) {
     }
 
     processInput(window, &input, deltaTime);
-    bool active = !input.chat.open && !input.inventoryOpen && glfwGetWindowAttrib(window, GLFW_FOCUSED) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    bool active = inputSimulationActive(window, &input);
     advanceDayNight(&input.clock, deltaTime, active);
     advanceClouds(&clouds, deltaTime, active);
     DayNightState daylight = sampleDayNight(dayNightPhase(&input.clock));
@@ -316,6 +315,8 @@ int main(int argc, char** argv) {
     }
 
     renderSky(&sky, &displayCamera, aspect, &daylight);
+    ItemStack mainHand, offhand;
+    inputHeldItems(&input, &mainHand, &offhand);
     if (showBody) {
       renderPlayerModel(&playerRenderer, inputBodyFeet(&input), &playerPose, view, projection, &daylight);
       PlayerEquipmentVisuals equipment = {.helmet = input.inventory.armor[INVENTORY_ARMOR_HEAD].count != 0,
@@ -323,14 +324,22 @@ int main(int argc, char** argv) {
                                           .leggings = input.inventory.armor[INVENTORY_ARMOR_LEGS].count != 0,
                                           .boots = input.inventory.armor[INVENTORY_ARMOR_FEET].count != 0};
       renderPlayerEquipment(&playerRenderer, inputBodyFeet(&input), &playerPose, &equipment, view, projection, &daylight);
+      renderPlayerHeldItems(itemRenderer, inputBodyFeet(&input), &playerPose, mainHand, offhand, view, projection, &daylight);
     }
     Ray selection = rayCast(camera.position, camera.front, EDIT_REACH);
     if (!input.inventoryOpen)
       drawSelection(&selection, view, projection);
-    renderDroppedItems(&input.drops, view, projection, blockIcons);
+    renderDroppedItems(itemRenderer, &input.drops, view, projection, &daylight);
     renderClouds(&clouds, &displayCamera, aspect, projection, &daylight);
-    if (!showBody && !input.inventoryOpen)
-      renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
+    if (!showBody && !input.inventoryOpen) {
+      if (!mainHand.count)
+        renderPlayerHand(&playerRenderer, &playerPose, aspect, &daylight);
+      if (!renderHeldItems(itemRenderer, mainHand, offhand, &playerPose, aspect, &daylight)) {
+        fprintf(stderr, "Cannot render held items: framebuffer allocation or drawing failed\n");
+        exitStatus = EXIT_FAILURE;
+        break;
+      }
+    }
     DebugData data = {.camera = &camera,
                       .fps = fps,
                       .visibleBlocks = result.surfaceBlocks,
@@ -356,7 +365,7 @@ int main(int argc, char** argv) {
     if (input.inventoryOpen) {
       int mouseX = -1, mouseY = -1;
       inventoryPointer(window, &input, &mouseX, &mouseY);
-      inventoryUIDraw(&inventoryUI, &input.inventory, &playerRenderer, &playerPose, &daylight, blockIcons, width, height, mouseX, mouseY);
+      inventoryUIDraw(&inventoryUI, &input.inventory, &playerRenderer, &playerPose, &daylight, itemRenderer, input.selectedSlot, width, height, mouseX, mouseY);
     }
 
     glfwSwapBuffers(window);

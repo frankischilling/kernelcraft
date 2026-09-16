@@ -231,6 +231,7 @@ try {
         $worldSources += Join-Path $projectDirectory 'src/world/chat.c'
         $worldSources += Join-Path $projectDirectory 'src/world/inventory.c'
         $worldSources += Join-Path $projectDirectory 'src/world/dropped_items.c'
+        $worldSources += Join-Path $projectDirectory 'src/world/item_model.c'
         Build-Executable $worldSources $worldTest @('-Wl,--wrap=malloc', '-Wl,--wrap=free', '-lm')
 
         $editTest = Join-Path $outputDirectory 'test-edits.exe'
@@ -259,6 +260,9 @@ try {
         $droppedItemsTest = Join-Path $outputDirectory 'test-dropped-items.exe'
         $droppedItemsSources = @((Join-Path $projectDirectory 'tests/test_dropped_items.c')) + @($worldSources | Select-Object -Skip 1)
         Build-Executable $droppedItemsSources $droppedItemsTest @('-lm')
+        $itemModelTest = Join-Path $outputDirectory 'test-item-model.exe'
+        $itemModelSources = @((Join-Path $projectDirectory 'tests/test_item_model.c')) + @($worldSources | Select-Object -Skip 1)
+        Build-Executable $itemModelSources $itemModelTest @('-lm')
 
         $optionsTest = Join-Path $outputDirectory 'test-options.exe'
         $optionsSources = @('tests/test_options.c', 'src/utils/options.c') | ForEach-Object { Join-Path $projectDirectory $_ }
@@ -269,15 +273,16 @@ try {
         Build-Executable $shaderSources $shaderTest $libraries
 
         $hudTest = Join-Path $outputDirectory 'test-hud.exe'
-        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTexture', '-Wl,--wrap=glutBitmapString', '-Wl,--wrap=__imp_glutBitmapString') + $libraries)
+        Build-Executable (@((Join-Path $projectDirectory 'tests/test_hud.c')) + $commonSources) $hudTest (@('-Wl,--wrap=renderText', '-Wl,--wrap=loadTextureArray', '-Wl,--wrap=glutBitmapString', '-Wl,--wrap=__imp_glutBitmapString') + $libraries)
 
         $smokeTest = Join-Path $outputDirectory 'test-startup.exe'
         $smokeFlags = @('-Wl,--wrap=glfwCreateWindow', '-Wl,--wrap=glfwWindowShouldClose', '-Wl,--wrap=glfwSetInputMode', '-Wl,--wrap=glfwDestroyWindow', '-Wl,--wrap=glfwGetInputMode', '-Wl,--wrap=glfwGetWindowAttrib', '-Wl,--wrap=glfwGetKey', '-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=glfwSwapBuffers', '-Wl,--wrap=glfwGetTime', '-Wl,--wrap=HUDDraw', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand')
+        $smokeFlags += '-Wl,--wrap=renderHeldItems'
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_smoke.c'))) $smokeTest ($smokeFlags + $libraries)
         $persistenceTest = Join-Path $outputDirectory 'test-persistence.exe'
-        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand') })
+        $persistenceFlags = @($smokeFlags | Where-Object { $_ -notin @('-Wl,--wrap=glfwGetFramebufferSize', '-Wl,--wrap=glfwWaitEvents', '-Wl,--wrap=renderSky', '-Wl,--wrap=renderPlayerModel', '-Wl,--wrap=renderPlayerHand', '-Wl,--wrap=renderHeldItems') })
         Build-Executable ($sources + @((Join-Path $projectDirectory 'tests/app_persistence.c'))) $persistenceTest ($persistenceFlags + $libraries)
-        $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $inventoryTest, $droppedItemsTest, $optionsTest, $shaderTest, $smokeTest)
+        $executables += @($hudTest, $persistenceTest, $worldTest, $editTest, $selectionTest, $playerTest, $seedTest, $saveTest, $inventoryTest, $droppedItemsTest, $itemModelTest, $optionsTest, $shaderTest, $smokeTest)
     }
     if ($Test -or $Benchmark) {
         $renderTest = Join-Path $outputDirectory 'benchmark.exe'
@@ -311,6 +316,7 @@ try {
             Invoke-Native $saveTest
             Invoke-Native $inventoryTest
             Invoke-Native $droppedItemsTest
+            Invoke-Native $itemModelTest
             Invoke-Native $optionsTest
             Invoke-Native $shaderTest
             Invoke-Native $hudTest

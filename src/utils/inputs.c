@@ -20,9 +20,17 @@
 static double lastX, lastY;
 static bool firstMouse = true;
 
+#define PLACEMENT_ANIMATION_SECONDS 0.25
+
+static void resetPlacementAnimation(InputState* input) {
+  if (input)
+    input->placement = (BlockPlacementAnimation){0};
+}
+
 static void cancelBreaking(InputState* input) {
   if (input) {
     input->breakHeld = false;
+    input->breakVisualElapsed = 0;
     resetBlockBreaking(&input->breaking);
   }
 }
@@ -71,6 +79,7 @@ static void resetInputTiming(InputState* input) {
   input->jumpRequested = false;
   input->simulationSteps = 0;
   cancelBreaking(input);
+  resetPlacementAnimation(input);
 }
 
 void pauseInput(InputState* input) {
@@ -97,14 +106,22 @@ void windowFocusCallback(GLFWwindow* window, int focused) {
 }
 
 static bool acceptsWindowInput(GLFWwindow* window) {
+  if (!window)
+    return false;
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
   return width > 0 && height > 0 && glfwGetWindowAttrib(window, GLFW_FOCUSED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED);
 }
 
+bool inputSimulationActive(GLFWwindow* window, const InputState* input) {
+  if (!input || input->chat.open || !acceptsWindowInput(window))
+    return false;
+  return input->inventoryOpen || glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+}
+
 static bool acceptsEditing(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
-  return input && !input->chat.open && !input->inventoryOpen && acceptsWindowInput(window) && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+  return input && !input->inventoryOpen && inputSimulationActive(window, input);
 }
 
 int selectedBlock(const InputState* input) {
@@ -129,16 +146,48 @@ Vec3 inputBodyFeet(const InputState* input) {
 }
 
 void inputPlayerPose(const InputState* input, PlayerModelPose* pose) {
+  float place = input->placement.active ? (float)fmin(input->placement.elapsed / PLACEMENT_ANIMATION_SECONDS, 1.0) : 0;
   PlayerPoseInput visual = {.yaw = input->camera->yaw,
                             .pitch = input->camera->pitch,
                             .gaitPhase = input->animation.gaitPhase,
                             .gaitWeight = input->animation.gaitWeight,
-                            .punch = input->breakHeld ? playerModelPunch(&input->breaking) : 0,
+                            .punch = input->breakHeld ? playerModelPunchElapsed(input->breakVisualElapsed) : 0,
+                            .placeMain = input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN ? place : 0,
+                            .placeOffhand = input->placement.hand == BLOCK_PLACEMENT_HAND_OFFHAND ? place : 0,
                             .crouched = input->player.crouched,
                             .running = input->player.running,
                             .grounded = input->player.grounded,
                             .flying = input->flying};
   playerModelPose(pose, &visual);
+}
+
+void inputHeldItems(const InputState* input, ItemStack* mainHand, ItemStack* offhand) {
+  if (!mainHand || !offhand)
+    return;
+  *mainHand = (ItemStack){0};
+  *offhand = (ItemStack){0};
+  if (!input)
+    return;
+  if (input->selectedSlot >= 0 && input->selectedSlot < HOTBAR_SLOT_COUNT)
+    *mainHand = input->inventory.carried[input->selectedSlot];
+  *offhand = input->inventory.offhand;
+  if (!input->placement.active || !inventoryItemValid(input->placement.item))
+    return;
+  ItemStack placed = {input->placement.item, 1};
+  if (input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN)
+    *mainHand = placed;
+  else if (input->placement.hand == BLOCK_PLACEMENT_HAND_OFFHAND)
+    *offhand = placed;
+}
+
+static void advancePlacementAnimation(InputState* input, double seconds) {
+  if (!input || !input->placement.active || !isfinite(seconds) || seconds <= 0)
+    return;
+  if (input->placement.elapsed >= PLACEMENT_ANIMATION_SECONDS) {
+    resetPlacementAnimation(input);
+    return;
+  }
+  input->placement.elapsed = fmin(input->placement.elapsed + fmin(seconds, BREAK_MAX_FRAME_SECONDS), PLACEMENT_ANIMATION_SECONDS);
 }
 
 bool snapshotPlayer(const InputState* input, SavedPlayer* saved) {
@@ -241,7 +290,6 @@ static void openInventory(GLFWwindow* window, InputState* input) {
   setCursorCaptured(window, false);
   glfwGetCursorPos(window, &input->inventoryMouseX, &input->inventoryMouseY);
   glfwGetFramebufferSize(window, &input->inventoryWidth, &input->inventoryHeight);
-  advanceDayNight(&input->clock, 0, false);
 }
 
 static void inventoryMouseButton(GLFWwindow* window, InputState* input, int button, int action, int mods) {
@@ -386,8 +434,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   }
 
   if (acceptsEditing(window) && key >= GLFW_KEY_1 && key <= GLFW_KEY_9) {
-    if (input->selectedSlot != key - GLFW_KEY_1)
+    if (input->selectedSlot != key - GLFW_KEY_1) {
       cancelBreaking(input);
+      resetPlacementAnimation(input);
+    }
     input->selectedSlot = key - GLFW_KEY_1;
   }
 
@@ -434,12 +484,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     return;
   Camera* camera = input->camera;
   if (button == GLFW_MOUSE_BUTTON_LEFT && !input->breakHeld) {
+    resetPlacementAnimation(input);
     input->breakHeld = true;
     advanceBlockBreaking(&input->breaking, camera->position, camera->front, 0);
   }
 
   if (button == GLFW_MOUSE_BUTTON_RIGHT) {
     cancelBreaking(input);
+    resetPlacementAnimation(input);
     InventorySlotRef source = {INVENTORY_SLOT_CARRIED, (uint8_t)input->selectedSlot};
     ItemStack stack = inventoryGet(&input->inventory, source);
     int armor = inventoryItemArmorSlot(stack.item);
@@ -458,6 +510,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
         editTarget(camera->position, camera->front, inputBodyFeet(input), !input->flying && input->player.crouched, block, true)) {
       input->inventory = next;
       input->inventoryNotice = NULL;
+      input->placement = (BlockPlacementAnimation){
+          .item = stack.item,
+          .hand = source.kind == INVENTORY_SLOT_OFFHAND ? BLOCK_PLACEMENT_HAND_OFFHAND : BLOCK_PLACEMENT_HAND_MAIN,
+          .active = true,
+      };
     }
   }
 }
@@ -471,6 +528,8 @@ void processBlockBreaking(GLFWwindow* window, InputState* input, double deltaTim
   }
 
   if (input->breakHeld) {
+    if (isfinite(deltaTime) && deltaTime > 0)
+      input->breakVisualElapsed += fmin(deltaTime, BREAK_MAX_FRAME_SECONDS);
     Ray ray = rayCast(input->camera->position, input->camera->front, EDIT_REACH);
     const Block* block = ray.hit ? getBlock(&ray.blockCoords) : NULL;
     DroppedItems next = input->drops;
@@ -493,7 +552,11 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
   if (!input)
     return;
   input->simulationSteps = 0;
-  if (input->inventoryOpen && acceptsWindowInput(window)) {
+  if (input->inventoryOpen) {
+    if (!inputSimulationActive(window, input)) {
+      pauseInput(input);
+      return;
+    }
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     if (width != input->inventoryWidth || height != input->inventoryHeight) {
@@ -503,7 +566,18 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
       input->inventoryHeight = height;
     }
     firstMouse = true;
-    resetInputTiming(input);
+    if (!isfinite(deltaTime) || deltaTime <= 0)
+      return;
+    if (!input->flying) {
+      input->simulationSteps = playerAdvance(&input->player, (PlayerMotion){0}, deltaTime);
+      input->camera->position = playerEyePosition(&input->player);
+      updateCameraFov(input->camera, false, deltaTime);
+      if (input->simulationSteps > 0)
+        advancePlayerModelAnimation(&input->animation, &input->player, false, true, input->simulationSteps * PLAYER_STEP_SECONDS);
+    } else {
+      updateCameraFov(input->camera, false, deltaTime);
+      advancePlayerModelAnimation(&input->animation, &input->player, true, true, deltaTime);
+    }
     return;
   }
   if (!acceptsEditing(window)) {
@@ -513,6 +587,7 @@ void processInput(GLFWwindow* window, InputState* input, double deltaTime) {
 
   if (!isfinite(deltaTime) || deltaTime <= 0)
     return;
+  advancePlacementAnimation(input, deltaTime);
   Camera* camera = input->camera;
   if (!input->flying) {
     float yaw = toRadians(camera->yaw);
@@ -644,4 +719,5 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
   int step = yoffset > 0 ? 1 : -1;
   input->selectedSlot = (input->selectedSlot - step + HOTBAR_SLOT_COUNT) % HOTBAR_SLOT_COUNT;
   cancelBreaking(input);
+  resetPlacementAnimation(input);
 }

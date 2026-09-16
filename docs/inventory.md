@@ -3,8 +3,9 @@
 Press **E** to open the player inventory. The panel has 27 storage slots,
 nine hotbar slots, four armor slots, an offhand slot, a 2×2 crafting grid, and
 a preview of the supplied player skin. E or Escape closes it. The preview
-turns toward the pointer and shows equipped armor; the same equipment is
-drawn on the third-person player.
+turns toward the pointer and shows equipped armor and held items. Its standing
+body fits between the helmet and boot slot edges. The same equipment and held
+items appear on the third-person player.
 
 The arrangement and mouse interactions follow the classic Java inventory.
 KernelCraft retains its documented **999-item stack limit**, existing hand
@@ -33,12 +34,17 @@ Incompatible armor slots and full stacks do not participate. Splitting ten
 items over three empty slots places three in each and leaves one on the cursor.
 A capped slot does not redirect its unused share to another slot.
 
-The inventory pauses movement, mouse-look, breaking, dropped-item physics, and
-the day/night clock. Gameplay shortcuts and chat entry remain blocked until
-it closes. Focus loss, minimization, and framebuffer changes cancel a pending
-drag without changing ownership. Window mouse coordinates are converted to
-framebuffer pixels before hit testing. The first mouse sample after capture
-is discarded.
+Opening inventory blocks movement commands, mouse-look, breaking, placement,
+and chat entry. The world keeps running: gravity, collision, the day/night
+clock, clouds, and dropped-item physics/pickup continue. A falling player still
+lands while the panel is open. Picking up items during a drag changes carried
+storage without duplicating or replacing the cursor stack.
+
+Chat, ordinary released mouse capture, focus loss, minimization, and zero-size
+framebuffers retain their pause behavior. Focus loss and framebuffer changes
+cancel pending drags without changing ownership. Window mouse coordinates are
+converted to framebuffer pixels before hit testing. The first mouse sample
+after capture is discarded.
 
 ## Materials and crafting
 
@@ -59,19 +65,25 @@ The leather set uses colored geometry and icons while dedicated armor artwork
 remains on the content backlog. It follows the existing body joints; the cap
 leaves the face visible. Armor does not alter collision size or movement.
 Damage reduction is inactive because health and damage mechanics are still
-unimplemented. The existing first-person bare arm remains the foreground
-model; separate held-item models remain planned.
+unimplemented. Selecting a block or equipment item displays its 3D model in the
+right hand; the offhand item appears on the left. An empty main hand displays
+the supplied skin's bare arm. Held items follow walking and the existing punch
+cycle without changing block-breaking times. Breaking uses distinct strike and
+recovery poses instead of replaying the same held-block path backward.
 
 ## Placement, pickup, and overflow
 
 Successful placement consumes one item. Rejected placement consumes nothing.
 When the selected hand has no placeable block, placement can use a block in
 the offhand. Right-clicking with selected armor equips it, exchanging an
-existing piece when necessary.
+existing piece when necessary. A committed placement starts a short swing in
+the hand that supplied the block. The renderer keeps the consumed item visible
+through the swing when placement used the last item in that stack. Rejected
+placements do not start the animation.
 
 Completed hand breaking creates one item of the removed material. Dropped
-blocks reuse the existing images as spinning sprites; equipment uses a colored
-marker. Gravity and voxel contact run at 120 Hz, with at most eight steps per
+blocks use textured 3D cubes; equipment uses shaped colored models with visible
+thickness. Gravity and voxel contact run at 120 Hz, with at most eight steps per
 frame. Nearby items are collected after a short delay, merging into carried
 stacks before using empty slots. Partial capacity collects only what fits.
 Drops currently do not expire.
@@ -96,6 +108,21 @@ fractionally. The preview uses a reusable private framebuffer and depth
 attachment, so it cannot erase or obstruct the world depth. Inventory and
 equipment remain filled during terrain wireframe and restore caller GL state.
 
+The preview uses a neutral standing pose and fixed studio lighting. Crouching,
+falling, and changes in world light do not shrink or darken it. Its orthographic
+view preserves body proportions while the pointer turns the body and head.
+
+`world/item_model.c` defines bounded CPU geometry for the six block items and
+four leather pieces. Block faces use the existing terrain base images, including
+grass top, side, and dirt underside. Position-dependent terrain variants remain
+cosmetic and do not create extra item types. `graphics/item_renderer.c` uploads
+these meshes once, then shares them between world and hand draws. It renders
+transparent 128×128 inventory icons once at initialization; those cached views
+use nearest sampling in the hotbar, slots, crafting result, and cursor.
+Equipment models use simple colored shells while dedicated artwork remains
+pending. First-person items use a reusable private color/depth target and a
+transparent composite, preserving world depth even beside a wall.
+
 Save version 5 stores all 46 owned stacks, including cursor and crafting
 inputs, plus active world drops. The result is recomputed after loading.
 Closing the application with pending cursor/crafting items preserves them;
@@ -112,10 +139,15 @@ Failed decode and failed replacement preserve live state or the previous save.
 The application harness drives production input callbacks for crafting,
 equipment, moving, dropping, focus cancellation, full-pool closure, and finite
 placement. Live frames cover the equipped preview, cursor output, third-person
-armor, portrait resize, and minimize/restore. Separate processes verify pending
-inventory ownership on restart. Graphical checks verify layout, preview pixels,
-caller GL state, world-depth isolation, and moved material icons against source
-PNGs.
+armor, held blocks/equipment, empty-hand fallback, portrait resize, and
+minimize/restore. Separate processes verify pending inventory ownership on
+restart. Geometry tests check outward faces, UV coordinates, volume, equipment
+openings, and stable texture-layer mappings. Graphical checks compare all six
+faces of all six block items against the source PNGs, and check icon placement,
+preview height, caller GL state, world-depth isolation, allocation failure
+recovery, held-item visibility, distinct breaking strike/recovery silhouettes,
+and main/offhand placement motion. Input checks verify placement animation starts
+only after a committed edit and preserves a consumed last item for the swing.
 
 For interactive review, launch with `--no-save` or a disposable `--world` path.
 Equip the starter armor, split stone across four squares, craft bricks, move

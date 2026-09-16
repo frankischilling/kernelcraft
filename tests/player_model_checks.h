@@ -405,6 +405,23 @@ static void testPlayerModelHandTransform(void) {
 }
 
 static void testPlayerModelPunch(void) {
+  PlayerModelSwing quarter = playerModelSwing(0.25f);
+  PlayerModelSwing recovery = playerModelSwing(0.75f);
+  CHECK(quarter.reach > 0 && quarter.arc > 0 && quarter.roll > 0);
+  CHECK(recovery.reach > 0 && recovery.arc > 0 && recovery.roll > 0);
+  CHECK(fabsf(quarter.reach - recovery.reach) > 0.01f || fabsf(quarter.lift - recovery.lift) > 0.01f || fabsf(quarter.arc - recovery.arc) > 0.01f ||
+        fabsf(quarter.roll - recovery.roll) > 0.01f);
+  PlayerModelSwing rest = playerModelSwing(0), finished = playerModelSwing(1), invalid = playerModelSwing(NAN);
+  CHECK(rest.reach == 0 && rest.lift == 0 && rest.arc == 0 && rest.roll == 0);
+  CHECK(finished.reach == 0 && finished.lift == 0 && finished.arc == 0 && finished.roll == 0);
+  CHECK(invalid.reach == 0 && invalid.lift == 0 && invalid.arc == 0 && invalid.roll == 0);
+
+  checkModelFloat(playerModelPunchElapsed(0.075), 0.25f);
+  checkModelFloat(playerModelPunchElapsed(0.225), 0.75f);
+  checkModelFloat(playerModelPunchElapsed(0.3), 0);
+  checkModelFloat(playerModelPunchElapsed(0.5), 2.0f / 3.0f);
+  checkModelFloat(playerModelPunchElapsed(NAN), 0);
+
   BlockBreaking breaking = {0};
   checkModelFloat(playerModelPunch(NULL), 0);
   checkModelFloat(playerModelPunch(&breaking), 0);

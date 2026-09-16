@@ -2,6 +2,7 @@
 #define INVENTORY_UI_H
 
 #include <GL/glew.h>
+#include "item_renderer.h"
 #include "player_renderer.h"
 #include "../world/inventory.h"
 #include <stdbool.h>
@@ -9,7 +10,6 @@
 enum {
   INVENTORY_UI_LOGICAL_WIDTH = 176,
   INVENTORY_UI_LOGICAL_HEIGHT = 166,
-  INVENTORY_UI_BLOCK_TEXTURE_COUNT = 6,
 };
 
 typedef struct {
@@ -47,10 +47,11 @@ bool inventoryUILayout(int framebufferWidth, int framebufferHeight, InventoryUIL
 bool inventoryUISlotRect(const InventoryUILayout* layout, InventorySlotRef slot, InventoryUIRect* rect);
 bool inventoryUIHitTest(const InventoryUILayout* layout, int mouseX, int mouseY, InventorySlotRef* slot);
 
-// Draws the complete survival inventory panel. blockTextures maps item IDs 1..6
-// to the existing HUD block-icon textures. The player preview uses ui's private
-// framebuffer so this pass never clears or replaces world depth.
+// Draws the complete survival inventory panel. All slot/cursor/result icons come
+// from the shared 3D item renderer. The player preview uses a stable neutral
+// studio pose and lighting rather than live crouch/fall animation, and renders
+// into ui's private framebuffer so this pass never clears or replaces world depth.
 void inventoryUIDraw(InventoryUI* ui, const Inventory* inventory, const PlayerRenderer* playerRenderer, const PlayerModelPose* playerPose, const DayNightState* daylight,
-                     const GLuint blockTextures[INVENTORY_UI_BLOCK_TEXTURE_COUNT], int framebufferWidth, int framebufferHeight, int mouseX, int mouseY);
+                     const ItemRenderer* items, int selectedSlot, int framebufferWidth, int framebufferHeight, int mouseX, int mouseY);
 
 #endif

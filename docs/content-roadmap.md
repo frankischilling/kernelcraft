@@ -118,8 +118,9 @@ explorable Cube World-inspired direction through coherent content sets.
 - [ ] Draw a small palette and silhouette sheet before producing a large family of assets.
 - [ ] Keep terrain tiles at the existing 16-by-16 size unless a texture-system change includes a new size and compatibility policy.
 - [ ] Design seamless faces, end grain/orientation, top/side/underside mapping, and occasional variants.
-- [ ] Create flat inventory icons that remain readable in the existing small hotbar slots.
-- [ ] Design held first-person models, third-person attachments, and dropped-item appearances together.
+- [x] Render cached 3D inventory icons for the six block materials and starter leather equipment.
+- [x] Share those item models across first-person hands, third-person attachments, and world drops.
+- [ ] Design inventory/held/dropped models for future content sets and supply dedicated equipment artwork.
 - [ ] Add swing, mining, use, equip, and break animations as their gameplay systems become available.
 - [ ] Use original or compatible licensed assets and retain attribution; do not copy another game's textures.
 - [ ] Assign stable IDs and define old-save compatibility before adding blocks or item metadata.

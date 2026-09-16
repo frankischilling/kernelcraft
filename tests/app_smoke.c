@@ -536,6 +536,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
       mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
       processBlockBreaking(window, input, 0.1);
       CHECK(input->breakHeld && blockBreakingProgress(&input->breaking) > 0);
+      CHECK(input->breakVisualElapsed > 0);
       CHECK(playerModelPunch(&input->breaking) > 0);
       if (reason == 0)
         mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
@@ -556,6 +557,7 @@ static void testBreakingCancellation(GLFWwindow* window) {
         keyCallback(window, GLFW_KEY_F, 0, GLFW_PRESS, 0);
       processBlockBreaking(window, input, 10);
       CHECK(!input->breakHeld && !input->breaking.active && getBlock(&target)->id == BLOCK_DIRT);
+      CHECK(input->breakVisualElapsed == 0);
       CHECK(playerModelPunch(&input->breaking) == 0);
       focused = GLFW_TRUE;
       iconified = zeroFramebuffer = false;
@@ -842,6 +844,8 @@ static void movementFrame(GLFWwindow* window) {
 
 // Drive a whole held break through main's frame loop, mesh upload, and HUD.
 static const Vec3i heldTarget = {-32, 41, -29};
+static const Vec3i placementTarget = {-88, 41, -84};
+static const Vec3i placementCell = {-88, 41, -85};
 
 static void breakingFrame(GLFWwindow* window) {
   InputState* input = glfwGetWindowUserPointer(window);
@@ -855,6 +859,8 @@ static void breakingFrame(GLFWwindow* window) {
     input->camera->yaw = 90;
     input->camera->pitch = 0;
     updateCameraVectors(input->camera);
+    input->selectedSlot = 2;
+    input->inventory.carried[2] = (ItemStack){ITEM_STONE, 1};
     CHECK(setBlock(&heldTarget, BLOCK_DIRT));
     mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
     keyCallback(window, GLFW_KEY_F4, 0, GLFW_PRESS, 0);
@@ -868,6 +874,33 @@ static void breakingFrame(GLFWwindow* window) {
     CHECK(!input->breaking.active);
     mouseButtonCallback(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
   }
+}
+
+static void placementFrame(GLFWwindow* window) {
+  InputState* input = glfwGetWindowUserPointer(window);
+  if (frame != 115)
+    return;
+  for (int x = -90; x <= -86; x++)
+    for (int z = -90; z <= -82; z++)
+      for (int y = 40; y <= 43; y++)
+        CHECK(setBlock(&(Vec3i){x, y, z}, BLOCK_AIR));
+  CHECK(setBlock(&(Vec3i){-88, 39, -88}, BLOCK_STONE));
+  CHECK(playerSetPosition(&input->player, (Vec3){-87.5f, 40, -87.5f}));
+  input->flying = false;
+  input->view = CAMERA_FIRST_PERSON;
+  input->camera->position = playerEyePosition(&input->player);
+  input->camera->yaw = 90;
+  input->camera->pitch = -10;
+  updateCameraVectors(input->camera);
+  resetPlayerModelAnimation(&input->animation, input->player.position);
+  input->selectedSlot = 2;
+  input->inventory.carried[2] = (ItemStack){ITEM_STONE, 1};
+  input->inventory.offhand = (ItemStack){0};
+  CHECK(setBlock(&placementTarget, BLOCK_DIRT));
+  CHECK(setBlock(&placementCell, BLOCK_AIR));
+  mouseButtonCallback(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+  CHECK(getBlock(&placementCell)->id == BLOCK_STONE && !input->inventory.carried[2].count);
+  CHECK(input->placement.active && input->placement.hand == BLOCK_PLACEMENT_HAND_MAIN && input->placement.item == ITEM_STONE);
 }
 
 static void wireframeFrame(GLFWwindow* window) {
@@ -1024,7 +1057,11 @@ int __wrap_glfwWindowShouldClose(GLFWwindow* window) {
     playerViewFrame(window);
   if (frame >= 102 && frame < 111)
     inventoryLiveFrame(window);
-  return frame >= 111;
+  if (frame >= 111 && frame < 115)
+    heldItemFrame(window);
+  if (frame >= 115 && frame < 124)
+    placementFrame(window);
+  return frame >= 124;
 }
 
 double __wrap_glfwGetTime(void) {
@@ -1409,9 +1446,9 @@ void __wrap_glfwDestroyWindow(GLFWwindow* window) {
   }
 
   if (frame >= 0) {
-    CHECK(swaps == 108 && waits == 3);
-    puts("Application inventory/player preview, equipment, crafting, portrait resize and pause checks passed");
-    puts("Application player skin, camera views, movement poses, timed punches, foreground hand and preserved depth checks passed");
+    CHECK(swaps == 121 && waits == 3);
+    puts("Application inventory/player preview, live simulation, equipment, crafting, portrait resize and pause checks passed");
+    puts("Application player skin, camera views, movement poses, timed held-item punches, placement swings, bare hand, 3D held items and preserved depth checks passed");
     puts("Application lunar commands and all eight live sky phases checked");
     puts("Application cloud layer pixels checked through the live game loop");
     puts("Application chat typing, input isolation, local messages, time commands, and rendered cycle checks passed");

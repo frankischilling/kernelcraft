@@ -187,6 +187,21 @@ static float clamp01(float value) {
   return fmaxf(0.0f, fminf(1.0f, value));
 }
 
+PlayerModelSwing playerModelSwing(float progress) {
+  if (!isfinite(progress))
+    return (PlayerModelSwing){0};
+  float punch = clamp01(progress);
+  if (punch <= 0 || punch >= 1)
+    return (PlayerModelSwing){0};
+  float root = sqrtf(punch);
+  return (PlayerModelSwing){
+      .reach = sinf(root * (float)(MODEL_TWO_PI * 0.5)),
+      .lift = sinf(root * (float)MODEL_TWO_PI),
+      .arc = sinf(punch * (float)(MODEL_TWO_PI * 0.5)),
+      .roll = sinf(punch * punch * (float)(MODEL_TWO_PI * 0.5)),
+  };
+}
+
 static PlayerPartPose neutralPartPose(void) {
   return (PlayerPartPose){.scale = {1, 1, 1}};
 }
@@ -305,6 +320,17 @@ void playerModelPose(PlayerModelPose* pose, const PlayerPoseInput* input) {
     pose->parts[PLAYER_MODEL_RIGHT_ARM].rotation.z -= arc * 0.4f;
     pose->parts[PLAYER_MODEL_LEFT_ARM].rotation.x += bodyYaw;
   }
+
+  float placeMain = isfinite(input->placeMain) ? clamp01(input->placeMain) : 0.0f;
+  float placeOffhand = isfinite(input->placeOffhand) ? clamp01(input->placeOffhand) : 0.0f;
+  pose->placeMain = placeMain;
+  pose->placeOffhand = placeOffhand;
+  PlayerModelSwing mainPlacement = playerModelSwing(placeMain);
+  PlayerModelSwing offhandPlacement = playerModelSwing(placeOffhand);
+  pose->parts[PLAYER_MODEL_RIGHT_ARM].rotation.x += mainPlacement.arc * 0.85f;
+  pose->parts[PLAYER_MODEL_RIGHT_ARM].rotation.z -= mainPlacement.reach * 0.16f;
+  pose->parts[PLAYER_MODEL_LEFT_ARM].rotation.x += offhandPlacement.arc * 0.85f;
+  pose->parts[PLAYER_MODEL_LEFT_ARM].rotation.z += offhandPlacement.reach * 0.16f;
   if (input->crouched)
     alignCrouchedPoseToFeet(pose);
 }
@@ -361,11 +387,10 @@ void playerModelHandTransform(Mat4 transform, const PlayerModelPose* pose, float
   // Classic bare-hand swing: lift/reach, inward sweep, then lowered recovery.
   // Progress must remain monotonic; a symmetric peak loses the strike/recovery
   // distinction and makes the arm run back through the same poses in reverse.
-  float root = sqrtf(punch);
-  float reach = sinf(root * (float)(MODEL_TWO_PI * 0.5));
-  translateHand(transform, 0.64f - 0.3f * reach, -0.6f + 0.4f * sinf(root * (float)MODEL_TWO_PI), -0.72f - 0.4f * sinf(punch * (float)(MODEL_TWO_PI * 0.5)));
-  rotateHand(transform, 1, toRadians(45 + 70 * reach));
-  rotateHand(transform, 2, toRadians(-20 * sinf(punch * punch * (float)(MODEL_TWO_PI * 0.5))));
+  PlayerModelSwing swing = playerModelSwing(punch);
+  translateHand(transform, 0.64f - 0.3f * swing.reach, -0.6f + 0.4f * swing.lift, -0.72f - 0.4f * swing.arc);
+  rotateHand(transform, 1, toRadians(45 + 70 * swing.reach));
+  rotateHand(transform, 2, toRadians(-20 * swing.roll));
   translateHand(transform, -1, 3.6f, 3.5f);
   rotateHand(transform, 2, toRadians(120));
   rotateHand(transform, 0, toRadians(200));
@@ -433,11 +458,17 @@ void advancePlayerModelAnimation(PlayerModelAnimation* state, const Player* play
   state->previousFeet = player->position;
 }
 
-float playerModelPunch(const BlockBreaking* breaking) {
-  if (!breaking || !breaking->active || !isfinite(breaking->elapsed) || breaking->elapsed <= 0)
+float playerModelPunchElapsed(double elapsed) {
+  if (!isfinite(elapsed) || elapsed <= 0)
     return 0.0f;
-  double phase = fmod(breaking->elapsed, MODEL_PUNCH_SECONDS) / MODEL_PUNCH_SECONDS;
+  double phase = fmod(elapsed, MODEL_PUNCH_SECONDS) / MODEL_PUNCH_SECONDS;
   if (phase < 0)
     phase += 1.0;
   return (float)phase;
+}
+
+float playerModelPunch(const BlockBreaking* breaking) {
+  if (!breaking || !breaking->active)
+    return 0.0f;
+  return playerModelPunchElapsed(breaking->elapsed);
 }

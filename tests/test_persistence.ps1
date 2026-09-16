@@ -51,6 +51,13 @@ try {
     Copy-Item -LiteralPath (Join-Path $runtime 'assets/player/skin.png') -Destination $missingSkin
     Remove-Item -LiteralPath (Join-Path $missingGame 'assets/shaders/player_fragment.glsl')
     Invoke-Expected 1 @('--no-save') 'Failed to initialize player rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+    Copy-Item -LiteralPath (Join-Path $runtime 'assets/shaders/player_fragment.glsl') -Destination (Join-Path $missingGame 'assets/shaders/player_fragment.glsl')
+    foreach ($shader in @('item_vertex', 'item_fragment', 'item_composite_vertex', 'item_composite_fragment')) {
+        $missingShader = Join-Path $missingGame "assets/shaders/$shader.glsl"
+        Remove-Item -LiteralPath $missingShader
+        Invoke-Expected 1 @('--no-save') 'Failed to initialize 3D item rendering' -Program (Join-Path $missingGame (Split-Path $SmokeBinary -Leaf))
+        Copy-Item -LiteralPath (Join-Path $runtime "assets/shaders/$shader.glsl") -Destination $missingShader
+    }
     $env:KERNELCRAFT_TEST_WORLD = Join-Path $fixture 'world with spaces.kcw'
     $env:KERNELCRAFT_TEST_RESTART = 'save'
     Invoke-Expected 0 @('--world', 'world with spaces.kcw', '--seed', '42')

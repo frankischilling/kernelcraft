@@ -25,7 +25,7 @@ static DebugEntry entryLookingAtBlockCoords;
 static DebugEntry entryChunks, entryFaces, entryRebuilds;
 static DebugEntry entryMovement;
 static DebugEntry entrySave;
-static GLuint itemTextures[HOTBAR_SLOT_COUNT];
+static ItemRenderer items;
 
 // Bitmap glyphs carry a small atlas offset below their visible ink. Lift text
 // inside its dark panel so the ink has balanced top and bottom breathing room.
@@ -174,35 +174,21 @@ static void DrawControls(const TextState* state, const DebugData* data) {
     if (stack.count) {
       float iconX = x + (slotWidth - iconSize) / 2;
       float iconY = 8 + numbers.fontHeight + 8;
-      int block = inventoryItemBlock(stack.item);
-      if (block) {
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, itemTextures[block - 1]);
-        glColor3f(1, 1, 1);
-      } else {
-        uint32_t color = inventoryItemColor(stack.item);
-        glColor3ub((GLubyte)(color >> 16), (GLubyte)(color >> 8), (GLubyte)color);
-      }
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, itemRendererIcon(&items, stack.item));
+      glColor3f(1, 1, 1);
       glBegin(GL_QUADS);
-      // PNG row zero is the top of the icon; the HUD uses bottom-origin quads.
-      glTexCoord2f(0, 1);
-      glVertex2f(iconX, iconY);
-      glTexCoord2f(1, 1);
-      glVertex2f(iconX + iconSize, iconY);
-      glTexCoord2f(1, 0);
-      glVertex2f(iconX + iconSize, iconY + iconSize);
+      // Cached item views are framebuffer renders with a bottom-left origin.
       glTexCoord2f(0, 0);
+      glVertex2f(iconX, iconY);
+      glTexCoord2f(1, 0);
+      glVertex2f(iconX + iconSize, iconY);
+      glTexCoord2f(1, 1);
+      glVertex2f(iconX + iconSize, iconY + iconSize);
+      glTexCoord2f(0, 1);
       glVertex2f(iconX, iconY + iconSize);
       glEnd();
       glDisable(GL_TEXTURE_2D);
-      if (!block) {
-        const char* labels[] = {"H", "C", "L", "B"};
-        int armor = inventoryItemArmorSlot(stack.item);
-        if (armor >= 0) {
-          glColor3f(1, 1, 1);
-          renderText(&numbers, labels[armor], iconX + (iconSize - textWidth(&numbers, labels[armor])) / 2, height - iconY - iconSize / 2 + numbers.fontHeight / 2);
-        }
-      }
       if (stack.count > 1) {
         char count[8];
         snprintf(count, sizeof(count), "%u", (unsigned)stack.count);
@@ -411,13 +397,17 @@ static void UpdateEntries(DebugData* data) {
 
 void HUDCleanup(void) {
   cleanupText();
-  glDeleteTextures(HOTBAR_SLOT_COUNT, itemTextures);
-  memset(itemTextures, 0, sizeof(itemTextures));
+  cleanupItemRenderer(&items);
 }
 
 void HUDItemTextures(GLuint textures[6]) {
   if (textures)
-    memcpy(textures, itemTextures, 6 * sizeof(*textures));
+    for (uint16_t item = 1; item <= 6; item++)
+      textures[item - 1] = itemRendererIcon(&items, item);
+}
+
+ItemRenderer* HUDItems(void) {
+  return &items;
 }
 
 bool HUDInit(const char* buildName, const char* buildVersion) {
@@ -426,27 +416,8 @@ bool HUDInit(const char* buildName, const char* buildVersion) {
   entryFPS.text[0] = '\0';
   entryCubeCount.text[0] = '\0';
   snprintf(entryBuildInfo.text, sizeof(entryBuildInfo.text), "%s %s", buildName, buildVersion);
-  const char* paths[] = {"assets/textures/grass-side.png",  "assets/textures/dirt.png",       "assets/textures/stone.png",
-                         "assets/textures/cobblestone.png", "assets/textures/oak-planks.png", "assets/textures/stone-bricks.png"};
-  GLint activeTexture;
-  glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
-  glPushAttrib(GL_TEXTURE_BIT);
-  glActiveTexture(GL_TEXTURE0);
-  bool ready = true;
-  for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
-    itemTextures[i] = loadTexture(paths[i]);
-    if (!itemTextures[i] || glGetError() != GL_NO_ERROR) {
-      fprintf(stderr, "Cannot load hotbar icon: %s\n", paths[i]);
-      ready = false;
-      break;
-    }
-  }
-
-  if (ready)
-    ready = initText();
+  bool ready = initText() && initItemRenderer(&items);
   if (!ready)
     HUDCleanup();
-  glPopAttrib();
-  glActiveTexture((GLenum)activeTexture);
   return ready;
 }
